@@ -27,6 +27,7 @@ configurations {
 ext {
 	mapstructVersion = '1.6.3'
 	lombokVersion = '1.18.42'
+	springdocVersion = '3.0.0'
 }
 
 dependencies {
@@ -38,7 +39,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
 
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.16'
+	implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
 
 	implementation 'org.springframework.boot:spring-boot-flyway'
 	implementation 'org.flywaydb:flyway-core'
@@ -50,7 +51,6 @@ dependencies {
 
 	compileOnly "org.projectlombok:lombok:${lombokVersion}"
 	annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-
 	annotationProcessor "org.projectlombok:lombok-mapstruct-binding:0.2.0"
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
