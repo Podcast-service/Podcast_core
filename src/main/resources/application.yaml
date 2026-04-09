@@ -1,0 +1,71 @@
+spring:
+  application:
+    name: podcastService
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/podcast_db}
+    username: ${DB_USERNAME:podcast_user}
+    password: ${DB_PASSWORD:podcast_pass}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:podcast-service}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+app:
+  kafka:
+    topics:
+      user:
+        created: ${KAFKA_TOPIC_USER_CREATED:user.created}
+        updated: ${KAFKA_TOPIC_USER_UPDATED:user.updated}
+        deleted: ${KAFKA_TOPIC_USER_DELETED:user.deleted}
+      podcast:
+        created: ${KAFKA_TOPIC_PODCAST_CREATED:podcast.created}
+        updated: ${KAFKA_TOPIC_PODCAST_UPDATED:podcast.updated}
+        deleted: ${KAFKA_TOPIC_PODCAST_DELETED:podcast.deleted}
+
+server:
+  port: ${SERVER_PORT:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    org.flywaydb: INFO
+    org.springframework.kafka: INFO
+
+springdoc:
+  swagger-ui:
+    path: /swagger
+    url: /openapi/podcast-service-dev.yaml
+    disable-swagger-default-url: true
+    tryItOutEnabled: true

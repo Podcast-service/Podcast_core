@@ -1,0 +1,229 @@
+openapi: 3.0.3
+
+info:
+  title: Podcast Service API (DEV)
+  version: 1.0.0-dev
+  description: |
+    DEV-спецификация для локального тестирования user_profiles.
+    Временно вместо JWT используется header `X-User-Id`.
+
+servers:
+  - url: http://localhost:8082
+    description: Local development
+
+tags:
+  - name: User Profile
+    description: Профиль пользователя и настройки
+
+components:
+  parameters:
+    XUserId:
+      name: X-User-Id
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Временный dev-заголовок вместо JWT
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [code, message, timestamp]
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: Request validation failed
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: object
+          additionalProperties: true
+
+    Theme:
+      type: string
+      enum: [DARK, LIGHT]
+
+    Language:
+      type: string
+      enum: [RU, EN]
+
+    UserProfileResponse:
+      type: object
+      required: [id, userId, username, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+          example: john_doe
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    UserProfilePrivateResponse:
+      allOf:
+        - $ref: '#/components/schemas/UserProfileResponse'
+        - type: object
+          properties:
+            theme:
+              $ref: '#/components/schemas/Theme'
+            language:
+              $ref: '#/components/schemas/Language'
+
+    UpdateUserProfileRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
+          example: john_doe
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+
+    UpdateUserSettingsRequest:
+      type: object
+      properties:
+        theme:
+          $ref: '#/components/schemas/Theme'
+        language:
+          $ref: '#/components/schemas/Language'
+
+    UserSettingsResponse:
+      type: object
+      properties:
+        theme:
+          $ref: '#/components/schemas/Theme'
+        language:
+          $ref: '#/components/schemas/Language'
+
+  responses:
+    BadRequest:
+      description: Невалидные входные данные
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Профиль не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+paths:
+  /users/me/profile:
+    get:
+      tags: [User Profile]
+      summary: Получить свой профиль
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+      responses:
+        '200':
+          description: Профиль пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfilePrivateResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [User Profile]
+      summary: Обновить свой профиль
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserProfileRequest'
+            examples:
+              updateUsername:
+                value:
+                  username: john_doe
+              updateAvatar:
+                value:
+                  avatarUrl: https://cdn.example.com/avatar.png
+              clearAvatar:
+                value:
+                  avatarUrl: ""
+      responses:
+        '200':
+          description: Обновлённый профиль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfilePrivateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /users/me/settings:
+    get:
+      tags: [User Profile]
+      summary: Получить настройки пользователя
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+      responses:
+        '200':
+          description: Настройки пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSettingsResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [User Profile]
+      summary: Обновить настройки пользователя
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserSettingsRequest'
+            examples:
+              updateTheme:
+                value:
+                  theme: LIGHT
+              updateLanguage:
+                value:
+                  language: EN
+              updateBoth:
+                value:
+                  theme: DARK
+                  language: RU
+      responses:
+        '200':
+          description: Обновлённые настройки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSettingsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
