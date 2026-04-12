@@ -27,8 +27,14 @@ spring:
     consumer:
       group-id: ${KAFKA_CONSUMER_GROUP:podcast-service}
       auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.trusted.packages: "podcastService.infrastructure.messaging.event,podcastService.user.dto"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: "podcastService.infrastructure.messaging.event.EventEnvelope"
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -36,14 +42,10 @@ spring:
 app:
   kafka:
     topics:
-      user:
-        created: ${KAFKA_TOPIC_USER_CREATED:user.created}
-        updated: ${KAFKA_TOPIC_USER_UPDATED:user.updated}
-        deleted: ${KAFKA_TOPIC_USER_DELETED:user.deleted}
-      podcast:
-        created: ${KAFKA_TOPIC_PODCAST_CREATED:podcast.created}
-        updated: ${KAFKA_TOPIC_PODCAST_UPDATED:podcast.updated}
-        deleted: ${KAFKA_TOPIC_PODCAST_DELETED:podcast.deleted}
+      users: ${KAFKA_TOPIC_USERS:podcasts.users}
+      podcasts: ${KAFKA_TOPIC_PODCASTS:podcasts.podcasts}
+    routing:
+      user.created: users
 
 server:
   port: ${SERVER_PORT:8082}

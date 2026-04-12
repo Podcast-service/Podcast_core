@@ -133,18 +133,6 @@ public class UserProfileService {
 
     @Transactional
     public void createNewUser(CreateUserRequest request) {
-        if (request == null) {
-            throw new InvalidKafkaMessageException("Received empty Kafka request");
-        }
-
-        if (request.userId() == null) {
-            throw new InvalidKafkaMessageException("Received null userId in Kafka");
-        }
-
-        if (request.username() == null) {
-            throw new InvalidKafkaMessageException("Received null username in Kafka");
-        }
-
         String normalizedUsername = request.username().trim();
 
         if (normalizedUsername.isBlank()) {

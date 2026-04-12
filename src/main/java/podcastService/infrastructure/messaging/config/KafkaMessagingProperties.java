@@ -12,8 +12,11 @@ import org.springframework.validation.annotation.Validated;
 @Setter
 @Validated
 @ConfigurationProperties(prefix = "app.kafka")
-public class KafkaTopicsProperties {
+public class KafkaMessagingProperties {
 
     @NotEmpty
     private Map<String, String> topics = new HashMap<>();
+
+    @NotEmpty
+    private Map<String, String> routing = new HashMap<>();
 }
