@@ -1,7 +1,10 @@
 package podcastService.common.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -49,7 +52,7 @@ public class GlobalExceptionHandler {
         Map<String, Object> fields = new LinkedHashMap<>();
 
         for (FieldError fieldError : exception.getBindingResult().getFieldErrors()) {
-            fields.put(fieldError.getField(), fieldError.getDefaultMessage());
+            fields.putIfAbsent(fieldError.getField(), fieldError.getDefaultMessage());
         }
 
         Map<String, Object> details = Map.of("fields", fields);
@@ -64,6 +67,110 @@ public class GlobalExceptionHandler {
                 .message("Request validation failed")
                 .timestamp(Instant.now())
                 .details(details)
+                .build();
+
+        return ResponseEntity
+                .status(ErrorCode.VALIDATION_ERROR.httpStatus())
+                .body(body);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleConstraintViolation(
+            ConstraintViolationException exception,
+            HttpServletRequest request
+    ) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+
+        for (ConstraintViolation<?> violation : exception.getConstraintViolations()) {
+            String path = violation.getPropertyPath() != null
+                    ? violation.getPropertyPath().toString()
+                    : "unknown";
+
+            String field = path.contains(".")
+                    ? path.substring(path.lastIndexOf('.') + 1)
+                    : path;
+
+            fields.putIfAbsent(field, violation.getMessage());
+        }
+
+        Map<String, Object> details = Map.of("fields", fields);
+
+        log.warn("Constraint violation on [{} {}]: {}",
+                request.getMethod(),
+                request.getRequestURI(),
+                fields);
+
+        ApiErrorResponse body = ApiErrorResponse.builder()
+                .code(ErrorCode.VALIDATION_ERROR.name())
+                .message("Request validation failed")
+                .timestamp(Instant.now())
+                .details(details)
+                .build();
+
+        return ResponseEntity
+                .status(ErrorCode.VALIDATION_ERROR.httpStatus())
+                .body(body);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiErrorResponse> handleTypeMismatch(
+            MethodArgumentTypeMismatchException exception,
+            HttpServletRequest request
+    ) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+
+        String fieldName = exception.getName();
+        Object rejectedValue = exception.getValue();
+
+        if (exception.getRequiredType() != null && exception.getRequiredType().isEnum()) {
+            Object[] enumConstants = exception.getRequiredType().getEnumConstants();
+
+            String allowedValues = Arrays.stream(enumConstants)
+                    .map(Object::toString)
+                    .collect(Collectors.joining(", "));
+
+            fields.put(fieldName, String.format(
+                    "Invalid value '%s'. Allowed values: [%s]",
+                    rejectedValue, allowedValues
+            ));
+        } else {
+            fields.put(fieldName, "Invalid value format");
+        }
+
+        Map<String, Object> details = Map.of("fields", fields);
+
+        log.warn("Type mismatch on [{} {}]: field '{}' with value '{}'",
+                request.getMethod(),
+                request.getRequestURI(),
+                fieldName,
+                rejectedValue);
+
+        ApiErrorResponse body = ApiErrorResponse.builder()
+                .code(ErrorCode.VALIDATION_ERROR.name())
+                .message("Request validation failed")
+                .timestamp(Instant.now())
+                .details(details)
+                .build();
+
+        return ResponseEntity
+                .status(ErrorCode.VALIDATION_ERROR.httpStatus())
+                .body(body);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiErrorResponse> handleMessageNotReadable(
+            HttpMessageNotReadableException exception,
+            HttpServletRequest request
+    ) {
+        log.warn("Malformed JSON on [{} {}]: {}",
+                request.getMethod(),
+                request.getRequestURI(),
+                exception.getMessage());
+
+        ApiErrorResponse body = ApiErrorResponse.builder()
+                .code(ErrorCode.VALIDATION_ERROR.name())
+                .message("Malformed request body")
+                .timestamp(Instant.now())
                 .build();
 
         return ResponseEntity
@@ -110,50 +217,6 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(ErrorCode.INTERNAL_ERROR.httpStatus())
-                .body(body);
-    }
-
-
-    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ApiErrorResponse> handleTypeMismatch(
-            MethodArgumentTypeMismatchException exception,
-            HttpServletRequest request
-    ) {
-        Map<String, Object> details = new LinkedHashMap<>();
-
-        String fieldName = exception.getName();
-        Object rejectedValue = exception.getValue();
-
-        if (exception.getRequiredType() != null && exception.getRequiredType().isEnum()) {
-            Class<?> enumClass = exception.getRequiredType();
-            Object[] enumConstants = enumClass.getEnumConstants();
-
-            String allowedValues = Arrays.stream(enumConstants)
-                    .map(Object::toString)
-                    .collect(Collectors.joining(", "));
-
-            details.put(fieldName, String.format(
-                    "Invalid value '%s'. Allowed values: [%s]",
-                    rejectedValue, allowedValues));
-        } else {
-            details.put(fieldName, "Invalid value format");
-        }
-
-        log.warn("Type mismatch on [{} {}]: field '{}' with value '{}'",
-                request.getMethod(),
-                request.getRequestURI(),
-                fieldName,
-                rejectedValue);
-
-        ApiErrorResponse body = ApiErrorResponse.builder()
-                .code(ErrorCode.VALIDATION_ERROR.name())
-                .message("Request validation failed")
-                .timestamp(Instant.now())
-                .details(details)
-                .build();
-
-        return ResponseEntity
-                .status(ErrorCode.VALIDATION_ERROR.httpStatus())
                 .body(body);
     }
 }

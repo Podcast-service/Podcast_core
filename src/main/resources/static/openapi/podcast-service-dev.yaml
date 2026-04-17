@@ -4,8 +4,9 @@ info:
   title: Podcast Service API (DEV)
   version: 1.0.0-dev
   description: |
-    DEV-спецификация для локального тестирования user_profiles.
-    Временно вместо JWT используется header `X-User-Id`.
+    DEV-спецификация для локального тестирования.
+    Для user-профиля временно вместо JWT используется header `X-User-Id`.
+    Категории добавлены по оригинальной документации, но без JWT-аутентификации.
 
 servers:
   - url: http://localhost:8082
@@ -14,6 +15,8 @@ servers:
 tags:
   - name: User Profile
     description: Профиль пользователя и настройки
+  - name: Categories
+    description: Категории подкастов
 
 components:
   parameters:
@@ -25,6 +28,15 @@ components:
         type: string
         format: uuid
       description: Временный dev-заголовок вместо JWT
+
+    PathCategoryId:
+      name: categoryId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: UUID категории
 
   schemas:
     ErrorResponse:
@@ -113,6 +125,47 @@ components:
         language:
           $ref: '#/components/schemas/Language'
 
+    CategoryResponse:
+      type: object
+      required: [id, name, position]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Технологии
+        position:
+          type: integer
+          example: 1
+          description: Порядок отображения в UI
+
+    CreateCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Технологии
+        position:
+          type: integer
+          example: 1
+          description: Необязательная позиция в списке
+
+    UpdateCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Бизнес
+        position:
+          type: integer
+          example: 2
+
   responses:
     BadRequest:
       description: Невалидные входные данные
@@ -122,7 +175,14 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
     NotFound:
-      description: Профиль не найден
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    UnprocessableEntity:
+      description: Бизнес-правило нарушено
       content:
         application/json:
           schema:
@@ -227,3 +287,99 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /categories:
+    get:
+      tags: [Categories]
+      summary: Список всех категорий
+      description: |
+        Возвращает плоский список категорий, отсортированный по полю `position`.
+        Используется для фильтров в поиске и при создании подкаста.
+      operationId: getCategories
+      responses:
+        '200':
+          description: Список категорий
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryResponse'
+
+    post:
+      tags: [Categories]
+      summary: Создать категорию
+      description: Создаёт новую категорию.
+      operationId: createCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoryRequest'
+            example:
+              name: Технологии
+              position: 1
+      responses:
+        '201':
+          description: Категория создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /categories/{categoryId}:
+    put:
+      tags: [Categories]
+      summary: Обновить категорию
+      description: Изменяет название и/или позицию.
+      operationId: updateCategory
+      parameters:
+        - $ref: '#/components/parameters/PathCategoryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCategoryRequest'
+            examples:
+              updateName:
+                value:
+                  name: Бизнес
+              updatePosition:
+                value:
+                  position: 2
+              updateBoth:
+                value:
+                  name: Бизнес
+                  position: 2
+      responses:
+        '200':
+          description: Обновлённая категория
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Categories]
+      summary: Удалить категорию
+      description: |
+        Нельзя удалить категорию, которая используется в подкастах
+        или нарушает бизнес-ограничения.
+      operationId: deleteCategory
+      parameters:
+        - $ref: '#/components/parameters/PathCategoryId'
+      responses:
+        '204':
+          description: Категория удалена
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
