@@ -1,0 +1,127 @@
+package podcastService.author.controller;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+import podcastService.author.dto.AuthorProfileResponse;
+import podcastService.author.dto.CreateAuthorProfileRequest;
+import podcastService.author.dto.UpdateAuthorProfileRequest;
+import podcastService.author.service.AuthorProfileService;
+import podcastService.common.dto.PageResponse;
+import podcastService.infrastructure.security.AuthenticatedUser;
+import podcastService.podcast.dto.PodcastCard;
+import podcastService.podcast.dto.SortPodcasts;
+import podcastService.podcast.service.PodcastService;
+
+import java.util.UUID;
+
+@Slf4j
+@Validated
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/authors")
+public class AuthorProfileController {
+
+    private final AuthorProfileService authorProfileService;
+    private final PodcastService podcastService;
+
+    @PostMapping("/me")
+    @PreAuthorize("hasRole('AUTHOR')")
+    public ResponseEntity<AuthorProfileResponse> createMyAuthorProfile(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @Valid @RequestBody CreateAuthorProfileRequest request
+    ) {
+        UUID currentUserId = currentUser.userId();
+        log.info(
+                "POST /authors/me, currentUserId={}, authorNameLength={}, hasDescription={}",
+                currentUserId,
+                request.authorName() == null ? null : request.authorName().length(),
+                request.description() != null
+        );
+
+        AuthorProfileResponse response = authorProfileService.create(currentUserId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/me")
+    @PreAuthorize("hasRole('AUTHOR')")
+    @ResponseStatus(HttpStatus.OK)
+    public AuthorProfileResponse getMyAuthorProfile(
+            @AuthenticationPrincipal AuthenticatedUser currentUser
+    ) {
+        UUID currentUserId = currentUser.userId();
+        log.info("GET /authors/me, currentUserId={}", currentUserId);
+        return authorProfileService.getMine(currentUserId);
+    }
+
+    @PutMapping("/me")
+    @PreAuthorize("hasRole('AUTHOR')")
+    @ResponseStatus(HttpStatus.OK)
+    public AuthorProfileResponse updateMyAuthorProfile(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @Valid @RequestBody UpdateAuthorProfileRequest request
+    ) {
+        UUID currentUserId = currentUser.userId();
+        log.info(
+                "PUT /authors/me, currentUserId={}, fieldsChanged=[authorName:{}, description:{}]",
+                currentUserId,
+                request.isAuthorNameSet(),
+                request.isDescriptionSet()
+        );
+        return authorProfileService.updateMine(currentUserId, request);
+    }
+
+    @GetMapping("/{authorId}")
+    @ResponseStatus(HttpStatus.OK)
+    public AuthorProfileResponse getAuthorProfile(
+            @PathVariable UUID authorId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser
+    ) {
+        UUID currentUserId = userIdOrNull(currentUser);
+        log.info("GET /authors/{}, currentUserId={}", authorId, currentUserId);
+        return authorProfileService.getPublic(authorId, currentUserId);
+    }
+
+    @GetMapping("/{authorId}/podcasts")
+    @ResponseStatus(HttpStatus.OK)
+    public PageResponse<PodcastCard> getAuthorPodcasts(
+            @PathVariable UUID authorId,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) SortPodcasts sort,
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size,
+            @AuthenticationPrincipal AuthenticatedUser currentUser
+    ) {
+        UUID currentUserId = userIdOrNull(currentUser);
+        log.info(
+                "GET /authors/{}/podcasts, currentUserId={}, q='{}', sort={}, page={}, size={}",
+                authorId,
+                currentUserId,
+                q,
+                sort,
+                page,
+                size
+        );
+        return podcastService.listByAuthor(authorId, q, sort, page, size, currentUserId);
+    }
+
+    private UUID userIdOrNull(AuthenticatedUser currentUser) {
+        return currentUser == null ? null : currentUser.userId();
+    }
+}

@@ -28,7 +28,6 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/podcasts")
-@CrossOrigin(origins = "*")
 public class PodcastController {
 
     private final PodcastService podcastService;

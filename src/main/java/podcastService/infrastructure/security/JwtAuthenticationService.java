@@ -21,6 +21,7 @@ import java.util.UUID;
 public class JwtAuthenticationService {
 
     private static final String HMAC_SHA256 = "HmacSHA256";
+    private static final long CLOCK_SKEW_SECONDS = 30;
 
     private final JwtAuthenticationProperties properties;
     private final ObjectMapper objectMapper;
@@ -97,8 +98,20 @@ public class JwtAuthenticationService {
             throw new UnauthorizedException("Access token expiration is missing");
         }
 
-        if (Instant.ofEpochSecond(expiresAt.asLong()).isBefore(Instant.now())) {
+        Instant now = Instant.now();
+        if (Instant.ofEpochSecond(expiresAt.asLong()).plusSeconds(CLOCK_SKEW_SECONDS).isBefore(now)) {
             throw new UnauthorizedException("Access token is missing or expired");
+        }
+
+        JsonNode notBefore = payload.get("nbf");
+        if (notBefore != null) {
+            if (!notBefore.canConvertToLong()) {
+                throw new UnauthorizedException("Access token not-before claim is invalid");
+            }
+
+            if (Instant.ofEpochSecond(notBefore.asLong()).minusSeconds(CLOCK_SKEW_SECONDS).isAfter(now)) {
+                throw new UnauthorizedException("Access token is not active yet");
+            }
         }
     }
 

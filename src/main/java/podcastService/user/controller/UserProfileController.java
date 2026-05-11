@@ -16,7 +16,6 @@ import podcastService.user.service.UserProfileService;
 @Slf4j
 @RestController
 @RequestMapping("/users/me")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 @PreAuthorize("isAuthenticated()")
 public class UserProfileController {

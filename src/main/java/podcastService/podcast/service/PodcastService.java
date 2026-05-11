@@ -20,6 +20,7 @@ import podcastService.podcast.dto.CreatePodcastRequest;
 import podcastService.podcast.dto.PodcastCard;
 import podcastService.podcast.dto.PodcastDetailResponse;
 import podcastService.podcast.dto.PodcastFilter;
+import podcastService.podcast.dto.SortPodcasts;
 import podcastService.podcast.dto.UpdatePodcastRequest;
 import podcastService.podcast.entity.PodcastEntity;
 import podcastService.podcast.entity.Status;
@@ -27,8 +28,13 @@ import podcastService.podcast.mapper.PodcastMapper;
 import podcastService.podcast.repository.PodcastRepository;
 import podcastService.podcast.specifications.PodcastSpecifications;
 import podcastService.podcast.util.PodcastPageableFactory;
+import podcastService.subscription.repository.SubscriptionRepository;
+import podcastService.user.entity.UserProfileEntity;
+import podcastService.user.repository.UserProfileRepository;
 
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -39,6 +45,8 @@ public class PodcastService {
     private final AuthorRepository authorRepository;
     private final CategoryRepository categoryRepository;
     private final PodcastMapper podcastMapper;
+    private final UserProfileRepository userProfileRepository;
+    private final SubscriptionRepository subscriptionRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<PodcastCard> list(PodcastFilter filter, UUID currentUserId) {
@@ -51,15 +59,20 @@ public class PodcastService {
                 .and(PodcastSpecifications.withCategoryId(filter.categoryId()))
                 .and(PodcastSpecifications.withAuthorId(filter.authorId()));
 
-        Page<PodcastCard> page = podcastRepository.findAll(
-                        specification,
-                        PodcastPageableFactory.create(
-                                filter.normalizedPage(),
-                                filter.normalizedSize(),
-                                filter.normalizedSort()
-                        )
+        Page<PodcastEntity> podcastPage = podcastRepository.findAll(
+                specification,
+                PodcastPageableFactory.create(
+                        filter.normalizedPage(),
+                        filter.normalizedSize(),
+                        filter.normalizedSort()
                 )
-                .map(entity -> podcastMapper.toCard(entity, currentAuthorId));
+        );
+        Set<UUID> subscribedAuthorIds = resolveSubscribedAuthorIds(podcastPage, currentUserId);
+        Page<PodcastCard> page = podcastPage.map(entity -> podcastMapper.toCard(
+                entity,
+                currentAuthorId,
+                subscribedAuthorIds
+        ));
 
         log.debug(
                 "Podcasts listed: currentUserId={}, currentAuthorId={}, page={}, size={}, totalElements={}",
@@ -79,6 +92,31 @@ public class PodcastService {
                         page.getTotalPages()
                 )
         );
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<PodcastCard> listByAuthor(
+            UUID authorId,
+            String query,
+            SortPodcasts sort,
+            int page,
+            int size,
+            UUID currentUserId
+    ) {
+        authorRepository.findById(authorId)
+                .orElseThrow(() -> new NotFoundException("Author not found"));
+
+        PodcastFilter filter = new PodcastFilter(query, null, authorId, sort, page, size);
+
+        log.debug(
+                "Author podcasts requested: authorId={}, currentUserId={}, page={}, size={}",
+                authorId,
+                currentUserId,
+                filter.normalizedPage(),
+                filter.normalizedSize()
+        );
+
+        return list(filter, currentUserId);
     }
 
     @Transactional
@@ -106,7 +144,11 @@ public class PodcastService {
                 saved.getStatus()
         );
 
-        return podcastMapper.toDetail(saved, author.getId());
+        return podcastMapper.toDetail(
+                saved,
+                author.getId(),
+                resolveSubscribedAuthorIds(Set.of(author.getId()), currentUserId)
+        );
     }
 
     @Transactional(readOnly = true)
@@ -131,7 +173,11 @@ public class PodcastService {
             throw new NotFoundException("Podcast not found");
         }
 
-        return podcastMapper.toDetail(podcast, currentAuthorId);
+        return podcastMapper.toDetail(
+                podcast,
+                currentAuthorId,
+                resolveSubscribedAuthorIds(Set.of(podcast.getAuthor().getId()), currentUserId)
+        );
     }
 
     @Transactional
@@ -181,7 +227,11 @@ public class PodcastService {
                 request.isCoverImageUrlSet()
         );
 
-        return podcastMapper.toDetail(saved, currentAuthorId);
+        return podcastMapper.toDetail(
+                saved,
+                currentAuthorId,
+                resolveSubscribedAuthorIds(Set.of(saved.getAuthor().getId()), currentUserId)
+        );
     }
 
     @Transactional
@@ -248,7 +298,38 @@ public class PodcastService {
                 saved.getStatus()
         );
 
-        return podcastMapper.toDetail(saved, currentAuthorId);
+        return podcastMapper.toDetail(
+                saved,
+                currentAuthorId,
+                resolveSubscribedAuthorIds(Set.of(saved.getAuthor().getId()), currentUserId)
+        );
+    }
+
+    private Set<UUID> resolveSubscribedAuthorIds(Page<PodcastEntity> podcastPage, UUID currentUserId) {
+        if (currentUserId == null) {
+            return null;
+        }
+
+        Set<UUID> authorIds = podcastPage.getContent().stream()
+                .map(podcast -> podcast.getAuthor().getId())
+                .collect(Collectors.toSet());
+
+        return resolveSubscribedAuthorIds(authorIds, currentUserId);
+    }
+
+    private Set<UUID> resolveSubscribedAuthorIds(Set<UUID> authorIds, UUID currentUserId) {
+        if (currentUserId == null) {
+            return null;
+        }
+
+        if (authorIds.isEmpty()) {
+            return Set.of();
+        }
+
+        return userProfileRepository.findByUserId(currentUserId)
+                .map(UserProfileEntity::getId)
+                .map(profileId -> subscriptionRepository.findSubscribedAuthorIds(profileId, authorIds))
+                .orElse(Set.of());
     }
 
     private UUID requireCurrentAuthorId(UUID currentUserId) {
