@@ -17,12 +17,15 @@ public interface AuthorRepository extends JpaRepository<AuthorEntity, UUID> {
     @Query("select a from AuthorEntity a where a.id = :id")
     Optional<AuthorEntity> findDetailedById(@Param("id") UUID id);
 
-    Optional<AuthorEntity> findByUserProfileId(UUID userProfileId);
+    @Query("select a from AuthorEntity a where a.userProfile.id = :userProfileId")
+    Optional<AuthorEntity> findByUserProfileId(@Param("userProfileId") UUID userProfileId);
 
-    boolean existsByUserProfileId(UUID userProfileId);
+    @Query("select count(a) > 0 from AuthorEntity a where a.userProfile.id = :userProfileId")
+    boolean existsByUserProfileId(@Param("userProfileId") UUID userProfileId);
 
     @EntityGraph(attributePaths = "userProfile")
-    Optional<AuthorEntity> findByUserProfileUserId(UUID userId);
+    @Query("select a from AuthorEntity a where a.userProfile.userId = :userId")
+    Optional<AuthorEntity> findByUserProfileUserId(@Param("userId") UUID userId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = "userProfile")

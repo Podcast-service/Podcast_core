@@ -4,8 +4,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -175,6 +177,48 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(ErrorCode.VALIDATION_ERROR.httpStatus())
+                .body(body);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(
+            DataIntegrityViolationException exception,
+            HttpServletRequest request
+    ) {
+        log.warn("Data integrity violation on [{} {}]: {}",
+                request.getMethod(),
+                request.getRequestURI(),
+                exception.getMostSpecificCause().getMessage());
+
+        ApiErrorResponse body = ApiErrorResponse.builder()
+                .code(ErrorCode.CONFLICT.name())
+                .message("Request conflicts with existing data or database constraints")
+                .timestamp(Instant.now())
+                .build();
+
+        return ResponseEntity
+                .status(ErrorCode.CONFLICT.httpStatus())
+                .body(body);
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAuthorizationDenied(
+            AuthorizationDeniedException exception,
+            HttpServletRequest request
+    ) {
+        log.warn("Method authorization denied on [{} {}]: {}",
+                request.getMethod(),
+                request.getRequestURI(),
+                exception.getMessage());
+
+        ApiErrorResponse body = ApiErrorResponse.builder()
+                .code(ErrorCode.FORBIDDEN.name())
+                .message("You don't have permission to access this resource")
+                .timestamp(Instant.now())
+                .build();
+
+        return ResponseEntity
+                .status(ErrorCode.FORBIDDEN.httpStatus())
                 .body(body);
     }
 

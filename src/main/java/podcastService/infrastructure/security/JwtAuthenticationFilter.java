@@ -54,6 +54,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             AuthenticatedUser authenticatedUser = authenticationService.parseAndValidate(token);
+            log.debug(
+                    "JWT authenticated: method={}, path={}, userId={}, roles={}",
+                    request.getMethod(),
+                    request.getRequestURI(),
+                    authenticatedUser.userId(),
+                    authenticatedUser.roles()
+            );
 
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     authenticatedUser,
