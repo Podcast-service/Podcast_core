@@ -7,9 +7,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import podcastService.common.dto.PageResponse;
+import podcastService.infrastructure.security.AuthenticatedUser;
 import podcastService.podcast.dto.CreatePodcastRequest;
 import podcastService.podcast.dto.PodcastDetailResponse;
 import podcastService.podcast.dto.PodcastFilter;
@@ -39,9 +42,10 @@ public class PodcastController {
             @RequestParam(required = false) SortPodcasts sort,
             @RequestParam(defaultValue = "1") @Min(1) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size,
-            @RequestHeader(value = "X-User-Id", required = false) UUID currentUserId
+            @AuthenticationPrincipal AuthenticatedUser currentUser
     ) {
         PodcastFilter filter = new PodcastFilter(q, categoryId, authorId, sort, page, size);
+        UUID currentUserId = userIdOrNull(currentUser);
 
         log.info(
                 "GET /podcasts, q='{}', categoryId={}, authorId={}, sort={}, page={}, size={}, currentUserId={}",
@@ -52,10 +56,12 @@ public class PodcastController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('AUTHOR')")
     public ResponseEntity<PodcastDetailResponse> createPodcast(
-            @RequestHeader("X-User-Id") UUID currentUserId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
             @Valid @RequestBody CreatePodcastRequest request
     ) {
+        UUID currentUserId = currentUser.userId();
         log.info(
                 "POST /podcasts, currentUserId={}, categoryId={}, titleLength={}",
                 currentUserId,
@@ -71,19 +77,22 @@ public class PodcastController {
     @ResponseStatus(HttpStatus.OK)
     public PodcastDetailResponse getPodcast(
             @PathVariable UUID podcastId,
-            @RequestHeader(value = "X-User-Id", required = false) UUID currentUserId
+            @AuthenticationPrincipal AuthenticatedUser currentUser
     ) {
+        UUID currentUserId = userIdOrNull(currentUser);
         log.info("GET /podcasts/{}, currentUserId={}", podcastId, currentUserId);
         return podcastService.getById(podcastId, currentUserId);
     }
 
     @PutMapping("/{podcastId}")
+    @PreAuthorize("hasRole('AUTHOR')")
     @ResponseStatus(HttpStatus.OK)
     public PodcastDetailResponse updatePodcast(
             @PathVariable UUID podcastId,
-            @RequestHeader("X-User-Id") UUID currentUserId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
             @Valid @RequestBody UpdatePodcastRequest request
     ) {
+        UUID currentUserId = currentUser.userId();
         log.info(
                 "PUT /podcasts/{}, currentUserId={}, fieldsChanged=[title:{}, description:{}, categoryId:{}, coverImageUrl:{}]",
                 podcastId,
@@ -98,22 +107,30 @@ public class PodcastController {
     }
 
     @DeleteMapping("/{podcastId}")
+    @PreAuthorize("hasRole('AUTHOR')")
     public ResponseEntity<Void> deletePodcast(
             @PathVariable UUID podcastId,
-            @RequestHeader("X-User-Id") UUID currentUserId
+            @AuthenticationPrincipal AuthenticatedUser currentUser
     ) {
+        UUID currentUserId = currentUser.userId();
         log.info("DELETE /podcasts/{}, currentUserId={}", podcastId, currentUserId);
         podcastService.archive(podcastId, currentUserId);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{podcastId}/publish")
+    @PreAuthorize("hasRole('AUTHOR')")
     public ResponseEntity<PodcastDetailResponse> publishPodcast(
             @PathVariable UUID podcastId,
-            @RequestHeader("X-User-Id") UUID currentUserId
+            @AuthenticationPrincipal AuthenticatedUser currentUser
     ) {
+        UUID currentUserId = currentUser.userId();
         log.info("POST /podcasts/{}/publish, currentUserId={}", podcastId, currentUserId);
         PodcastDetailResponse response = podcastService.publish(podcastId, currentUserId);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
+    private UUID userIdOrNull(AuthenticatedUser currentUser) {
+        return currentUser == null ? null : currentUser.userId();
     }
 }
