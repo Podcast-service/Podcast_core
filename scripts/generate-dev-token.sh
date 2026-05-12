@@ -8,6 +8,7 @@ TTL_MINUTES="60"
 ISSUER="auth-service"
 SECRET="${ACCESS_TOKEN_SECRET:-}"
 RAW="false"
+OUTPUT_PATH=".dev/dev-token.txt"
 
 usage() {
   cat <<'EOF'
@@ -20,6 +21,7 @@ Options:
   --ttl MINUTES        Token lifetime in minutes. Default: 60
   --issuer ISSUER      JWT issuer. Default: auth-service
   --secret SECRET      Signing secret. Defaults to ACCESS_TOKEN_SECRET env var.
+  --output PATH        File for the generated token notes. Default: .dev/dev-token.txt
   --raw                Print only token.
   -h, --help           Show this help.
 
@@ -52,6 +54,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --secret)
       SECRET="${2:?Missing value for --secret}"
+      shift 2
+      ;;
+    --output)
+      OUTPUT_PATH="${2:?Missing value for --output}"
       shift 2
       ;;
     --raw)
@@ -131,12 +137,34 @@ if [[ "$RAW" == "true" ]]; then
   exit 0
 fi
 
+if [[ -n "$OUTPUT_PATH" ]]; then
+  mkdir -p "$(dirname "$OUTPUT_PATH")"
+  {
+    echo "Dev JWT for podcast-core"
+    echo
+    echo "GeneratedAt: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+    echo "ExpiresAt:   $(date -u -d "@$exp" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || date -u -r "$exp" '+%Y-%m-%d %H:%M:%S UTC')"
+    echo "UserId:      $USER_ID"
+    echo "Email:       $EMAIL"
+    echo "Roles:       $ROLES"
+    echo
+    echo "Swagger Authorize value:"
+    echo "Bearer $token"
+    echo
+    echo "Raw token:"
+    echo "$token"
+  } > "$OUTPUT_PATH"
+fi
+
 cat <<EOF
 Dev JWT:
 $token
 
 Use in Swagger Authorize as:
 Bearer $token
+
+Saved to local git-ignored file:
+${OUTPUT_PATH}
 
 podcast-core must be started with the same secret:
 export ACCESS_TOKEN_SECRET="$SECRET"

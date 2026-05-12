@@ -7,6 +7,62 @@
 ## Swagger
 Расположение: http://localhost:8082/swagger
 
+## DEV-данные для ручного тестирования
+При запуске через `docker compose up` включается профиль `dev`, и сервис сам добавляет небольшой стабильный набор данных: пользователей, авторов, категории, опубликованные подкасты, transcript/summary, плейлисты, подписки, голоса и историю прослушивания.
+
+Дефолтный токен из `scripts/generate-dev-token.*` уже совпадает с dev-пользователем:
+
+- `user_id`: `550e8400-e29b-41d4-a716-446655440000`
+- роли по умолчанию: `user,author`
+
+Этого достаточно, чтобы сразу проверять `/users/me/*`, `/podcasts/{id}/progress`, `/authors/{id}/subscribe`, `/search`, плейлисты и голосование. Сидер идемпотентный: повторный запуск не должен плодить дубли.
+
+Самый короткий сценарий такой:
+
+1. Запускаешь сервис:
+
+```bash
+docker compose up
+```
+
+1. Генерируешь локальный dev-токен.
+
+Windows PowerShell:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-dev-token.ps1
+```
+
+Linux/macOS:
+
+```bash
+./scripts/generate-dev-token.sh
+```
+
+1. Открываешь файл `.dev/dev-token.txt`, берёшь строку после `Swagger Authorize value:` и вставляешь её в Swagger `Authorize`.
+
+Файл `.dev/dev-token.txt` специально лежит в `.dev/`, а `.dev/` добавлена в `.gitignore`. Токен локальный, в Git он не должен попасть.
+
+Если запускаешь сервис напрямую через Gradle или IDE и тоже хочешь эти данные, добавь профиль:
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE = "dev"
+```
+
+или:
+
+```bash
+export SPRING_PROFILES_ACTIVE=dev
+```
+
+Отключить наполнение можно так:
+
+```bash
+DEV_SEED_ENABLED=false
+```
+
+Это только локальная помощь для разработки. В prod-профиле сидер не активируется.
+
 ## Авторизация в DEV
 В обычном сценарии токен приходит из `auth-service`: логинимся, берём `access_token`, открываем Swagger и вставляем токен в `Authorize` для схемы `bearerAuth`.
 
@@ -29,6 +85,8 @@ $env:ACCESS_TOKEN_SECRET = "dev-access-token-secret-change-me"
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-dev-token.ps1
 ```
+
+Скрипт также сохраняет токен в `.dev/dev-token.txt`.
 
 Для конкретного пользователя из локальной БД:
 
@@ -58,6 +116,8 @@ export ACCESS_TOKEN_SECRET="dev-access-token-secret-change-me"
 chmod +x ./scripts/generate-dev-token.sh
 ./scripts/generate-dev-token.sh
 ```
+
+Скрипт также сохраняет токен в `.dev/dev-token.txt`.
 
 Для конкретного пользователя из локальной БД:
 

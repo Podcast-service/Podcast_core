@@ -64,7 +64,7 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.GET, "/playlists", "/playlists/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/authors/me").authenticated()
                         .requestMatchers(HttpMethod.GET, "/authors/*", "/authors/*/podcasts", "/authors/*/playlists").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/search", "/search/all").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/search", "/search/suggest").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

@@ -1,0 +1,3 @@
+app:
+  dev-seed:
+    enabled: ${DEV_SEED_ENABLED:true}

@@ -59,7 +59,7 @@ services:
       kafka:
         condition: service_started
     environment:
-      SPRING_PROFILES_ACTIVE: docker
+      SPRING_PROFILES_ACTIVE: docker,dev
       SERVER_PORT: 8082
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-podcast_db}
       DB_USERNAME: ${POSTGRES_USER:-podcast_user}
