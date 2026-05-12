@@ -23,15 +23,21 @@ import podcastService.podcast.dto.PodcastFilter;
 import podcastService.podcast.dto.SortPodcasts;
 import podcastService.podcast.dto.UpdatePodcastRequest;
 import podcastService.podcast.entity.PodcastEntity;
+import podcastService.podcast.entity.PodcastVoteEntity;
 import podcastService.podcast.entity.Status;
 import podcastService.podcast.mapper.PodcastMapper;
 import podcastService.podcast.repository.PodcastRepository;
+import podcastService.podcast.repository.PodcastVoteRepository;
 import podcastService.podcast.specifications.PodcastSpecifications;
 import podcastService.podcast.util.PodcastPageableFactory;
 import podcastService.subscription.repository.SubscriptionRepository;
+import podcastService.transcript.repository.PodcastSummaryRepository;
+import podcastService.transcript.repository.PodcastTranscriptRepository;
 import podcastService.user.entity.UserProfileEntity;
 import podcastService.user.repository.UserProfileRepository;
+import podcastService.vote.dto.VoteType;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -47,10 +53,14 @@ public class PodcastService {
     private final PodcastMapper podcastMapper;
     private final UserProfileRepository userProfileRepository;
     private final SubscriptionRepository subscriptionRepository;
+    private final PodcastVoteRepository podcastVoteRepository;
+    private final PodcastTranscriptRepository podcastTranscriptRepository;
+    private final PodcastSummaryRepository podcastSummaryRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<PodcastCard> list(PodcastFilter filter, UUID currentUserId) {
         UUID currentAuthorId = resolveAuthorIdByUserId(currentUserId);
+        UUID currentUserProfileId = resolveUserProfileId(currentUserId);
 
         Specification<PodcastEntity> specification = Specification
                 .where(PodcastSpecifications.fetchRelations())
@@ -67,11 +77,13 @@ public class PodcastService {
                         filter.normalizedSort()
                 )
         );
-        Set<UUID> subscribedAuthorIds = resolveSubscribedAuthorIds(podcastPage, currentUserId);
+        Set<UUID> subscribedAuthorIds = resolveSubscribedAuthorIds(podcastPage, currentUserProfileId);
+        Map<UUID, VoteType> currentUserVotes = resolveCurrentUserVotes(podcastPage, currentUserProfileId);
         Page<PodcastCard> page = podcastPage.map(entity -> podcastMapper.toCard(
                 entity,
                 currentAuthorId,
-                subscribedAuthorIds
+                subscribedAuthorIds,
+                currentUserVotes
         ));
 
         log.debug(
@@ -147,7 +159,10 @@ public class PodcastService {
         return podcastMapper.toDetail(
                 saved,
                 author.getId(),
-                resolveSubscribedAuthorIds(Set.of(author.getId()), currentUserId)
+                resolveSubscribedAuthorIds(Set.of(author.getId()), author.getUserProfile().getId()),
+                null,
+                false,
+                false
         );
     }
 
@@ -157,6 +172,7 @@ public class PodcastService {
                 .orElseThrow(() -> new NotFoundException("Podcast not found"));
 
         UUID currentAuthorId = resolveAuthorIdByUserId(currentUserId);
+        UUID currentUserProfileId = resolveUserProfileId(currentUserId);
 
         boolean visible = podcast.getStatus() == Status.PUBLISHED
                 || (currentAuthorId != null && currentAuthorId.equals(podcast.getAuthor().getId()));
@@ -176,7 +192,10 @@ public class PodcastService {
         return podcastMapper.toDetail(
                 podcast,
                 currentAuthorId,
-                resolveSubscribedAuthorIds(Set.of(podcast.getAuthor().getId()), currentUserId)
+                resolveSubscribedAuthorIds(Set.of(podcast.getAuthor().getId()), currentUserProfileId),
+                resolveCurrentUserVote(podcast.getId(), currentUserProfileId),
+                hasTranscript(podcast.getId()),
+                hasSummary(podcast.getId())
         );
     }
 
@@ -215,6 +234,7 @@ public class PodcastService {
         }
 
         PodcastEntity saved = podcastRepository.saveAndFlush(podcast);
+        UUID currentUserProfileId = resolveUserProfileId(currentUserId);
 
         log.info(
                 "Podcast updated: podcastId={}, currentUserId={}, status={}, titleChanged={}, descriptionChanged={}, categoryChanged={}, coverChanged={}",
@@ -230,7 +250,10 @@ public class PodcastService {
         return podcastMapper.toDetail(
                 saved,
                 currentAuthorId,
-                resolveSubscribedAuthorIds(Set.of(saved.getAuthor().getId()), currentUserId)
+                resolveSubscribedAuthorIds(Set.of(saved.getAuthor().getId()), currentUserProfileId),
+                resolveCurrentUserVote(saved.getId(), currentUserProfileId),
+                hasTranscript(saved.getId()),
+                hasSummary(saved.getId())
         );
     }
 
@@ -289,6 +312,7 @@ public class PodcastService {
         podcast.setStatus(Status.PROCESSING);
 
         PodcastEntity saved = podcastRepository.saveAndFlush(podcast);
+        UUID currentUserProfileId = resolveUserProfileId(currentUserId);
 
         log.info(
                 "Podcast sent to processing: podcastId={}, currentUserId={}, ownerAuthorId={}, status={}",
@@ -301,12 +325,15 @@ public class PodcastService {
         return podcastMapper.toDetail(
                 saved,
                 currentAuthorId,
-                resolveSubscribedAuthorIds(Set.of(saved.getAuthor().getId()), currentUserId)
+                resolveSubscribedAuthorIds(Set.of(saved.getAuthor().getId()), currentUserProfileId),
+                resolveCurrentUserVote(saved.getId(), currentUserProfileId),
+                hasTranscript(saved.getId()),
+                hasSummary(saved.getId())
         );
     }
 
-    private Set<UUID> resolveSubscribedAuthorIds(Page<PodcastEntity> podcastPage, UUID currentUserId) {
-        if (currentUserId == null) {
+    private Set<UUID> resolveSubscribedAuthorIds(Page<PodcastEntity> podcastPage, UUID currentUserProfileId) {
+        if (currentUserProfileId == null) {
             return null;
         }
 
@@ -314,11 +341,11 @@ public class PodcastService {
                 .map(podcast -> podcast.getAuthor().getId())
                 .collect(Collectors.toSet());
 
-        return resolveSubscribedAuthorIds(authorIds, currentUserId);
+        return resolveSubscribedAuthorIds(authorIds, currentUserProfileId);
     }
 
-    private Set<UUID> resolveSubscribedAuthorIds(Set<UUID> authorIds, UUID currentUserId) {
-        if (currentUserId == null) {
+    private Set<UUID> resolveSubscribedAuthorIds(Set<UUID> authorIds, UUID currentUserProfileId) {
+        if (currentUserProfileId == null) {
             return null;
         }
 
@@ -326,10 +353,56 @@ public class PodcastService {
             return Set.of();
         }
 
+        return subscriptionRepository.findSubscribedAuthorIds(currentUserProfileId, authorIds);
+    }
+
+    private UUID resolveUserProfileId(UUID currentUserId) {
+        if (currentUserId == null) {
+            return null;
+        }
+
         return userProfileRepository.findByUserId(currentUserId)
                 .map(UserProfileEntity::getId)
-                .map(profileId -> subscriptionRepository.findSubscribedAuthorIds(profileId, authorIds))
-                .orElse(Set.of());
+                .orElse(null);
+    }
+
+    private Map<UUID, VoteType> resolveCurrentUserVotes(Page<PodcastEntity> podcastPage, UUID currentUserProfileId) {
+        if (currentUserProfileId == null) {
+            return null;
+        }
+
+        Set<UUID> podcastIds = podcastPage.getContent().stream()
+                .map(PodcastEntity::getId)
+                .collect(Collectors.toSet());
+
+        if (podcastIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return podcastVoteRepository.findByUserProfileIdAndPodcastIds(currentUserProfileId, podcastIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        vote -> vote.getId().getPodcastId(),
+                        PodcastVoteEntity::getVoteType
+                ));
+    }
+
+    private VoteType resolveCurrentUserVote(UUID podcastId, UUID currentUserProfileId) {
+        if (currentUserProfileId == null) {
+            return null;
+        }
+
+        return podcastVoteRepository.findByIdUserProfileIdAndIdPodcastId(currentUserProfileId, podcastId)
+                .map(PodcastVoteEntity::getVoteType)
+                .orElse(null);
+    }
+
+    private boolean hasTranscript(UUID podcastId) {
+        return podcastTranscriptRepository.existsByIdPodcastId(podcastId);
+    }
+
+    private boolean hasSummary(UUID podcastId) {
+        return podcastSummaryRepository.existsByIdPodcastId(podcastId);
     }
 
     private UUID requireCurrentAuthorId(UUID currentUserId) {

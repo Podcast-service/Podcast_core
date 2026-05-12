@@ -8,7 +8,9 @@ import podcastService.category.entity.CategoryEntity;
 import podcastService.podcast.dto.PodcastCard;
 import podcastService.podcast.dto.PodcastDetailResponse;
 import podcastService.podcast.entity.PodcastEntity;
+import podcastService.vote.dto.VoteType;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -20,6 +22,15 @@ public class PodcastMapper {
     }
 
     public PodcastCard toCard(PodcastEntity entity, UUID currentAuthorId, Set<UUID> subscribedAuthorIds) {
+        return toCard(entity, currentAuthorId, subscribedAuthorIds, null);
+    }
+
+    public PodcastCard toCard(
+            PodcastEntity entity,
+            UUID currentAuthorId,
+            Set<UUID> subscribedAuthorIds,
+            Map<UUID, VoteType> currentUserVotes
+    ) {
         return new PodcastCard(
                 entity.getId(),
                 entity.getTitle(),
@@ -33,7 +44,7 @@ public class PodcastMapper {
                 entity.getDislikesCount(),
                 entity.getPublishedAt(),
                 entity.getCreatedAt(),
-                null,
+                currentUserVotes == null ? null : currentUserVotes.get(entity.getId()),
                 null,
                 null
         );
@@ -44,6 +55,17 @@ public class PodcastMapper {
     }
 
     public PodcastDetailResponse toDetail(PodcastEntity entity, UUID currentAuthorId, Set<UUID> subscribedAuthorIds) {
+        return toDetail(entity, currentAuthorId, subscribedAuthorIds, null, false, false);
+    }
+
+    public PodcastDetailResponse toDetail(
+            PodcastEntity entity,
+            UUID currentAuthorId,
+            Set<UUID> subscribedAuthorIds,
+            VoteType currentUserVote,
+            boolean hasTranscript,
+            boolean hasSummary
+    ) {
         return new PodcastDetailResponse(
                 entity.getId(),
                 entity.getTitle(),
@@ -57,13 +79,13 @@ public class PodcastMapper {
                 entity.getDislikesCount(),
                 entity.getPublishedAt(),
                 entity.getCreatedAt(),
-                null,
+                currentUserVote,
                 null,
                 null,
                 entity.getDescription(),
                 entity.getAudioUrl(),
-                false,
-                false
+                hasTranscript,
+                hasSummary
         );
     }
 

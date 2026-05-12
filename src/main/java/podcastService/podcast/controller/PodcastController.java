@@ -20,6 +20,12 @@ import podcastService.podcast.dto.PodcastCard;
 import podcastService.podcast.dto.SortPodcasts;
 import podcastService.podcast.dto.UpdatePodcastRequest;
 import podcastService.podcast.service.PodcastService;
+import podcastService.podcast.service.PodcastVoteService;
+import podcastService.transcript.dto.PodcastSummaryResponse;
+import podcastService.transcript.dto.PodcastTranscriptResponse;
+import podcastService.transcript.service.PodcastMediaService;
+import podcastService.vote.dto.VoteRequest;
+import podcastService.vote.dto.VoteResponse;
 
 import java.util.UUID;
 
@@ -31,6 +37,8 @@ import java.util.UUID;
 public class PodcastController {
 
     private final PodcastService podcastService;
+    private final PodcastVoteService podcastVoteService;
+    private final PodcastMediaService podcastMediaService;
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
@@ -127,6 +135,46 @@ public class PodcastController {
         log.info("POST /podcasts/{}/publish, currentUserId={}", podcastId, currentUserId);
         PodcastDetailResponse response = podcastService.publish(podcastId, currentUserId);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
+    @GetMapping("/{podcastId}/transcript")
+    @ResponseStatus(HttpStatus.OK)
+    public PodcastTranscriptResponse getPodcastTranscript(@PathVariable UUID podcastId) {
+        log.info("GET /podcasts/{}/transcript", podcastId);
+        return podcastMediaService.getTranscript(podcastId);
+    }
+
+    @GetMapping("/{podcastId}/summary")
+    @ResponseStatus(HttpStatus.OK)
+    public PodcastSummaryResponse getPodcastSummary(@PathVariable UUID podcastId) {
+        log.info("GET /podcasts/{}/summary", podcastId);
+        return podcastMediaService.getSummary(podcastId);
+    }
+
+    @PostMapping("/{podcastId}/vote")
+    @PreAuthorize("isAuthenticated()")
+    @ResponseStatus(HttpStatus.OK)
+    public VoteResponse votePodcast(
+            @PathVariable UUID podcastId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @Valid @RequestBody VoteRequest request
+    ) {
+        UUID currentUserId = currentUser.userId();
+        log.info("POST /podcasts/{}/vote, currentUserId={}, voteType={}",
+                podcastId, currentUserId, request.voteType());
+        return podcastVoteService.vote(podcastId, currentUserId, request);
+    }
+
+    @DeleteMapping("/{podcastId}/vote")
+    @PreAuthorize("isAuthenticated()")
+    @ResponseStatus(HttpStatus.OK)
+    public VoteResponse removeVotePodcast(
+            @PathVariable UUID podcastId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser
+    ) {
+        UUID currentUserId = currentUser.userId();
+        log.info("DELETE /podcasts/{}/vote, currentUserId={}", podcastId, currentUserId);
+        return podcastVoteService.removeVote(podcastId, currentUserId);
     }
 
     private UUID userIdOrNull(AuthenticatedUser currentUser) {

@@ -54,7 +54,13 @@ public class SecurityConfiguration {
                                 "/openapi/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/categories").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/podcasts", "/podcasts/*").permitAll()
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/podcasts",
+                                "/podcasts/*",
+                                "/podcasts/*/transcript",
+                                "/podcasts/*/summary"
+                        ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/playlists", "/playlists/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/authors/me").authenticated()
                         .requestMatchers(HttpMethod.GET, "/authors/*", "/authors/*/podcasts", "/authors/*/playlists").permitAll()
