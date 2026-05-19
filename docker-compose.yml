@@ -68,6 +68,8 @@ services:
       KAFKA_CONSUMER_GROUP: podcast-service
       KAFKA_TOPIC_USERS: podcasts.users
       KAFKA_TOPIC_PODCASTS: podcasts.podcasts
+      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET:-dev-access-token-secret-change-me}
+      ACCESS_TOKEN_ISSUER: ${ACCESS_TOKEN_ISSUER:-auth-service}
     ports:
       - "8082:8082"
 

@@ -3,8 +3,6 @@ package podcastService.podcast.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 import podcastService.author.entity.AuthorEntity;
 import podcastService.category.entity.CategoryEntity;
 

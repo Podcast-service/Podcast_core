@@ -40,6 +40,11 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 app:
+  auth:
+    jwt:
+      enabled: ${AUTH_ENABLED:true}
+      secret: ${ACCESS_TOKEN_SECRET:}
+      issuer: ${ACCESS_TOKEN_ISSUER:auth-service}
   kafka:
     topics:
       users: ${KAFKA_TOPIC_USERS:podcasts.users}
