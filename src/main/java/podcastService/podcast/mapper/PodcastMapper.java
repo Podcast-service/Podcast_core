@@ -9,16 +9,21 @@ import podcastService.podcast.dto.PodcastCard;
 import podcastService.podcast.dto.PodcastDetailResponse;
 import podcastService.podcast.entity.PodcastEntity;
 
+import java.util.Set;
 import java.util.UUID;
 
 @Component
 public class PodcastMapper {
 
     public PodcastCard toCard(PodcastEntity entity, UUID currentAuthorId) {
+        return toCard(entity, currentAuthorId, null);
+    }
+
+    public PodcastCard toCard(PodcastEntity entity, UUID currentAuthorId, Set<UUID> subscribedAuthorIds) {
         return new PodcastCard(
                 entity.getId(),
                 entity.getTitle(),
-                toAuthorCard(entity.getAuthor(), currentAuthorId),
+                toAuthorCard(entity.getAuthor(), subscribedAuthorIds),
                 toCategoryResponse(entity.getCategory()),
                 entity.getCoverImageUrl(),
                 entity.getDurationSeconds() == null ? null : entity.getDurationSeconds().intValue(),
@@ -35,10 +40,14 @@ public class PodcastMapper {
     }
 
     public PodcastDetailResponse toDetail(PodcastEntity entity, UUID currentAuthorId) {
+        return toDetail(entity, currentAuthorId, null);
+    }
+
+    public PodcastDetailResponse toDetail(PodcastEntity entity, UUID currentAuthorId, Set<UUID> subscribedAuthorIds) {
         return new PodcastDetailResponse(
                 entity.getId(),
                 entity.getTitle(),
-                toAuthorCard(entity.getAuthor(), currentAuthorId),
+                toAuthorCard(entity.getAuthor(), subscribedAuthorIds),
                 toCategoryResponse(entity.getCategory()),
                 entity.getCoverImageUrl(),
                 entity.getDurationSeconds(),
@@ -58,13 +67,13 @@ public class PodcastMapper {
         );
     }
 
-    private AuthorCard toAuthorCard(AuthorEntity author, UUID currentAuthorId) {
+    private AuthorCard toAuthorCard(AuthorEntity author, Set<UUID> subscribedAuthorIds) {
         return new AuthorCard(
                 author.getId(),
                 author.getAuthorName(),
                 author.getUserProfile() == null ? null : author.getUserProfile().getAvatarUrl(),
                 author.getSubscribersCount(),
-                null
+                subscribedAuthorIds == null ? null : subscribedAuthorIds.contains(author.getId())
         );
     }
 

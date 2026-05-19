@@ -18,7 +18,6 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/categories")
-@CrossOrigin(origins = "*")
 public class CategoryController {
     private final CategoryService categoryService;
 

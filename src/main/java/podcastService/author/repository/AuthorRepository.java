@@ -1,6 +1,11 @@
 package podcastService.author.repository;
 
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import podcastService.author.entity.AuthorEntity;
 
 import java.util.Optional;
@@ -8,7 +13,22 @@ import java.util.UUID;
 
 public interface AuthorRepository extends JpaRepository<AuthorEntity, UUID> {
 
-    Optional<AuthorEntity> findByUserProfileId(UUID userProfileId);
+    @EntityGraph(attributePaths = "userProfile")
+    @Query("select a from AuthorEntity a where a.id = :id")
+    Optional<AuthorEntity> findDetailedById(@Param("id") UUID id);
 
-    Optional<AuthorEntity> findByUserProfileUserId(UUID userId);
+    @Query("select a from AuthorEntity a where a.userProfile.id = :userProfileId")
+    Optional<AuthorEntity> findByUserProfileId(@Param("userProfileId") UUID userProfileId);
+
+    @Query("select count(a) > 0 from AuthorEntity a where a.userProfile.id = :userProfileId")
+    boolean existsByUserProfileId(@Param("userProfileId") UUID userProfileId);
+
+    @EntityGraph(attributePaths = "userProfile")
+    @Query("select a from AuthorEntity a where a.userProfile.userId = :userId")
+    Optional<AuthorEntity> findByUserProfileUserId(@Param("userId") UUID userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = "userProfile")
+    @Query("select a from AuthorEntity a where a.userProfile.userId = :userId")
+    Optional<AuthorEntity> findByUserProfileUserIdForUpdate(@Param("userId") UUID userId);
 }

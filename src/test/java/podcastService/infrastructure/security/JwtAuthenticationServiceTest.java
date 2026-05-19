@@ -45,7 +45,7 @@ class JwtAuthenticationServiceTest {
                 {"alg":"HS256","typ":"JWT"}
                 """, """
                 {"user_id":"%s","email":"user@example.com","roles":["user"],"iss":"auth-service","exp":%d}
-                """.formatted(USER_ID, Instant.now().minusSeconds(1).getEpochSecond()), SIGNING_KEY);
+                """.formatted(USER_ID, Instant.now().minusSeconds(120).getEpochSecond()), SIGNING_KEY);
 
         assertThatThrownBy(() -> service.parseAndValidate(token))
                 .isInstanceOf(UnauthorizedException.class)
@@ -76,6 +76,23 @@ class JwtAuthenticationServiceTest {
         assertThatThrownBy(() -> service.parseAndValidate(token))
                 .isInstanceOf(UnauthorizedException.class)
                 .hasMessage("Access token roles claim is invalid");
+    }
+
+    @Test
+    void parseAndValidateRejectsTokenThatIsNotActiveYet() throws Exception {
+        String token = token("""
+                {"alg":"HS256","typ":"JWT"}
+                """, """
+                {"user_id":"%s","email":"user@example.com","roles":["user"],"iss":"auth-service","exp":%d,"nbf":%d}
+                """.formatted(
+                USER_ID,
+                Instant.now().plusSeconds(600).getEpochSecond(),
+                Instant.now().plusSeconds(120).getEpochSecond()
+        ), SIGNING_KEY);
+
+        assertThatThrownBy(() -> service.parseAndValidate(token))
+                .isInstanceOf(UnauthorizedException.class)
+                .hasMessage("Access token is not active yet");
     }
 
     private String token(String headerJson, String payloadJson, String secret) throws Exception {

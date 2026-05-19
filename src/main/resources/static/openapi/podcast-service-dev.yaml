@@ -2,7 +2,7 @@ openapi: 3.0.3
 
 info:
   title: Podcast Service API (DEV)
-  version: 1.2.0-dev
+  version: 1.3.0-dev
   description: |
     DEV-спецификация отражает текущую реализованную часть сервиса.
 
@@ -12,7 +12,7 @@ info:
 
     Роли:
     - `ADMIN` — управление категориями.
-    - `AUTHOR` — создание, изменение, удаление и публикация подкастов.
+    - `AUTHOR` — профиль автора, создание, изменение, удаление и публикация подкастов.
     - авторизованный пользователь — профиль, настройки, плейлисты и голосование.
 
 servers:
@@ -29,6 +29,8 @@ tags:
     description: Категории подкастов
   - name: Podcasts
     description: CRUD и базовый жизненный цикл подкастов
+  - name: Author Profile
+    description: Профили авторов и публичные страницы авторов
   - name: Playlists
     description: Плейлисты и управление треклистом
   - name: Votes
@@ -220,6 +222,67 @@ components:
         language:
           $ref: '#/components/schemas/Language'
 
+    AuthorProfileResponse:
+      type: object
+      required: [id, userId, authorName, subscribersCount, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        authorName:
+          type: string
+          example: Иван Петров
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: Берётся из связанного user_profiles.avatar_url
+        description:
+          type: string
+          nullable: true
+        subscribersCount:
+          type: integer
+          format: int64
+          example: 12400
+        isSubscribed:
+          type: boolean
+          nullable: true
+          description: null для анонимного запроса, true/false для авторизованного
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateAuthorProfileRequest:
+      type: object
+      required: [authorName]
+      properties:
+        authorName:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Иван Петров
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+          example: Рассказываю о технологиях доступным языком
+
+    UpdateAuthorProfileRequest:
+      type: object
+      properties:
+        authorName:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Иван Петров
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+
     CategoryResponse:
       type: object
       required: [id, name, position]
@@ -263,7 +326,7 @@ components:
 
     AuthorCard:
       type: object
-      required: [id, authorName]
+      required: [id, authorName, subscribersCount]
       properties:
         id:
           type: string
@@ -735,6 +798,127 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /authors/me:
+    post:
+      tags: [Author Profile]
+      summary: Создать профиль автора
+      description: Требуется роль `AUTHOR`. Пользовательский профиль должен уже существовать в `user_profiles`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAuthorProfileRequest'
+      responses:
+        '201':
+          description: Профиль автора создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    get:
+      tags: [Author Profile]
+      summary: Свой профиль автора
+      description: Требуется роль `AUTHOR`.
+      responses:
+        '200':
+          description: Профиль автора
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Author Profile]
+      summary: Обновить профиль автора
+      description: Partial update. `avatarUrl` обновляется через `PUT /users/me/profile`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAuthorProfileRequest'
+      responses:
+        '200':
+          description: Обновлённый профиль автора
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /authors/{authorId}:
+    get:
+      tags: [Author Profile]
+      summary: Публичный профиль автора
+      description: Публичная ручка. Если передан валидный Bearer token, вернёт `isSubscribed`.
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathAuthorId'
+      responses:
+        '200':
+          description: Профиль автора
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorProfileResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /authors/{authorId}/podcasts:
+    get:
+      tags: [Author Profile]
+      summary: Опубликованные подкасты автора
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathAuthorId'
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: sort
+          in: query
+          schema:
+            $ref: '#/components/schemas/SortPodcasts'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Страница опубликованных подкастов автора
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfPodcastCard'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /categories:
     get:
       tags: [Categories]
@@ -974,7 +1158,7 @@ paths:
 
   /authors/{authorId}/playlists:
     get:
-      tags: [Playlists]
+      tags: [Author Profile]
       summary: Публичные плейлисты автора
       security:
         - {}
