@@ -29,12 +29,14 @@ tags:
     description: Категории подкастов
   - name: Podcasts
     description: CRUD и базовый жизненный цикл подкастов
+  - name: Podcast Media
+    description: Транскрипт и summary подкаста, подготовленные media/tts-stt сервисом
   - name: Author Profile
     description: Профили авторов и публичные страницы авторов
   - name: Playlists
     description: Плейлисты и управление треклистом
   - name: Votes
-    description: Голосование за плейлисты
+    description: Голосование за подкасты и плейлисты
 
 components:
   securitySchemes:
@@ -628,7 +630,7 @@ components:
           format: uuid
         targetType:
           type: string
-          enum: [PLAYLIST]
+          enum: [PODCAST, PLAYLIST]
         likesCount:
           type: integer
           format: int64
@@ -639,6 +641,40 @@ components:
           allOf:
             - $ref: '#/components/schemas/VoteType'
           nullable: true
+
+    PodcastTranscriptResponse:
+      type: object
+      required: [podcastId, language, content, generatedAt]
+      properties:
+        podcastId:
+          type: string
+          format: uuid
+        language:
+          type: string
+          example: RU
+        content:
+          type: string
+          description: Полный текст транскрипта
+        generatedAt:
+          type: string
+          format: date-time
+
+    PodcastSummaryResponse:
+      type: object
+      required: [podcastId, language, content, generatedAt]
+      properties:
+        podcastId:
+          type: string
+          format: uuid
+        language:
+          type: string
+          example: RU
+        content:
+          type: string
+          description: AI-сгенерированное краткое содержание
+        generatedAt:
+          type: string
+          format: date-time
 
     PageOfPodcastCard:
       type: object
@@ -1155,6 +1191,87 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
+
+  /podcasts/{podcastId}/transcript:
+    get:
+      tags: [Podcast Media]
+      summary: Получить транскрипт подкаста
+      description: Публичная ручка. Возвращает 404, если подкаст не опубликован или транскрипт ещё не готов.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PathPodcastId'
+      responses:
+        '200':
+          description: Транскрипт подкаста
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastTranscriptResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /podcasts/{podcastId}/summary:
+    get:
+      tags: [Podcast Media]
+      summary: Получить summary подкаста
+      description: Публичная ручка. Возвращает 404, если подкаст не опубликован или summary ещё не готово.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PathPodcastId'
+      responses:
+        '200':
+          description: Summary подкаста
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastSummaryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /podcasts/{podcastId}/vote:
+    post:
+      tags: [Votes]
+      summary: Проголосовать за подкаст
+      description: Требуется Bearer token. Повторный голос с тем же типом идемпотентен, противоположный тип переключает голос.
+      parameters:
+        - $ref: '#/components/parameters/PathPodcastId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoteRequest'
+      responses:
+        '200':
+          description: Голос засчитан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoteResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Votes]
+      summary: Отозвать голос с подкаста
+      description: Требуется Bearer token. Если голоса не было, возвращаются текущие счётчики без изменения состояния.
+      parameters:
+        - $ref: '#/components/parameters/PathPodcastId'
+      responses:
+        '200':
+          description: Голос отозван
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoteResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /authors/{authorId}/playlists:
     get:
