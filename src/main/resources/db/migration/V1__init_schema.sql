@@ -1,4 +1,5 @@
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -212,12 +213,12 @@ ON author_profiles
 FOR EACH ROW
 EXECUTE FUNCTION author_profiles_search_vector_tg();
 
-
 CREATE TABLE IF NOT EXISTS categories (
-  id uuid PRIMARY KEY DEFAULT uuidv7(),
-  name varchar(100) NOT NULL CHECK (btrim(name) <> ''),
-  position integer NOT NULL DEFAULT 0 CHECK (position >= 0),
-  created_at timestamptz NOT NULL DEFAULT now()
+    id uuid PRIMARY KEY,
+    name varchar(100) NOT NULL CHECK (btrim(name) <> ''),
+    position integer NOT NULL CHECK (position >= 0),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT uk_categories_position UNIQUE (position) DEFERRABLE INITIALLY IMMEDIATE
 );
 
 CREATE UNIQUE INDEX uq_categories_name_ci
