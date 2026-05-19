@@ -2,11 +2,14 @@ openapi: 3.0.3
 
 info:
   title: Podcast Service API (DEV)
-  version: 1.0.0-dev
+  version: 1.1.0-dev
   description: |
     DEV-спецификация для локального тестирования.
-    Для user-профиля временно вместо JWT используется header `X-User-Id`.
-    Категории добавлены по оригинальной документации, но без JWT-аутентификации.
+    Для user-профиля и podcast write-операций временно вместо JWT используется header `X-User-Id`.
+    Спецификация отражает текущее DEV-состояние сервиса:
+    - user profile и settings;
+    - categories;
+    - podcast CRUD + publish flow.
 
 servers:
   - url: http://localhost:8082
@@ -17,6 +20,8 @@ tags:
     description: Профиль пользователя и настройки
   - name: Categories
     description: Категории подкастов
+  - name: Podcasts
+    description: CRUD и базовый жизненный цикл подкастов
 
 components:
   parameters:
@@ -29,6 +34,18 @@ components:
         format: uuid
       description: Временный dev-заголовок вместо JWT
 
+    OptionalXUserId:
+      name: X-User-Id
+      in: header
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: |
+        Необязательный dev-заголовок.
+        Используется там, где публичная ручка может дополнительно учитывать текущего пользователя,
+        например для доступа автора к своему неопубликованному подкасту.
+
     PathCategoryId:
       name: categoryId
       in: path
@@ -37,6 +54,36 @@ components:
         type: string
         format: uuid
       description: UUID категории
+
+    PathPodcastId:
+      name: podcastId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: UUID подкаста
+
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Номер страницы, начиная с 1
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    Size:
+      name: size
+      in: query
+      required: false
+      description: Размер страницы, максимум 50
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
 
   schemas:
     ErrorResponse:
@@ -54,6 +101,7 @@ components:
           format: date-time
         details:
           type: object
+          nullable: true
           additionalProperties: true
 
     Theme:
@@ -63,6 +111,19 @@ components:
     Language:
       type: string
       enum: [RU, EN]
+
+    VoteType:
+      type: string
+      enum: [LIKE, DISLIKE]
+
+    PodcastStatus:
+      type: string
+      enum: [DRAFT, PROCESSING, PUBLISHED, FAILED, ARCHIVED]
+
+    SortPodcasts:
+      type: string
+      enum: [DATE_DESC, DATE_ASC, RATING, VIEWS]
+      default: DATE_DESC
 
     UserProfileResponse:
       type: object
@@ -151,6 +212,7 @@ components:
           example: Технологии
         position:
           type: integer
+          minimum: 0
           example: 1
           description: Необязательная позиция в списке
 
@@ -164,11 +226,210 @@ components:
           example: Бизнес
         position:
           type: integer
+          minimum: 0
           example: 2
+
+    AuthorCard:
+      type: object
+      required: [id, authorName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        authorName:
+          type: string
+          example: Иван Петров
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        subscribersCount:
+          type: integer
+          format: int64
+          nullable: true
+          example: 125
+        isSubscribed:
+          type: boolean
+          nullable: true
+          example: false
+
+    PageMeta:
+      type: object
+      required: [page, size, totalElements, totalPages]
+      properties:
+        page:
+          type: integer
+          example: 1
+        size:
+          type: integer
+          example: 20
+        totalElements:
+          type: integer
+          format: int64
+          example: 53
+        totalPages:
+          type: integer
+          example: 3
+
+    PodcastCard:
+      type: object
+      required:
+        - id
+        - title
+        - author
+        - status
+        - viewsCount
+        - likesCount
+        - dislikesCount
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: Как построить первый продовый backend
+        author:
+          $ref: '#/components/schemas/AuthorCard'
+        category:
+          allOf:
+            - $ref: '#/components/schemas/CategoryResponse'
+          nullable: true
+        coverImageUrl:
+          type: string
+          format: uri
+          nullable: true
+        durationSeconds:
+          type: integer
+          nullable: true
+          example: 1830
+        status:
+          $ref: '#/components/schemas/PodcastStatus'
+        viewsCount:
+          type: integer
+          format: int64
+          example: 1500
+        likesCount:
+          type: integer
+          format: int64
+          example: 220
+        dislikesCount:
+          type: integer
+          format: int64
+          example: 4
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        currentUserVote:
+          allOf:
+            - $ref: '#/components/schemas/VoteType'
+          nullable: true
+        progressSeconds:
+          type: integer
+          format: int64
+          nullable: true
+        progressPercent:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 100
+
+    PodcastDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/PodcastCard'
+        - type: object
+          properties:
+            description:
+              type: string
+              nullable: true
+              example: Обсуждаем архитектуру сервиса и типичные ошибки при проектировании.
+            audioUrl:
+              type: string
+              format: uri
+              nullable: true
+            hasTranscript:
+              type: boolean
+              nullable: true
+              example: false
+            hasSummary:
+              type: boolean
+              nullable: true
+              example: false
+
+    CreatePodcastRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 255
+          example: Как построить первый продовый backend
+        description:
+          type: string
+          maxLength: 5000
+          nullable: true
+          example: Разбираем архитектуру, ошибки и подходы к разработке микросервисов.
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+        coverImageUrl:
+          type: string
+          format: uri
+          nullable: true
+          example: https://cdn.example.com/podcasts/backend-cover.png
+
+    UpdatePodcastRequest:
+      type: object
+      description: |
+        DEV-версия partial update для подкаста.
+        Можно передать одно или несколько полей.
+        Если тело пустое, сервис должен вернуть 400.
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 255
+          example: Обновлённый заголовок подкаста
+        description:
+          type: string
+          maxLength: 5000
+          example: Обновлённое описание подкаста.
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+        coverImageUrl:
+          type: string
+          format: uri
+          nullable: true
+
+    PodcastListResponse:
+      type: object
+      required: [items, meta]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PodcastCard'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
 
   responses:
     BadRequest:
       description: Невалидные входные данные
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Недостаточно прав
       content:
         application/json:
           schema:
@@ -379,6 +640,201 @@ paths:
       responses:
         '204':
           description: Категория удалена
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /podcasts:
+    get:
+      tags: [Podcasts]
+      summary: Список опубликованных подкастов
+      description: |
+        Публичный список подкастов с динамической фильтрацией, сортировкой и пагинацией.
+        В DEV-режиме список по умолчанию возвращает только `PUBLISHED` подкасты.
+      operationId: listPodcasts
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Поиск по title и description
+          schema:
+            type: string
+            example: backend
+        - name: categoryId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: authorId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: sort
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/SortPodcasts'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/OptionalXUserId'
+      responses:
+        '200':
+          description: Страница с подкастами
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+    post:
+      tags: [Podcasts]
+      summary: Создать подкаст
+      description: |
+        Создаёт новый подкаст в статусе `DRAFT`.
+        В DEV-режиме вместо JWT используется обязательный заголовок `X-User-Id`.
+      operationId: createPodcast
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePodcastRequest'
+            examples:
+              minimal:
+                value:
+                  title: Как построить первый продовый backend
+              full:
+                value:
+                  title: Как построить первый продовый backend
+                  description: Разбираем архитектуру, ошибки и подходы к разработке микросервисов.
+                  categoryId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  coverImageUrl: https://cdn.example.com/podcasts/backend-cover.png
+      responses:
+        '201':
+          description: Подкаст создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /podcasts/{podcastId}:
+    get:
+      tags: [Podcasts]
+      summary: Получить детальную информацию о подкасте
+      description: |
+        Публично доступен только `PUBLISHED` подкаст.
+        Автор может получить доступ к своему подкасту в других статусах,
+        если передан `X-User-Id`.
+      operationId: getPodcastById
+      parameters:
+        - $ref: '#/components/parameters/PathPodcastId'
+        - $ref: '#/components/parameters/OptionalXUserId'
+      responses:
+        '200':
+          description: Детальная карточка подкаста
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Podcasts]
+      summary: Обновить подкаст
+      description: |
+        Частичное обновление метаданных подкаста.
+        Допускается передача одного или нескольких полей.
+        Обновлять подкаст может только его автор.
+      operationId: updatePodcast
+      parameters:
+        - $ref: '#/components/parameters/PathPodcastId'
+        - $ref: '#/components/parameters/XUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePodcastRequest'
+            examples:
+              updateTitle:
+                value:
+                  title: Новый заголовок подкаста
+              updateCategory:
+                value:
+                  categoryId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              updateMultiple:
+                value:
+                  title: Новый заголовок подкаста
+                  description: Новое описание
+                  coverImageUrl: https://cdn.example.com/podcasts/new-cover.png
+      responses:
+        '200':
+          description: Подкаст обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    delete:
+      tags: [Podcasts]
+      summary: Архивировать подкаст
+      description: |
+        DEV-операция мягкого удаления.
+        Подкаст переводится в статус `ARCHIVED`, физического удаления нет.
+      operationId: archivePodcast
+      parameters:
+        - $ref: '#/components/parameters/PathPodcastId'
+        - $ref: '#/components/parameters/XUserId'
+      responses:
+        '204':
+          description: Подкаст архивирован
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /podcasts/{podcastId}/publish:
+    post:
+      tags: [Podcasts]
+      summary: Отправить подкаст в обработку
+      description: |
+        Переводит подкаст в статус `PROCESSING`.
+        В текущей DEV-версии ручка предназначена для базового publish-flow.
+      operationId: publishPodcast
+      parameters:
+        - $ref: '#/components/parameters/PathPodcastId'
+        - $ref: '#/components/parameters/XUserId'
+      responses:
+        '202':
+          description: Подкаст принят в обработку
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastDetailResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '422':
