@@ -1,74 +1,77 @@
 # Documentation audit
 
-## Созданные файлы
+## Документы
 
-- `docs/README.md`
-- `docs/architecture.md`
-- `docs/api/README.md`
-- `docs/api/endpoints.md`
-- `docs/api/errors.md`
-- `docs/api/models.md`
-- `docs/kafka.md`
-- `docs/configuration.md`
-- `docs/local-development.md`
-- `docs/testing.md`
-- `docs/observability.md`
-- `docs/deployment.md`
-- `docs/documentation-audit.md`
-- `.env.example`
-- `README.md`
+| Файл | Статус |
+|---|---|
+| `docs/README.md` | Обновлён |
+| `docs/architecture.md` | Обновлён |
+| `docs/api/README.md` | Обновлён |
+| `docs/api/endpoints.md` | Обновлён |
+| `docs/api/errors.md` | Обновлён |
+| `docs/api/models.md` | Обновлён |
+| `docs/api/auth.md` | Создан |
+| `docs/kafka.md` | Обновлён |
+| `docs/configuration.md` | Обновлён |
+| `docs/local-development.md` | Обновлён |
+| `docs/testing.md` | Обновлён |
+| `docs/observability.md` | Обновлён |
+| `docs/deployment.md` | Обновлён |
+| `docs/dev-tools.md` | Создан |
+| `.dev-tools/jwt/README.md` | Создан |
 
-## Использованные источники
+## Источники
 
 - `openapi-2.yaml`
-- `src/main/resources/application.yaml`
-- `src/main/resources/application-docker.yaml`
-- `src/main/resources/application-dev.yaml`
+- `README.md`
 - `docker-compose.yml`
 - `.env.example`
 - `Dockerfile`
-- `README.md`
+- `src/main/resources/application.yaml`
+- `src/main/resources/application-docker.yaml`
+- `src/main/resources/application-dev.yaml`
 - REST controllers в `src/main/java/podcastService/**/controller`
 - DTO и entity classes в `src/main/java/podcastService/**/dto` и `src/main/java/podcastService/**/entity`
-- Security classes в `src/main/java/podcastService/infrastructure/security`
-- Kafka classes в `src/main/java/podcastService/infrastructure/messaging` и `src/main/java/podcastService/user/messaging`
+- Security layer в `src/main/java/podcastService/infrastructure/security`
+- Kafka layer в `src/main/java/podcastService/infrastructure/messaging` и `src/main/java/podcastService/user/messaging`
 - Exception handling в `src/main/java/podcastService/common/exception`
 - Flyway migrations в `src/main/resources/db/migration`
 - Тесты в `src/test/java`
+- Dev JWT scripts в `scripts/` и `.dev-tools/jwt/`
 
-## Места, требующие уточнения
+## Основание разделов
 
-| Тема | Что уточнить |
+| Раздел | Основной источник |
 |---|---|
-| API prefix | Должен ли production/local API иметь `/v1` или `/podcast/v1`, как указано в OpenAPI |
-| Transcript/summary | Как именно `tts-stt-service` записывает данные: напрямую в БД, через Kafka или через REST |
-| Kafka producer | Должен ли `podcast-core` публиковать события по подкастам, подпискам, голосам |
-| `AUTH_ENABLED=false` | Допустимо ли выключение авторизации только локально или вообще должно быть удалено |
-| Swagger в production | Должен ли UI быть публичным, закрытым или отключённым |
-| Observability | Целевой стек метрик и tracing: Prometheus/OpenTelemetry/другое |
-| Correlation id | Нужен ли обязательный `X-Request-Id` |
-| Avatar/cover URL | Нужны ли строгие URL validation и максимальные длины везде на уровне DTO |
-| Server compose profile | Нужен ли отдельный `docker-compose.prod.yml` без Kafka UI и dev defaults |
+| REST endpoints | `openapi-2.yaml`, controllers |
+| DTO и модели | `openapi-2.yaml`, Java DTO/entity classes |
+| Ошибки | `GlobalExceptionHandler`, `ErrorCode`, security handlers |
+| JWT | `JwtAuthenticationService`, `JwtAuthenticationFilter`, `SecurityConfiguration` |
+| Kafka | Kafka config, `UserProfileConsumer`, `UserProfileEventHandler`, `KafkaErrorHandlerConfig` |
+| Конфигурация | `application*.yaml`, `.env.example`, `docker-compose.yml` |
+| Локальный запуск | `README.md`, Docker Compose, dev seed |
+| Тестирование | `src/test/java`, Gradle config |
+| Deployment | `Dockerfile`, `docker-compose.yml`, application config |
 
-## Найденные несоответствия
+## Расхождения OpenAPI и реализации
 
-| Место | OpenAPI | Код/конфигурация |
+| Область | OpenAPI | Реализация |
 |---|---|---|
-| Base URL | `http://localhost:8082/v1`, production `/podcast/v1` | Контроллеры работают от корня `/` без version prefix |
-| DELETE `/podcasts/{podcastId}/vote` | В описании есть сценарий `204`, если голоса не было | Контроллер возвращает `200 OK` и `VoteResponse` |
-| Sort enum name | `SortPodcast` | В коде `SortPodcasts`; значения совпадают |
-| Dev Swagger | Каноника — `openapi-2.yaml` | Swagger UI смотрит на `/openapi/podcast-service-dev.yaml` |
-| `CreateUserRequest` | Не является REST request в OpenAPI | Используется как Kafka payload `user.created` |
-| `podcasts` Kafka topic | Присутствует в config | Доменный код сейчас не публикует события в этот topic |
+| Base URL | Local server указан как `http://localhost:8082/v1`, production как `/podcast/v1` | Контроллеры смонтированы без глобального `/v1` prefix |
+| DELETE `/podcasts/{podcastId}/vote` | Описание допускает `204`, если голос отсутствовал | Контроллер возвращает `200 OK` с `VoteResponse` |
+| Sort enum name | `SortPodcast` | Java DTO называется `SortPodcasts`; значения совпадают |
+| Dev Swagger | Каноничный контракт находится в `openapi-2.yaml` | Swagger UI использует `/openapi/podcast-service-dev.yaml` |
+| `CreateUserRequest` | Не описан как REST request | Используется как Kafka payload события `user.created` |
+| Kafka topic `podcasts` | Присутствует в config | Доменный код не публикует события в этот topic |
 
-## Рекомендации по улучшению OpenAPI
+## Факты, требующие уточнения
 
-1. Явно решить вопрос с version prefix и синхронизировать `servers` с реальными контроллерами.
-2. Добавить описание optional Bearer token для публичных GET-ручек, где ответ зависит от текущего пользователя.
-3. Уточнить response для `DELETE /podcasts/{podcastId}/vote`: `200 VoteResponse` или `204 No Content`.
-4. Добавить Kafka contract в отдельный AsyncAPI или раздел OpenAPI extension: topic, event envelope, payload, DLT.
-5. Уточнить auth roles прямо в описании каждой protected operation.
-6. Добавить единый пример `ApiErrorResponse` для каждого error response.
-7. Синхронизировать названия DTO/enum между OpenAPI и Java, где это возможно.
-8. Зафиксировать ограничения URL-полей: `avatarUrl`, `coverImageUrl`, `audioUrl`.
-9. Добавить production/staging/local server URLs после решения о gateway prefix.
+> Требует уточнения: единый gateway/base path для production и local API.
+
+> Требует уточнения: способ доставки transcript/summary из `tts-stt-service`.
+
+> Требует уточнения: набор исходящих Kafka-событий `podcast-core`.
+
+> Требует уточнения: политика доступности Swagger UI в production.
+
+> Требует уточнения: стандарт correlation id для HTTP и Kafka.

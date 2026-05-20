@@ -9,7 +9,7 @@
 
 ## Запуск через Docker Compose
 
-Создай `.env` из шаблона:
+Локальный `.env` создаётся из шаблона:
 
 ```bash
 cp .env.example .env
@@ -21,7 +21,7 @@ Windows PowerShell:
 Copy-Item .env.example .env
 ```
 
-После этого запусти compose:
+Compose запускается командой:
 
 ```bash
 docker compose up --build
@@ -89,31 +89,31 @@ DEV_SEED_ENABLED=false
 
 ## Dev token
 
-Dev token не хранится в Git. Скрипты генерируют JWT и сохраняют результат в `.dev/dev-token.txt`; директория `.dev/` должна быть в `.gitignore`.
+Dev token не хранится в Git. Скрипты генерируют JWT и сохраняют результат в `.dev/jwt/`; директория `.dev/` находится в `.gitignore`.
 
 Windows:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-dev-token.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\.dev-tools\jwt\generate-author-token.ps1
 ```
 
 Linux/macOS:
 
 ```bash
-./scripts/generate-dev-token.sh
+./.dev-tools/jwt/generate-author-token.sh
 ```
 
 Для admin-ручек:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-dev-token.ps1 -Roles user,author,admin
+powershell -NoProfile -ExecutionPolicy Bypass -File .\.dev-tools\jwt\generate-admin-token.ps1
 ```
 
 ```bash
-./scripts/generate-dev-token.sh --roles user,author,admin
+./.dev-tools/jwt/generate-admin-token.sh
 ```
 
-Важно: secret в скрипте и secret приложения должны совпадать. Для compose по умолчанию используется `dev-access-token-secret-change-me`.
+Важно: secret в скрипте и secret приложения совпадают. Для compose по умолчанию используется `dev-access-token-secret-change-me`.
 
 ## Swagger
 
@@ -123,9 +123,9 @@ URL:
 http://localhost:8082/swagger
 ```
 
-В `Authorize` вставляется строка `Bearer ...` из `.dev/dev-token.txt`.
+В `Authorize` вставляется строка `Bearer ...` из `.dev/jwt/author-token.txt`.
 
-Если Swagger не открывается, проверь:
+Если Swagger не открывается, диагностируются следующие условия:
 
 - приложение запущено на `8082`;
 - доступен `/openapi/podcast-service-dev.yaml`;
@@ -155,12 +155,12 @@ http://localhost:8081
 
 Там удобно проверять топики `podcasts.users` и `podcasts.users.DLT`.
 
-## Частые проблемы
+## Troubleshooting
 
-| Симптом | Возможная причина | Что сделать |
+| Симптом | Возможная причина | Действие |
 |---|---|---|
-| `401` в Swagger | Не вставлен Bearer token или secret не совпадает | Перегенерировать token и проверить `ACCESS_TOKEN_SECRET` |
+| `401` в Swagger | Не вставлен Bearer token или secret не совпадает | Генерация нового token с текущим `ACCESS_TOKEN_SECRET` |
 | `403` на author/admin ручке | В token нет роли | Сгенерировать token с `author` или `admin` |
 | `404` на `/users/me/*` | `user_id` из token отсутствует в `user_profiles` | Использовать dev user id или дождаться Kafka-события от `auth-service` |
 | Swagger не открывается | Неверный URL или приложение не запущено | Открыть `http://localhost:8082/swagger` |
-| Kafka event ушёл в DLT | Неверный envelope/payload | Проверить формат события в [kafka.md](kafka.md) |
+| Kafka event ушёл в DLT | Неверный envelope/payload | Формат события описан в [kafka.md](kafka.md) |

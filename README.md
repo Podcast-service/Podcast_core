@@ -6,7 +6,7 @@
 
 ## Быстрый старт
 
-1. Создай локальный `.env` из шаблона:
+1. Локальный `.env` создаётся из шаблона:
 
 ```bash
 cp .env.example .env
@@ -18,20 +18,20 @@ Windows PowerShell:
 Copy-Item .env.example .env
 ```
 
-1. Запусти сервис и инфраструктуру:
+1. Сервис и инфраструктура запускаются командой:
 
 ```bash
 docker compose up --build
 ```
 
-1. Проверь, что приложение живо:
+1. Контрольный health check:
 
 ```bash
 curl http://localhost:8082/actuator/health
 curl http://localhost:8082/categories
 ```
 
-1. Открой Swagger:
+1. Swagger доступен по адресу:
 
 ```text
 http://localhost:8082/swagger
@@ -41,40 +41,42 @@ http://localhost:8082/swagger
 
 При профиле `dev` сервис добавляет тестовые данные. Дефолтный токен из скриптов уже совпадает с dev-пользователем:
 
-- `user_id`: `550e8400-e29b-41d4-a716-446655440000`
+- `user_id`: `00000000-0000-0000-0000-000000000001`
+- `email`: `dev.user@example.local`
+- `username`: `dev-user`
 - роли по умолчанию: `user,author`
 
 Windows PowerShell:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-dev-token.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\.dev-tools\jwt\generate-author-token.ps1
 ```
 
 Linux/macOS:
 
 ```bash
-./scripts/generate-dev-token.sh
+./.dev-tools/jwt/generate-author-token.sh
 ```
 
-Скрипт сохранит результат в `.dev/dev-token.txt`. В Swagger нажми `Authorize` и вставь строку `Bearer ...`.
+Скрипт сохранит результат в `.dev/jwt/author-token.txt`. В Swagger `Authorize` используется строка `Bearer ...`.
 
 Для admin-ручек:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-dev-token.ps1 -Roles user,author,admin
+powershell -NoProfile -ExecutionPolicy Bypass -File .\.dev-tools\jwt\generate-admin-token.ps1
 ```
 
 ```bash
-./scripts/generate-dev-token.sh --roles user,author,admin
+./.dev-tools/jwt/generate-admin-token.sh
 ```
 
-`.dev/` игнорируется Git, поэтому локальный токен не должен попасть в репозиторий.
+`.dev/` игнорируется Git; локальные токены остаются вне репозитория.
 
 ## Конфигурация через `.env`
 
 Шаблон переменных лежит в [.env.example](.env.example). Docker Compose автоматически читает файл `.env`, если он находится в корне проекта.
 
-Реальный `.env` добавлен в `.gitignore`. В репозиторий должен попадать только `.env.example`.
+Реальный `.env` добавлен в `.gitignore`. В репозитории хранится только `.env.example`.
 
 Самые важные переменные:
 
@@ -89,7 +91,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-dev-token
 | `KAFKA_EXTERNAL_HOST` | Host/IP для подключения к Kafka снаружи Docker-сети |
 | `DEV_SEED_ENABLED` | Включает тестовые данные в `dev` profile |
 
-Для сервера обязательно замени dev-секреты и пароли в `.env`, убери `dev` из `SPRING_PROFILES_ACTIVE`, проверь `CORS_ALLOWED_ORIGINS` и `KAFKA_EXTERNAL_HOST`.
+Для серверного окружения используются production-секреты и пароли в `.env`, профиль `docker` без `dev`, production origins в `CORS_ALLOWED_ORIGINS` и внешний адрес Kafka в `KAFKA_EXTERNAL_HOST`.
 
 Подробно все переменные описаны в [docs/configuration.md](docs/configuration.md).
 

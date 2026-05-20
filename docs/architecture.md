@@ -92,7 +92,9 @@
 | Сервис | Тип связи | Назначение |
 |---|---|---|
 | `auth-service` | JWT + Kafka | Выпускает access token и публикует событие создания пользователя |
-| `tts-stt-service` | TODO: уточнить | В OpenAPI указано, что он генерирует transcript/summary, но в текущем коде REST/Kafka-интеграция с ним не реализована |
+| `tts-stt-service` | Внешняя генерация transcript/summary | В OpenAPI указано, что он генерирует transcript/summary; в текущем коде REST/Kafka-интеграция с ним не представлена |
+
+> Требует уточнения: способ доставки transcript/summary из `tts-stt-service` в `podcast-core`.
 | Frontend | HTTP | Использует REST API и Swagger/OpenAPI contract |
 
 ## Хранилища и очереди
@@ -130,4 +132,6 @@
 | Удаление vote подкаста | Описание говорит, что при отсутствии голоса возможен `204` | Код возвращает `200 OK` с `VoteResponse` |
 | Название sort enum | `SortPodcast` | В коде DTO называется `SortPodcasts`; значения совпадают |
 | `CreateUserRequest` | Не описан как REST body | Используется только как Kafka payload для `user.created` |
-| Transcript/summary generation | Указано, что генерирует `tts-stt-service` | В коде есть только чтение из БД; механика записи внешним сервисом требует уточнения |
+| Transcript/summary generation | Указано, что генерирует `tts-stt-service` | В коде есть только чтение из БД |
+
+> Требует уточнения: механизм записи transcript/summary внешним сервисом.

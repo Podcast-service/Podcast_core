@@ -47,7 +47,7 @@ CORS_ALLOWED_ORIGINS=https://frontend.example.com
 KAFKA_EXTERNAL_HOST=<server-domain-or-ip>
 ```
 
-`.env.example` можно хранить в Git как шаблон, но реальный `.env` с секретами коммитить нельзя.
+`.env.example` хранится в Git как шаблон. Реальный `.env` с секретами находится вне репозитория.
 
 ## Production environment checklist
 
@@ -67,7 +67,7 @@ KAFKA_EXTERNAL_HOST=<server-domain-or-ip>
 
 Flyway запускается при старте приложения. Перед rollout:
 
-1. Проверить миграции на staging.
+1. Миграции проходят на staging.
 2. Убедиться, что миграции backward-compatible для текущей версии приложения.
 3. Сделать backup или snapshot БД по регламенту.
 4. Не изменять уже применённые migration files.
@@ -87,7 +87,7 @@ GET /actuator/health/liveness
 GET /actuator/health/readiness
 ```
 
-TODO: закрепить точные health endpoints в deployment manifests.
+> Требует уточнения: точные health endpoints в deployment manifests.
 
 ## Rollout
 
@@ -95,19 +95,19 @@ TODO: закрепить точные health endpoints в deployment manifests.
 
 1. Применить инфраструктурные secrets/config.
 2. Убедиться, что Kafka topics созданы или auto-create разрешён политикой платформы.
-3. Запустить новую версию на staging.
+3. Новая версия запускается на staging.
 4. Прогнать smoke tests: health, categories, public podcasts, auth endpoint, protected endpoint.
-5. Проверить consumer lag и DLT.
+5. Consumer lag и DLT находятся в штатном состоянии.
 6. Выпустить production deployment.
 7. Мониторить 5xx, latency, Kafka lag, DLT и DB.
 
 ## Security notes
 
-- Не коммитить `.dev/dev-token.txt`, secrets, production env files.
+- `.dev/dev-token.txt`, secrets и production env files находятся вне Git.
 - Не использовать dev secret в production.
 - Не включать `AUTH_ENABLED=false` в production.
 - Не открывать CORS wildcard для browser clients.
-- Публичные GET endpoint'ы должны оставаться без side effects, кроме documented view counters если они будут добавлены в будущем.
-- Swagger в production должен быть либо закрыт, либо явно разрешён политикой безопасности команды.
+- Публичные GET endpoint'ы работают без side effects, кроме документированных счётчиков просмотров при наличии такой логики.
+- Доступность Swagger в production определяется политикой безопасности команды.
 
-TODO: уточнить, должен ли Swagger UI быть доступен в production.
+> Требует уточнения: политика доступности Swagger UI в production.

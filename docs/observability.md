@@ -19,7 +19,7 @@
 | Access denied на method security | `WARN` | `GlobalExceptionHandler` |
 | Data integrity violation | `WARN` | `GlobalExceptionHandler` |
 | Unexpected exception | `ERROR` | `GlobalExceptionHandler` |
-| Kafka retry/DLT | TODO: уточнить level по `KafkaExceptionLogger` | `KafkaExceptionLogger` |
+| Kafka retry/DLT | Level определяется `KafkaExceptionLogger` | `KafkaExceptionLogger` |
 
 ## Что не логировать
 
@@ -57,13 +57,13 @@ GET /actuator/health/liveness
 GET /actuator/health/readiness
 ```
 
-TODO: проверить фактическую доступность `liveness/readiness` в целевой версии Spring Boot 4 runtime.
+> Требует уточнения: фактическая доступность `liveness/readiness` в целевой версии Spring Boot 4 runtime.
 
 ## Метрики
 
 Actuator dependency подключена, но в `management.endpoints.web.exposure.include` открыты только `health,info`. `/actuator/metrics` сейчас не exposed.
 
-Рекомендация для production:
+Production profile с открытыми метриками обычно использует:
 
 ```yaml
 management:
@@ -73,13 +73,13 @@ management:
         include: health,info,metrics,prometheus
 ```
 
-И добавить dependency/registry для Prometheus, если метрики должны собираться Prometheus.
+Prometheus export зависит от выбранного metrics registry.
 
 ## Трейсинг
 
 В текущем проекте не обнаружена настройка distributed tracing.
 
-TODO: уточнить целевой стек: OpenTelemetry, Micrometer Tracing, Zipkin, Tempo или другой backend.
+> Требует уточнения: целевой стек tracing, например OpenTelemetry, Micrometer Tracing, Zipkin или Tempo.
 
 ## Что мониторить в production
 
@@ -100,7 +100,7 @@ TODO: уточнить целевой стек: OpenTelemetry, Micrometer Tracin
 
 В текущем коде не обнаружен request id/correlation id filter.
 
-Рекомендация:
+Типовая схема correlation id:
 
 - принимать `X-Request-Id`;
 - генерировать UUID, если заголовок отсутствует;

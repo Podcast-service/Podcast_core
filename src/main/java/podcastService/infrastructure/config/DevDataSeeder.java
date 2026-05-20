@@ -18,8 +18,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class DevDataSeeder implements ApplicationRunner {
 
-    private static final UUID DEV_PROFILE_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440001");
-    private static final UUID DEV_USER_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+    private static final UUID DEV_PROFILE_ID = UUID.fromString("00000000-0000-0000-0000-000000000101");
+    private static final UUID DEV_USER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID DEV_AUTHOR_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
 
     private static final UUID TECH_PROFILE_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440101");
@@ -71,7 +71,7 @@ public class DevDataSeeder implements ApplicationRunner {
     }
 
     private void seedUsers() {
-        upsertUserProfile(DEV_PROFILE_ID, DEV_USER_ID, "dev_listener", "https://cdn.example.com/dev/avatar.png");
+        upsertUserProfile(DEV_PROFILE_ID, DEV_USER_ID, "dev-user", "https://cdn.example.com/dev/avatar.png");
         upsertUserProfile(TECH_PROFILE_ID, TECH_USER_ID, "tech_author", "https://cdn.example.com/dev/tech-author.png");
         upsertUserProfile(OPS_PROFILE_ID, OPS_USER_ID, "ops_author", "https://cdn.example.com/dev/ops-author.png");
     }

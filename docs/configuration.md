@@ -10,7 +10,7 @@ cp .env.example .env
 
 Docker Compose автоматически читает `.env` из корня проекта и использует его для подстановки `${...}` в `docker-compose.yml`.
 
-Реальный `.env` игнорируется Git. В репозиторий должен попадать только `.env.example` без production secrets.
+Реальный `.env` игнорируется Git. В репозитории хранится только `.env.example` без production secrets.
 
 | Переменная | Default | Назначение |
 |---|---|---|
@@ -40,15 +40,15 @@ Docker Compose автоматически читает `.env` из корня п
 | `KAFKA_AUTO_CREATE_TOPICS_ENABLE` | `true` | Auto-create topics в локальном Kafka |
 | `KAFKA_UI_PORT` | `8081` | Порт Kafka UI на host-машине |
 
-## Самые важные переменные для сервера
+## Ключевые переменные для серверного окружения
 
-| Переменная | Что проверить перед запуском на сервере |
+| Переменная | Production-oriented значение |
 |---|---|
 | `SPRING_PROFILES_ACTIVE` | Убрать `dev`, если не нужны тестовые данные |
-| `ACCESS_TOKEN_SECRET` | Заменить dev-значение на production secret из secret storage |
-| `POSTGRES_PASSWORD` | Заменить дефолтный пароль |
+| `ACCESS_TOKEN_SECRET` | Production secret из secret storage |
+| `POSTGRES_PASSWORD` | Production пароль PostgreSQL |
 | `CORS_ALLOWED_ORIGINS` | Указать реальные frontend домены, без wildcard |
-| `KAFKA_EXTERNAL_HOST` | Указать домен/IP сервера, если Kafka должна быть доступна снаружи Docker-сети |
+| `KAFKA_EXTERNAL_HOST` | Домен/IP сервера для внешнего доступа к Kafka |
 | `DEV_SEED_ENABLED` | Поставить `false` или не включать `dev` profile |
 
 ## Spring profiles
@@ -90,7 +90,7 @@ spring:
     baseline-on-migrate: true
 ```
 
-Hibernate не создаёт схему. Все изменения БД должны идти через Flyway migrations.
+Hibernate не создаёт схему. Изменения схемы БД проходят через Flyway migrations.
 
 ## Kafka config
 
@@ -123,7 +123,7 @@ app:
       issuer: ${ACCESS_TOKEN_ISSUER:auth-service}
 ```
 
-Production-требование: `ACCESS_TOKEN_SECRET` должен приходить из secret storage. Не хранить production secret в Git.
+Production-требование: `ACCESS_TOKEN_SECRET` поступает из secret storage. Production secret не хранится в Git.
 
 ## CORS
 
@@ -153,4 +153,4 @@ Swagger использует dev-спецификацию из static resources,
 | `app.dev-seed.enabled` / `DEV_SEED_ENABLED` | `application-dev.yaml` | `true` | Включает сидирование dev-данных |
 | `app.auth.jwt.enabled` / `AUTH_ENABLED` | `application.yaml` | `true` | Включает JWT-аутентификацию |
 
-TODO: уточнить, допустимо ли выключать `AUTH_ENABLED=false` вне локальной разработки.
+> Требует уточнения: политика использования `AUTH_ENABLED=false` за пределами локальной разработки.

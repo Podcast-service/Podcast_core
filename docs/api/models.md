@@ -52,7 +52,7 @@
 | Поле | Тип | Обяз. | Валидация |
 |---|---|---:|---|
 | `username` | string | нет | `3..50`, regex `^[a-zA-Z0-9_]+$` |
-| `avatarUrl` | string/null | нет | TODO: уточнить максимальную длину в OpenAPI/БД |
+| `avatarUrl` | string/null | нет | Максимальная длина не задана в DTO; поле хранится как `text` |
 
 Пример:
 
@@ -169,7 +169,7 @@
 | `title` | string/null | если передан, `3..255` |
 | `description` | string/null | если передан, `<= 5000` |
 | `categoryId` | uuid/null | существующая категория или `null` |
-| `coverImageUrl` | string/null | TODO: уточнить максимальную длину |
+| `coverImageUrl` | string/null | Максимальная длина не задана в DTO; поле хранится как `text` |
 
 ### PodcastTranscriptResponse / PodcastSummaryResponse
 
@@ -241,7 +241,7 @@
 
 | Поле | Тип | Обяз. | Валидация |
 |---|---|---:|---|
-| `podcastId` | uuid | да | должен быть в плейлисте |
+| `podcastId` | uuid | да | Идентификатор подкаста из текущего плейлиста |
 | `position` | integer | да | `>= 1` |
 
 ## Votes

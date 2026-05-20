@@ -25,7 +25,7 @@ DLT создаётся по правилу `<source-topic>.DLT`, наприме�
 | `KafkaDomainEventProducer` | Создаёт envelope и выбирает topic через routing registry |
 | Фактические вызовы из доменных сервисов | В текущем коде не обнаружены |
 
-TODO: уточнить, должны ли `podcast-core` публиковать события о публикации подкаста, голосах, подписках или обновлении профиля.
+> Требует уточнения: набор исходящих событий `podcast-core` для публикации подкастов, голосов, подписок и обновлений профиля.
 
 ## Формат сообщения
 
@@ -36,7 +36,7 @@ TODO: уточнить, должны ли `podcast-core` публиковать 
   "eventType": "user.created",
   "occurredAt": "2026-05-20T10:00:00Z",
   "payload": {
-    "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "userId": "00000000-0000-0000-0000-000000000001",
     "username": "demo_user"
   }
 }
@@ -45,8 +45,8 @@ TODO: уточнить, должны ли `podcast-core` публиковать 
 | Поле | Тип | Обяз. | Проверка |
 |---|---|---:|---|
 | `eventType` | enum/string | да | Сейчас поддерживается только `user.created` |
-| `occurredAt` | date-time | да | Не должен быть `null` |
-| `payload` | object | да | Не должен быть `null` |
+| `occurredAt` | date-time | да | Значение присутствует |
+| `payload` | object | да | Значение присутствует |
 
 Payload `user.created` преобразуется в `CreateUserRequest`.
 
@@ -94,7 +94,7 @@ Payload `user.created` преобразуется в `CreateUserRequest`.
 | `KafkaDeserializationException` | Payload не конвертируется в ожидаемый DTO | Без retry, отправка в DLT |
 | `KafkaMessageValidationException` | Зарезервировано для validation ошибок | Без retry, отправка в DLT |
 | `KafkaRetryableProcessingException` | Зарезервировано для временных ошибок | Retry, затем DLT |
-| `DataIntegrityViolationException` | Дубликат или нарушение constraints при записи | Retry по умолчанию, затем DLT; TODO: уточнить желаемую идемпотентность |
+| `DataIntegrityViolationException` | Дубликат или нарушение constraints при записи | Retry по умолчанию, затем DLT |
 
 ## Настройки consumer/producer
 
@@ -111,10 +111,12 @@ Producer:
 - key serializer: `StringSerializer`;
 - value serializer: `JsonSerializer`.
 
-## Что проверить в интеграции с auth-service
+## Интеграция с auth-service
 
 - `auth-service` публикует событие именно в `podcasts.users` или значение `KAFKA_TOPIC_USERS` синхронизировано в обоих сервисах.
 - `eventType` равен `user.created`.
 - `payload.userId` совпадает с JWT claim `user_id`, который потом приходит в `podcast-core`.
 - `payload.username` проходит ограничения БД и сервиса.
 - DLT topic существует или auto-create topics включён.
+
+> Требует уточнения: идемпотентная политика для повторного `user.created` при конфликте уникальных ограничений.

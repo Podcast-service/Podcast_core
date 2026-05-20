@@ -1,8 +1,8 @@
 param(
-    [string]$UserId = "550e8400-e29b-41d4-a716-446655440000",
-    [string]$Email = "dev@example.com",
+    [string]$UserId = "00000000-0000-0000-0000-000000000001",
+    [string]$Email = "dev.user@example.local",
     [string[]]$Roles = @("user", "author"),
-    [int]$TtlMinutes = 60,
+    [int]$TtlMinutes = 10080,
     [string]$Issuer = "auth-service",
     [string]$Secret = $env:ACCESS_TOKEN_SECRET,
     [string]$OutputPath = ".dev/dev-token.txt",

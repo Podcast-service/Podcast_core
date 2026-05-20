@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-USER_ID="550e8400-e29b-41d4-a716-446655440000"
-EMAIL="dev@example.com"
+USER_ID="00000000-0000-0000-0000-000000000001"
+EMAIL="dev.user@example.local"
 ROLES="user,author"
-TTL_MINUTES="60"
+TTL_MINUTES="10080"
 ISSUER="auth-service"
 SECRET="${ACCESS_TOKEN_SECRET:-}"
 RAW="false"
@@ -16,9 +16,9 @@ Usage: ./scripts/generate-dev-token.sh [options]
 
 Options:
   --user-id UUID       JWT user_id claim. Must exist in user_profiles for most private endpoints.
-  --email EMAIL        JWT email claim. Default: dev@example.com
+  --email EMAIL        JWT email claim. Default: dev.user@example.local
   --roles LIST         Comma-separated roles. Default: user,author
-  --ttl MINUTES        Token lifetime in minutes. Default: 60
+  --ttl MINUTES        Token lifetime in minutes. Default: 10080
   --issuer ISSUER      JWT issuer. Default: auth-service
   --secret SECRET      Signing secret. Defaults to ACCESS_TOKEN_SECRET env var.
   --output PATH        File for the generated token notes. Default: .dev/dev-token.txt

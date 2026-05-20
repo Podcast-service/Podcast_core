@@ -52,7 +52,7 @@ Linux/macOS:
 
 - `user.created` создаёт `user_profiles`.
 - Повторное событие не ломает состояние или корректно обрабатывает конфликт.
-- JWT `user_id` должен совпадать с `user_profiles.user_id`.
+- JWT `user_id` совпадает с `user_profiles.user_id`.
 
 ### Podcasts
 
@@ -65,19 +65,19 @@ Linux/macOS:
 
 - Приватный плейлист видит только владелец.
 - Только владелец может менять состав.
-- Нельзя добавить один подкаст дважды.
+- Повторное добавление одного подкаста возвращает конфликт или бизнес-ошибку.
 - Reorder требует полный и корректный набор элементов.
 
 ### Votes
 
 - Повторный vote меняет существующий голос.
 - Удаление vote корректно пересчитывает counters.
-- Нельзя голосовать за отсутствующий ресурс.
+- Голосование за отсутствующий ресурс возвращает ошибку ресурса.
 
 ### Subscriptions
 
 - Подписка меняет `subscribersCount`.
-- Повторная подписка не должна плодить дубли.
+- Повторная подписка не создаёт дубли.
 - Self-subscribe запрещён.
 
 ### Listen history
@@ -103,9 +103,9 @@ Linux/macOS:
 | JWT | Генерировать тестовые JWT тем же secret или мокать `JwtAuthenticationService` |
 | `auth-service` | Для REST тестов достаточно JWT; для user sync отправлять Kafka message `user.created` |
 
-## Рекомендации
+## Покрытие, представленное в проектной документации
 
-- Добавить controller-level tests через `MockMvc` для всех ролей и публичных ручек.
-- Добавить integration tests с PostgreSQL/Testcontainers для миграций, constraints и native search queries.
-- Добавить Kafka integration test: валидный `user.created`, невалидный envelope, DLT.
-- Добавить contract tests против `openapi-2.yaml`, чтобы ловить расхождения между спецификацией и контроллерами.
+- Controller-level сценарии описывают роли и публичные ручки.
+- Integration-сценарии используют PostgreSQL/Testcontainers для миграций, constraints и native search queries.
+- Kafka-сценарии включают валидный `user.created`, невалидный envelope и DLT.
+- Contract-сценарии сопоставляют `openapi-2.yaml` и контроллеры.
