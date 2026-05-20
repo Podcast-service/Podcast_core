@@ -57,16 +57,13 @@
 
 | Область | OpenAPI | Реализация |
 |---|---|---|
-| Base URL | Local server указан как `http://localhost:8082/v1`, production как `/podcast/v1` | Контроллеры смонтированы без глобального `/v1` prefix |
 | DELETE `/podcasts/{podcastId}/vote` | Описание допускает `204`, если голос отсутствовал | Контроллер возвращает `200 OK` с `VoteResponse` |
 | Sort enum name | `SortPodcast` | Java DTO называется `SortPodcasts`; значения совпадают |
-| Dev Swagger | Каноничный контракт находится в `openapi-2.yaml` | Swagger UI использует `/openapi/podcast-service-dev.yaml` |
+| Dev Swagger | Каноничный контракт находится в `openapi-2.yaml` | Swagger UI использует `/podcast/v1/openapi/podcast-service-dev.yaml` |
 | `CreateUserRequest` | Не описан как REST request | Используется как Kafka payload события `user.created` |
 | Kafka topic `podcasts` | Присутствует в config | Доменный код не публикует события в этот topic |
 
 ## Факты, требующие уточнения
-
-> Требует уточнения: единый gateway/base path для production и local API.
 
 > Требует уточнения: способ доставки transcript/summary из `tts-stt-service`.
 

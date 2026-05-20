@@ -7,7 +7,6 @@ build/
 .github
 .dockerignore
 .gitattributes
-openapi-2.yaml
 
 ### STS ###
 .apt_generated

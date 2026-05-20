@@ -61,6 +61,7 @@ KAFKA_EXTERNAL_HOST=<server-domain-or-ip>
 | `KAFKA_TOPIC_USERS` | Совпадает с topic в `auth-service` |
 | `CORS_ALLOWED_ORIGINS` | Только реальные frontend origins |
 | `DEV_SEED_ENABLED` | `false` или отсутствует без `dev` profile |
+| `SERVER_SERVLET_CONTEXT_PATH` | `/podcast/v1` |
 | Actuator | Health exposed, metrics по решению DevOps |
 
 ## Миграции
@@ -77,14 +78,14 @@ Flyway запускается при старте приложения. Пере
 Для readiness/liveness можно использовать:
 
 ```text
-GET /actuator/health
+GET /podcast/v1/actuator/health
 ```
 
 Если в runtime доступны probes:
 
 ```text
-GET /actuator/health/liveness
-GET /actuator/health/readiness
+GET /podcast/v1/actuator/health/liveness
+GET /podcast/v1/actuator/health/readiness
 ```
 
 > Требует уточнения: точные health endpoints в deployment manifests.
@@ -96,7 +97,7 @@ GET /actuator/health/readiness
 1. Применить инфраструктурные secrets/config.
 2. Убедиться, что Kafka topics созданы или auto-create разрешён политикой платформы.
 3. Новая версия запускается на staging.
-4. Прогнать smoke tests: health, categories, public podcasts, auth endpoint, protected endpoint.
+4. Smoke tests покрывают health, categories, public podcasts, auth endpoint и protected endpoint.
 5. Consumer lag и DLT находятся в штатном состоянии.
 6. Выпустить production deployment.
 7. Мониторить 5xx, latency, Kafka lag, DLT и DB.

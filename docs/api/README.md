@@ -6,12 +6,12 @@
 
 | Среда | URL |
 |---|---|
-| Docker/local фактически в коде | `http://localhost:8082` |
-| Swagger UI | `http://localhost:8082/swagger` |
-| OpenAPI local server в `openapi-2.yaml` | `http://localhost:8082/v1` |
+| Docker/local | `http://localhost:8082/podcast/v1` |
+| Swagger UI | `http://localhost:8082/podcast/v1/swagger` |
+| OpenAPI local server в `openapi-2.yaml` | `http://localhost:8082/podcast/v1` |
 | OpenAPI production server | `https://api.example.com/podcast/v1` |
 
-Важно: в текущем коде нет глобального prefix `/v1`. Это зафиксировано как несоответствие.
+Все endpoint paths в документации ниже указаны относительно base URL `/podcast/v1`.
 
 ## Авторизация
 

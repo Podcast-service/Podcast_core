@@ -2,7 +2,7 @@
 
 `podcast-core` — микросервис ядра подкаст-платформы на Java 21 и Spring Boot. Он отвечает за профили пользователей и авторов, категории, подкасты, плейлисты, голоса, подписки, историю прослушивания, transcript/summary и поиск.
 
-Полная документация лежит в [docs/README.md](docs/README.md). Каноничная OpenAPI-спецификация проекта — [openapi-2.yaml](openapi-2.yaml). Swagger для dev-проверки доступен после запуска по адресу `http://localhost:8082/swagger`.
+Полная документация лежит в [docs/README.md](docs/README.md). Каноничная OpenAPI-спецификация проекта — [openapi-2.yaml](openapi-2.yaml). Swagger для dev-проверки доступен после запуска по адресу `http://localhost:8082/podcast/v1/swagger`.
 
 ## Быстрый старт
 
@@ -27,14 +27,14 @@ docker compose up --build
 1. Контрольный health check:
 
 ```bash
-curl http://localhost:8082/actuator/health
-curl http://localhost:8082/categories
+curl http://localhost:8082/podcast/v1/actuator/health
+curl http://localhost:8082/podcast/v1/categories
 ```
 
 1. Swagger доступен по адресу:
 
 ```text
-http://localhost:8082/swagger
+http://localhost:8082/podcast/v1/swagger
 ```
 
 ## Dev token для Swagger

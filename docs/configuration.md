@@ -17,6 +17,7 @@ Docker Compose автоматически читает `.env` из корня п
 | `COMPOSE_PROJECT_NAME` | `podcast-core` в `.env.example` | Имя compose-проекта и prefix ресурсов Docker |
 | `SPRING_PROFILES_ACTIVE` | `docker,dev` в compose | Активные Spring profiles |
 | `SERVER_PORT` | `8082` | HTTP port приложения |
+| `SERVER_SERVLET_CONTEXT_PATH` | `/podcast/v1` | Base path REST API и infrastructure endpoints |
 | `APP_PORT` | `8082` | Порт на host-машине для публикации приложения |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/podcast_db` | JDBC URL |
 | `DB_USERNAME` | `podcast_user` | Пользователь БД |
@@ -39,6 +40,7 @@ Docker Compose автоматически читает `.env` из корня п
 | `KAFKA_EXTERNAL_HOST` | `host.docker.internal` | Host/IP, который Kafka отдаёт внешним клиентам в advertised listeners |
 | `KAFKA_AUTO_CREATE_TOPICS_ENABLE` | `true` | Auto-create topics в локальном Kafka |
 | `KAFKA_UI_PORT` | `8081` | Порт Kafka UI на host-машине |
+| `SWAGGER_OPENAPI_URL` | `/podcast/v1/openapi/podcast-service-dev.yaml` | URL dev OpenAPI document для Swagger UI |
 
 ## Ключевые переменные для серверного окружения
 
@@ -92,6 +94,21 @@ spring:
 
 Hibernate не создаёт схему. Изменения схемы БД проходят через Flyway migrations.
 
+## HTTP base path
+
+```yaml
+server:
+  port: ${SERVER_PORT:8082}
+  servlet:
+    context-path: ${SERVER_SERVLET_CONTEXT_PATH:/podcast/v1}
+```
+
+При default configuration локальный API доступен по base URL:
+
+```text
+http://localhost:8082/podcast/v1
+```
+
 ## Kafka config
 
 ```yaml
@@ -141,7 +158,7 @@ app:
 springdoc:
   swagger-ui:
     path: /swagger
-    url: /openapi/podcast-service-dev.yaml
+    url: ${SWAGGER_OPENAPI_URL:/podcast/v1/openapi/podcast-service-dev.yaml}
 ```
 
 Swagger использует dev-спецификацию из static resources, а не `openapi-2.yaml`.

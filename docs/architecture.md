@@ -128,7 +128,6 @@
 
 | Место | Что указано в `openapi-2.yaml` | Что видно в коде |
 |---|---|---|
-| Base URL | `http://localhost:8082/v1` и production `/podcast/v1` | Контроллеры смонтированы без `/v1`; фактический локальный путь `http://localhost:8082` |
 | Удаление vote подкаста | Описание говорит, что при отсутствии голоса возможен `204` | Код возвращает `200 OK` с `VoteResponse` |
 | Название sort enum | `SortPodcast` | В коде DTO называется `SortPodcasts`; значения совпадают |
 | `CreateUserRequest` | Не описан как REST body | Используется только как Kafka payload для `user.created` |

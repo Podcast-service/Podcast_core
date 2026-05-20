@@ -16,7 +16,7 @@ info:
     - авторизованный пользователь — профиль, настройки, плейлисты и голосование.
 
 servers:
-  - url: http://localhost:8082
+  - url: http://localhost:8082/podcast/v1
     description: Local development
 
 security:

@@ -130,7 +130,7 @@ Linux/macOS:
 
 ```bash
 TOKEN="$(./.dev-tools/jwt/generate-author-token.sh --raw)"
-curl -H "Authorization: Bearer ${TOKEN}" http://localhost:8082/users/me/profile
+curl -H "Authorization: Bearer ${TOKEN}" http://localhost:8082/podcast/v1/users/me/profile
 ```
 
 Generated token files сохраняются в `.dev/jwt/`, которая игнорируется Git.

@@ -2,7 +2,7 @@
 
 `podcast-core` — Spring Boot микросервис ядра подкаст-платформы. Он хранит профили пользователей и авторов, категории, подкасты, плейлисты, голоса, подписки, историю прослушивания, transcript/summary и полнотекстовый поиск. Аутентификация выполняется через JWT access token, который выпускает отдельный `auth-service`.
 
-Каноничная API-спецификация лежит в корне проекта: [`openapi-2.yaml`](../openapi-2.yaml). Dev-версия Swagger для ручной проверки лежит в `src/main/resources/static/openapi/podcast-service-dev.yaml` и открывается по адресу `http://localhost:8082/swagger`.
+Каноничная API-спецификация лежит в корне проекта: [`openapi-2.yaml`](../openapi-2.yaml). Dev-версия Swagger для ручной проверки лежит в `src/main/resources/static/openapi/podcast-service-dev.yaml` и открывается по адресу `http://localhost:8082/podcast/v1/swagger`.
 
 ## Быстрый старт
 
@@ -31,8 +31,8 @@ Linux/macOS:
 4. Контрольный health check:
 
 ```bash
-curl http://localhost:8082/actuator/health
-curl http://localhost:8082/categories
+curl http://localhost:8082/podcast/v1/actuator/health
+curl http://localhost:8082/podcast/v1/categories
 ```
 
 ## Карта документации

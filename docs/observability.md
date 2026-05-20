@@ -36,8 +36,8 @@
 Actuator включён:
 
 ```text
-GET /actuator/health
-GET /actuator/info
+GET /podcast/v1/actuator/health
+GET /podcast/v1/actuator/info
 ```
 
 Включены probes:
@@ -53,15 +53,15 @@ management:
 Возможные endpoints Spring Boot Actuator при probes:
 
 ```text
-GET /actuator/health/liveness
-GET /actuator/health/readiness
+GET /podcast/v1/actuator/health/liveness
+GET /podcast/v1/actuator/health/readiness
 ```
 
 > Требует уточнения: фактическая доступность `liveness/readiness` в целевой версии Spring Boot 4 runtime.
 
 ## Метрики
 
-Actuator dependency подключена, но в `management.endpoints.web.exposure.include` открыты только `health,info`. `/actuator/metrics` сейчас не exposed.
+Actuator dependency подключена, но в `management.endpoints.web.exposure.include` открыты только `health,info`. `/podcast/v1/actuator/metrics` сейчас не exposed.
 
 Production profile с открытыми метриками обычно использует:
 

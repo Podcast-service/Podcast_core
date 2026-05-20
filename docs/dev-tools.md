@@ -62,12 +62,12 @@ Authorization: Bearer <token>
 
 ```bash
 TOKEN="$(./.dev-tools/jwt/generate-user-token.sh --raw)"
-curl -H "Authorization: Bearer ${TOKEN}" http://localhost:8082/users/me/profile
+curl -H "Authorization: Bearer ${TOKEN}" http://localhost:8082/podcast/v1/users/me/profile
 ```
 
 ```bash
 TOKEN="$(./.dev-tools/jwt/generate-author-token.sh --raw)"
-curl -X POST http://localhost:8082/podcasts \
+curl -X POST http://localhost:8082/podcast/v1/podcasts \
   -H "Authorization: Bearer ${TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"title":"Dev podcast","description":"Local episode","categoryId":null,"coverImageUrl":null}'
@@ -75,7 +75,7 @@ curl -X POST http://localhost:8082/podcasts \
 
 ```bash
 TOKEN="$(./.dev-tools/jwt/generate-admin-token.sh --raw)"
-curl -X POST http://localhost:8082/categories \
+curl -X POST http://localhost:8082/podcast/v1/categories \
   -H "Authorization: Bearer ${TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"name":"Dev Category","position":99}'

@@ -43,8 +43,8 @@ docker compose up --build
 Проверка:
 
 ```bash
-curl http://localhost:8082/actuator/health
-curl http://localhost:8082/categories
+curl http://localhost:8082/podcast/v1/actuator/health
+curl http://localhost:8082/podcast/v1/categories
 ```
 
 ## Запуск через Gradle
@@ -120,7 +120,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\.dev-tools\jwt\generate-ad
 URL:
 
 ```text
-http://localhost:8082/swagger
+http://localhost:8082/podcast/v1/swagger
 ```
 
 В `Authorize` вставляется строка `Bearer ...` из `.dev/jwt/author-token.txt`.
@@ -130,7 +130,7 @@ http://localhost:8082/swagger
 - приложение запущено на `8082`;
 - доступен `/openapi/podcast-service-dev.yaml`;
 - security config разрешает `/swagger`, `/swagger-ui/**`, `/v3/api-docs/**`, `/openapi/**`;
-- в браузере нет кэша старого URL с `/v1`.
+- OpenAPI document доступен по `/podcast/v1/openapi/podcast-service-dev.yaml`.
 
 ## Миграции БД
 
@@ -162,5 +162,5 @@ http://localhost:8081
 | `401` в Swagger | Не вставлен Bearer token или secret не совпадает | Генерация нового token с текущим `ACCESS_TOKEN_SECRET` |
 | `403` на author/admin ручке | В token нет роли | Сгенерировать token с `author` или `admin` |
 | `404` на `/users/me/*` | `user_id` из token отсутствует в `user_profiles` | Использовать dev user id или дождаться Kafka-события от `auth-service` |
-| Swagger не открывается | Неверный URL или приложение не запущено | Открыть `http://localhost:8082/swagger` |
+| Swagger не открывается | Неверный URL или приложение не запущено | URL Swagger: `http://localhost:8082/podcast/v1/swagger` |
 | Kafka event ушёл в DLT | Неверный envelope/payload | Формат события описан в [kafka.md](kafka.md) |
