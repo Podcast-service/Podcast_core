@@ -9,6 +9,20 @@
 
 ## Запуск через Docker Compose
 
+Создай `.env` из шаблона:
+
+```bash
+cp .env.example .env
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+После этого запусти compose:
+
 ```bash
 docker compose up --build
 ```
@@ -21,6 +35,10 @@ docker compose up --build
 | `kafka` | `9092`, `9094` | Kafka broker |
 | `kafka-ui` | `8081` | UI для Kafka |
 | `app` | `8082` | `podcast-core` |
+
+Порты можно поменять в `.env`: `APP_PORT`, `POSTGRES_PORT`, `KAFKA_UI_PORT`, `KAFKA_INTERNAL_PORT`, `KAFKA_EXTERNAL_PORT`.
+
+Реальный `.env` игнорируется Git. В репозитории хранится только безопасный шаблон `.env.example`.
 
 Проверка:
 

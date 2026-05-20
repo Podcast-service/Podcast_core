@@ -15,6 +15,8 @@
 - `docs/observability.md`
 - `docs/deployment.md`
 - `docs/documentation-audit.md`
+- `.env.example`
+- `README.md`
 
 ## Использованные источники
 
@@ -23,6 +25,7 @@
 - `src/main/resources/application-docker.yaml`
 - `src/main/resources/application-dev.yaml`
 - `docker-compose.yml`
+- `.env.example`
 - `Dockerfile`
 - `README.md`
 - REST controllers в `src/main/java/podcastService/**/controller`
@@ -45,6 +48,7 @@
 | Observability | Целевой стек метрик и tracing: Prometheus/OpenTelemetry/другое |
 | Correlation id | Нужен ли обязательный `X-Request-Id` |
 | Avatar/cover URL | Нужны ли строгие URL validation и максимальные длины везде на уровне DTO |
+| Server compose profile | Нужен ли отдельный `docker-compose.prod.yml` без Kafka UI и dev defaults |
 
 ## Найденные несоответствия
 

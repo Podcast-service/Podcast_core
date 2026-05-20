@@ -30,10 +30,24 @@ docker run --rm -p 8082:8082 \
 Для локального окружения:
 
 ```bash
+cp .env.example .env
 docker compose up --build
 ```
 
 Compose включает `postgres`, `kafka`, `kafka-ui`, `app` и запускает приложение с профилями `docker,dev`.
+
+Для сервера отредактируй `.env` перед запуском. Минимально:
+
+```env
+SPRING_PROFILES_ACTIVE=docker
+DEV_SEED_ENABLED=false
+ACCESS_TOKEN_SECRET=<strong-production-secret>
+POSTGRES_PASSWORD=<strong-db-password>
+CORS_ALLOWED_ORIGINS=https://frontend.example.com
+KAFKA_EXTERNAL_HOST=<server-domain-or-ip>
+```
+
+`.env.example` можно хранить в Git как шаблон, но реальный `.env` с секретами коммитить нельзя.
 
 ## Production environment checklist
 

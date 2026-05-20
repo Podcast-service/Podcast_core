@@ -43,3 +43,6 @@ out/
 
 ### Local DEV runtime files ###
 .dev/
+.env
+.env.*
+!.env.example

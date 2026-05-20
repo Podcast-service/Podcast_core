@@ -1,31 +1,48 @@
-# Podcast-Core
+# Podcast Core
 
-## Сборка и запуск
-- `docker compose build`
-- `docker compose up`
+`podcast-core` — микросервис ядра подкаст-платформы на Java 21 и Spring Boot. Он отвечает за профили пользователей и авторов, категории, подкасты, плейлисты, голоса, подписки, историю прослушивания, transcript/summary и поиск.
 
-## Swagger
-Расположение: http://localhost:8082/swagger
+Полная документация лежит в [docs/README.md](docs/README.md). Каноничная OpenAPI-спецификация проекта — [openapi-2.yaml](openapi-2.yaml). Swagger для dev-проверки доступен после запуска по адресу `http://localhost:8082/swagger`.
 
-## DEV-данные для ручного тестирования
-При запуске через `docker compose up` включается профиль `dev`, и сервис сам добавляет небольшой стабильный набор данных: пользователей, авторов, категории, опубликованные подкасты, transcript/summary, плейлисты, подписки, голоса и историю прослушивания.
+## Быстрый старт
 
-Дефолтный токен из `scripts/generate-dev-token.*` уже совпадает с dev-пользователем:
+1. Создай локальный `.env` из шаблона:
+
+```bash
+cp .env.example .env
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+1. Запусти сервис и инфраструктуру:
+
+```bash
+docker compose up --build
+```
+
+1. Проверь, что приложение живо:
+
+```bash
+curl http://localhost:8082/actuator/health
+curl http://localhost:8082/categories
+```
+
+1. Открой Swagger:
+
+```text
+http://localhost:8082/swagger
+```
+
+## Dev token для Swagger
+
+При профиле `dev` сервис добавляет тестовые данные. Дефолтный токен из скриптов уже совпадает с dev-пользователем:
 
 - `user_id`: `550e8400-e29b-41d4-a716-446655440000`
 - роли по умолчанию: `user,author`
-
-Этого достаточно, чтобы сразу проверять `/users/me/*`, `/podcasts/{id}/progress`, `/authors/{id}/subscribe`, `/search`, плейлисты и голосование. Сидер идемпотентный: повторный запуск не должен плодить дубли.
-
-Самый короткий сценарий такой:
-
-1. Запускаешь сервис:
-
-```bash
-docker compose up
-```
-
-1. Генерируешь локальный dev-токен.
 
 Windows PowerShell:
 
@@ -39,125 +56,61 @@ Linux/macOS:
 ./scripts/generate-dev-token.sh
 ```
 
-1. Открываешь файл `.dev/dev-token.txt`, берёшь строку после `Swagger Authorize value:` и вставляешь её в Swagger `Authorize`.
+Скрипт сохранит результат в `.dev/dev-token.txt`. В Swagger нажми `Authorize` и вставь строку `Bearer ...`.
 
-Файл `.dev/dev-token.txt` специально лежит в `.dev/`, а `.dev/` добавлена в `.gitignore`. Токен локальный, в Git он не должен попасть.
-
-Если запускаешь сервис напрямую через Gradle или IDE и тоже хочешь эти данные, добавь профиль:
+Для admin-ручек:
 
 ```powershell
-$env:SPRING_PROFILES_ACTIVE = "dev"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-dev-token.ps1 -Roles user,author,admin
 ```
-
-или:
 
 ```bash
-export SPRING_PROFILES_ACTIVE=dev
+./scripts/generate-dev-token.sh --roles user,author,admin
 ```
 
-Отключить наполнение можно так:
+`.dev/` игнорируется Git, поэтому локальный токен не должен попасть в репозиторий.
+
+## Конфигурация через `.env`
+
+Шаблон переменных лежит в [.env.example](.env.example). Docker Compose автоматически читает файл `.env`, если он находится в корне проекта.
+
+Реальный `.env` добавлен в `.gitignore`. В репозиторий должен попадать только `.env.example`.
+
+Самые важные переменные:
+
+| Переменная | Для чего |
+|---|---|
+| `SPRING_PROFILES_ACTIVE` | Для локальной разработки обычно `docker,dev`; на сервере чаще `docker` без `dev` |
+| `ACCESS_TOKEN_SECRET` | Секрет проверки JWT. В production брать только из secret storage |
+| `ACCESS_TOKEN_ISSUER` | Issuer токена от `auth-service` |
+| `CORS_ALLOWED_ORIGINS` | Разрешённые frontend origins через запятую |
+| `POSTGRES_PASSWORD` | Пароль PostgreSQL |
+| `KAFKA_TOPIC_USERS` | Топик, куда `auth-service` публикует `user.created` |
+| `KAFKA_EXTERNAL_HOST` | Host/IP для подключения к Kafka снаружи Docker-сети |
+| `DEV_SEED_ENABLED` | Включает тестовые данные в `dev` profile |
+
+Для сервера обязательно замени dev-секреты и пароли в `.env`, убери `dev` из `SPRING_PROFILES_ACTIVE`, проверь `CORS_ALLOWED_ORIGINS` и `KAFKA_EXTERNAL_HOST`.
+
+Подробно все переменные описаны в [docs/configuration.md](docs/configuration.md).
+
+## Основные ссылки
+
+- Архитектура: [docs/architecture.md](docs/architecture.md)
+- REST API: [docs/api/endpoints.md](docs/api/endpoints.md)
+- Модели: [docs/api/models.md](docs/api/models.md)
+- Ошибки: [docs/api/errors.md](docs/api/errors.md)
+- Kafka: [docs/kafka.md](docs/kafka.md)
+- Локальная разработка: [docs/local-development.md](docs/local-development.md)
+- Deployment: [docs/deployment.md](docs/deployment.md)
+
+## Тесты
 
 ```bash
-DEV_SEED_ENABLED=false
+./gradlew test
 ```
 
-Это только локальная помощь для разработки. В prod-профиле сидер не активируется.
-
-## Авторизация в DEV
-В обычном сценарии токен приходит из `auth-service`: логинимся, берём `access_token`, открываем Swagger и вставляем токен в `Authorize` для схемы `bearerAuth`.
-
-Если нужно быстро проверить `podcast-core` отдельно от `auth-service`, можно выпустить локальный dev JWT через готовый скрипт.
-
-Главное правило: `podcast-core` и скрипт должны использовать один и тот же `ACCESS_TOKEN_SECRET`.
-
-При запуске через `docker compose up` dev-секрет уже прокидывается в контейнер по умолчанию: `dev-access-token-secret-change-me`. Если запускаешь сервис напрямую через Gradle или IDE, задай переменную окружения сам.
-
-### Windows PowerShell
-
-Задаём секрет в консоли, из которой запускается сервис:
+Windows:
 
 ```powershell
-$env:ACCESS_TOKEN_SECRET = "dev-access-token-secret-change-me"
+.\gradlew.bat test
 ```
-
-Генерируем токен:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-dev-token.ps1
-```
-
-Скрипт также сохраняет токен в `.dev/dev-token.txt`.
-
-Для конкретного пользователя из локальной БД:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-dev-token.ps1 -UserId "<user_profiles.user_id>" -Roles user,author
-```
-
-Для админских ручек:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-dev-token.ps1 -UserId "<user_profiles.user_id>" -Roles user,author,admin
-```
-
-Если у тебя разрешён запуск локальных PowerShell-скриптов, можно короче: `.\scripts\generate-dev-token.ps1`.
-
-### Linux/macOS
-
-Задаём секрет в консоли, из которой запускается сервис:
-
-```bash
-export ACCESS_TOKEN_SECRET="dev-access-token-secret-change-me"
-```
-
-Генерируем токен:
-
-```bash
-chmod +x ./scripts/generate-dev-token.sh
-./scripts/generate-dev-token.sh
-```
-
-Скрипт также сохраняет токен в `.dev/dev-token.txt`.
-
-Для конкретного пользователя из локальной БД:
-
-```bash
-./scripts/generate-dev-token.sh --user-id "<user_profiles.user_id>" --roles user,author
-```
-
-Для админских ручек:
-
-```bash
-./scripts/generate-dev-token.sh --user-id "<user_profiles.user_id>" --roles user,author,admin
-```
-
-Скрипт печатает готовый JWT и строку `Bearer ...`. В Swagger открываем `Authorize`, выбираем `bearerAuth` и вставляем токен.
-
-Важно: `user_id` в токене должен существовать в таблице `user_profiles`, если ручка работает с профилем, плейлистами или авторским контентом. Роль `author` нужна для авторских операций, роль `admin` — для управления категориями. Это только локальный dev-инструмент, в проде токены выдаёт `auth-service`.
-
-## Профиль автора
-Профиль пользователя создаётся через Kafka-событие от `auth-service`, поэтому перед авторскими ручками в `podcast-core` уже должна быть запись в `user_profiles`.
-
-Рабочий поток такой:
-
-1. Пользователь регистрируется или создаётся в `auth-service`.
-2. `auth-service` отправляет пользовательское событие, а `podcast-core` создаёт `user_profiles`.
-3. Пользователю выдаётся роль `author`, и новый access token уже содержит эту роль.
-4. Фронт вызывает `POST /authors/me` с Bearer token и создаёт запись в `author_profiles`.
-
-`avatarUrl` у автора берётся из профиля пользователя и меняется через `PUT /users/me/profile`. Сам профиль автора хранит `authorName`, `description` и счётчик подписчиков.
-
-## CORS
-В dev-режиме сервис по умолчанию принимает браузерные запросы только с:
-
-- `http://localhost:3000`
-- `http://localhost:5173`
-- `http://localhost:8082`
-
-Для другого фронтенда задай переменную:
-
-```bash
-CORS_ALLOWED_ORIGINS="https://frontend.example.com,https://admin.example.com"
-```
-
-Wildcard `*` намеренно не используется: API работает с Bearer-токенами, поэтому источники браузерных запросов должны быть явными.

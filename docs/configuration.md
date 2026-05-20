@@ -2,9 +2,22 @@
 
 ## Переменные окружения
 
+Шаблон окружения для Docker Compose лежит в [`../.env.example`](../.env.example). Для локального или серверного запуска его обычно копируют в `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Docker Compose автоматически читает `.env` из корня проекта и использует его для подстановки `${...}` в `docker-compose.yml`.
+
+Реальный `.env` игнорируется Git. В репозиторий должен попадать только `.env.example` без production secrets.
+
 | Переменная | Default | Назначение |
 |---|---|---|
+| `COMPOSE_PROJECT_NAME` | `podcast-core` в `.env.example` | Имя compose-проекта и prefix ресурсов Docker |
+| `SPRING_PROFILES_ACTIVE` | `docker,dev` в compose | Активные Spring profiles |
 | `SERVER_PORT` | `8082` | HTTP port приложения |
+| `APP_PORT` | `8082` | Порт на host-машине для публикации приложения |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/podcast_db` | JDBC URL |
 | `DB_USERNAME` | `podcast_user` | Пользователь БД |
 | `DB_PASSWORD` | `podcast_pass` | Пароль БД |
@@ -20,6 +33,23 @@
 | `POSTGRES_DB` | `podcast_db` в compose | Имя БД для docker compose |
 | `POSTGRES_USER` | `podcast_user` в compose | Пользователь БД для docker compose |
 | `POSTGRES_PASSWORD` | `podcast_pass` в compose | Пароль БД для docker compose |
+| `POSTGRES_PORT` | `5432` | Порт PostgreSQL на host-машине |
+| `KAFKA_INTERNAL_PORT` | `9092` | Порт internal listener Kafka на host-машине |
+| `KAFKA_EXTERNAL_PORT` | `9094` | Порт external listener Kafka |
+| `KAFKA_EXTERNAL_HOST` | `host.docker.internal` | Host/IP, который Kafka отдаёт внешним клиентам в advertised listeners |
+| `KAFKA_AUTO_CREATE_TOPICS_ENABLE` | `true` | Auto-create topics в локальном Kafka |
+| `KAFKA_UI_PORT` | `8081` | Порт Kafka UI на host-машине |
+
+## Самые важные переменные для сервера
+
+| Переменная | Что проверить перед запуском на сервере |
+|---|---|
+| `SPRING_PROFILES_ACTIVE` | Убрать `dev`, если не нужны тестовые данные |
+| `ACCESS_TOKEN_SECRET` | Заменить dev-значение на production secret из secret storage |
+| `POSTGRES_PASSWORD` | Заменить дефолтный пароль |
+| `CORS_ALLOWED_ORIGINS` | Указать реальные frontend домены, без wildcard |
+| `KAFKA_EXTERNAL_HOST` | Указать домен/IP сервера, если Kafka должна быть доступна снаружи Docker-сети |
+| `DEV_SEED_ENABLED` | Поставить `false` или не включать `dev` profile |
 
 ## Spring profiles
 
@@ -29,10 +59,17 @@
 | `docker` | Docker Compose | PostgreSQL host `postgres`, Kafka host `kafka` |
 | `dev` | Docker Compose и локальная разработка | Включает `DevDataSeeder` |
 
-В `docker-compose.yml` приложение запускается с:
+По умолчанию в `docker-compose.yml` приложение запускается с:
 
 ```yaml
-SPRING_PROFILES_ACTIVE: docker,dev
+SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker,dev}
+```
+
+Для сервера типичное значение:
+
+```env
+SPRING_PROFILES_ACTIVE=docker
+DEV_SEED_ENABLED=false
 ```
 
 ## Database config
