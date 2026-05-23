@@ -1,77 +1,47 @@
 # REST API
 
-Каноничный контракт API описан в [`../../openapi-2.yaml`](../../openapi-2.yaml). Этот раздел переводит контракт и фактическую реализацию контроллеров в документацию для разработки и тестирования.
+Базовый путь API:
 
-## Базовый URL
-
-| Среда | URL |
-|---|---|
-| Docker/local | `http://localhost:8082/podcast/v1` |
-| Swagger UI | `http://localhost:8082/podcast/v1/swagger` |
-| OpenAPI local server в `openapi-2.yaml` | `http://localhost:8082/podcast/v1` |
-| OpenAPI production server | `https://api.example.com/podcast/v1` |
-
-Все endpoint paths в документации ниже указаны относительно base URL `/podcast/v1`.
-
-## Авторизация
-
-Защищённые ручки принимают заголовок:
-
-```http
-Authorization: Bearer <access_token>
+```text
+http://localhost:8082/podcast/v1
 ```
 
-JWT подписывается секретом из `ACCESS_TOKEN_SECRET`, содержит issuer из `ACCESS_TOKEN_ISSUER` и claim `user_id`. Для ролевых ручек используется claim `roles`.
+Каноничный контракт находится в [`../../openapi-2.yaml`](../../openapi-2.yaml). Все пути в документации указаны относительно `/podcast/v1`.
 
-| Тип доступа | Поведение |
+## Разделы
+
+| Документ | Содержание |
 |---|---|
-| Public | Токен не используется |
-| Optional token | Без токена возвращаются публичные данные; с токеном добавляется пользовательский контекст |
-| Authenticated | Используется валидный Bearer token |
-| Author | Используется Bearer token с ролью `author` |
-| Admin | Используется Bearer token с ролью `admin` |
+| [authentication.md](authentication.md) | JWT, роли, Swagger authorization |
+| [endpoints.md](endpoints.md) | полный список HTTP операций |
+| [pagination.md](pagination.md) | формат страниц и ограничения |
+| [filtering.md](filtering.md) | фильтры, сортировки и поиск |
+| [errors.md](errors.md) | формат ошибок и коды |
+| [models.md](models.md) | DTO и доменные модели |
+| [examples.md](examples.md) | curl и JSON примеры |
+| [rate-limits.md](rate-limits.md) | ограничения частоты запросов |
 
-## Пагинация
+## Соглашения API
 
-Списки используют параметры:
+| Соглашение | Значение |
+|---|---|
+| Формат тела | JSON |
+| Авторизация | `Authorization: Bearer <access_token>` |
+| Пагинация | `page` начинается с `1`, `size` по умолчанию `20` |
+| Ошибки | `ApiErrorResponse` с полями `code`, `message`, `timestamp`, `details` |
+| Даты | ISO-8601 в UTC |
+| Идентификаторы | UUID |
 
-| Параметр | Тип | По умолчанию | Ограничения |
-|---|---:|---:|---|
-| `page` | integer | `1` | `>= 1` |
-| `size` | integer | `20` | `1..50` |
+## Swagger
 
-Формат ответа:
+Swagger UI в local/dev:
 
-```json
-{
-  "items": [],
-  "meta": {
-    "page": 1,
-    "size": 20,
-    "totalElements": 0,
-    "totalPages": 0
-  }
-}
+```text
+http://localhost:8082/podcast/v1/swagger
 ```
 
-## Основные документы
+Dev OpenAPI document:
 
-- [endpoints.md](endpoints.md) — все REST endpoint'ы.
-- [models.md](models.md) — DTO и доменные модели.
-- [errors.md](errors.md) — каталог ошибок.
-- [auth.md](auth.md) — JWT, claims, роли и dev-токены.
-
-## Общий формат ошибки
-
-```json
-{
-  "code": "VALIDATION_ERROR",
-  "message": "Request validation failed",
-  "timestamp": "2026-05-20T10:00:00Z",
-  "details": {
-    "fields": {
-      "title": "title must not be blank"
-    }
-  }
-}
+```text
+http://localhost:8082/podcast/v1/openapi/podcast-service-dev.yaml
 ```

@@ -4,7 +4,7 @@ param(
     [string[]]$Roles = @("user", "author"),
     [int]$TtlMinutes = 10080,
     [string]$Issuer = "auth-service",
-    [string]$Secret = $env:ACCESS_TOKEN_SECRET,
+    [string]$Secret = $env:PODCAST_ACCESS_TOKEN_SECRET,
     [string]$OutputPath = ".dev/dev-token.txt",
     [switch]$Raw
 )
@@ -101,4 +101,4 @@ if ($resolvedOutputPath) {
     Write-Output ""
 }
 Write-Output "podcast-core must be started with the same secret:"
-Write-Output "`$env:ACCESS_TOKEN_SECRET = `"$Secret`""
+Write-Output "`$env:PODCAST_ACCESS_TOKEN_SECRET = `"$Secret`""

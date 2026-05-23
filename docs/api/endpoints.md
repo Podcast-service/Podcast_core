@@ -1,400 +1,338 @@
-# Endpoints
+# HTTP операции
 
-Документ описывает endpoint'ы из `openapi-2.yaml` и текущих контроллеров. Общие ошибки для всех ручек: `400 VALIDATION_ERROR`, `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 RESOURCE_NOT_FOUND`, `409 CONFLICT`, `422 BUSINESS_RULE_VIOLATION`, `500 INTERNAL_ERROR`. Конкретный набор зависит от ручки.
+Общие правила:
+
+| Правило | Значение |
+|---|---|
+| Base path | `/podcast/v1` |
+| Авторизация | `Authorization: Bearer <access_token>` |
+| Публичные GET | доступны без токена |
+| Опциональный токен | публичная ручка использует токен для персонализации ответа |
+| Ошибки | формат `ApiErrorResponse` |
 
 ## Сводная таблица
 
-| Метод | Путь | Доступ | Назначение |
-|---|---|---|---|
-| GET | `/users/me/profile` | Authenticated | Получить свой профиль |
-| PUT | `/users/me/profile` | Authenticated | Обновить свой профиль |
-| GET | `/users/me/settings` | Authenticated | Получить настройки |
-| PUT | `/users/me/settings` | Authenticated | Обновить настройки |
-| GET | `/users/me/playlists` | Authenticated | Мои плейлисты |
-| GET | `/users/me/subscriptions` | Authenticated | Мои подписки |
-| GET | `/users/me/subscriptions/feed` | Authenticated | Лента подписок |
-| GET | `/users/me/history` | Authenticated | История прослушивания |
-| POST | `/authors/me` | Author | Создать мой профиль автора |
-| GET | `/authors/me` | Author | Получить мой профиль автора |
-| PUT | `/authors/me` | Author | Обновить мой профиль автора |
-| GET | `/authors/{authorId}` | Public, optional token | Публичный профиль автора |
-| GET | `/authors/{authorId}/podcasts` | Public, optional token | Подкасты автора |
-| GET | `/authors/{authorId}/playlists` | Public, optional token | Плейлисты автора |
-| GET | `/categories` | Public | Список категорий |
-| POST | `/categories` | Admin | Создать категорию |
-| PUT | `/categories/{categoryId}` | Admin | Обновить категорию |
-| DELETE | `/categories/{categoryId}` | Admin | Удалить категорию |
-| GET | `/podcasts` | Public, optional token | Каталог подкастов |
-| POST | `/podcasts` | Author | Создать подкаст |
-| GET | `/podcasts/{podcastId}` | Public, optional token | Детали подкаста |
-| PUT | `/podcasts/{podcastId}` | Author owner | Обновить подкаст |
-| DELETE | `/podcasts/{podcastId}` | Author owner | Архивировать подкаст |
-| POST | `/podcasts/{podcastId}/publish` | Author owner | Отправить на публикацию |
-| POST | `/podcasts/{podcastId}/progress` | Authenticated | Сохранить прогресс |
-| GET | `/podcasts/{podcastId}/transcript` | Public | Получить transcript |
-| GET | `/podcasts/{podcastId}/summary` | Public | Получить summary |
-| POST | `/podcasts/{podcastId}/vote` | Authenticated | Поставить/сменить голос |
-| DELETE | `/podcasts/{podcastId}/vote` | Authenticated | Удалить голос |
-| GET | `/playlists` | Public, optional token | Публичные плейлисты |
-| POST | `/playlists` | Authenticated | Создать плейлист |
-| GET | `/playlists/{playlistId}` | Public/owner | Детали плейлиста |
-| PUT | `/playlists/{playlistId}` | Owner | Обновить плейлист |
-| DELETE | `/playlists/{playlistId}` | Owner | Удалить плейлист |
-| POST | `/playlists/{playlistId}/podcasts` | Owner | Добавить подкаст |
-| DELETE | `/playlists/{playlistId}/podcasts/{podcastId}` | Owner | Удалить подкаст из плейлиста |
-| PUT | `/playlists/{playlistId}/podcasts/reorder` | Owner | Изменить порядок |
-| POST | `/playlists/{playlistId}/vote` | Authenticated | Поставить/сменить голос |
-| DELETE | `/playlists/{playlistId}/vote` | Authenticated | Удалить голос |
-| POST | `/authors/{authorId}/subscribe` | Authenticated | Подписаться на автора |
-| DELETE | `/authors/{authorId}/subscribe` | Authenticated | Отписаться |
-| GET | `/search/suggest` | Public | Подсказки поиска |
-| GET | `/search` | Public, optional token | Поиск |
+| Метод | Путь | Доступ | Тело запроса | Ответ |
+|---|---|---|---|---|
+| `GET` | `/users/me/profile` | JWT | нет | `UserProfilePrivateResponse` |
+| `PUT` | `/users/me/profile` | JWT | `UpdateUserProfileRequest` | `UserProfilePrivateResponse` |
+| `GET` | `/users/me/settings` | JWT | нет | `UserSettingsResponse` |
+| `PUT` | `/users/me/settings` | JWT | `UpdateSettingsRequest` | `UserSettingsResponse` |
+| `GET` | `/users/me/playlists` | JWT | нет | `PageOfPlaylistCard` |
+| `GET` | `/users/me/subscriptions` | JWT | нет | `PageOfSubscription` |
+| `GET` | `/users/me/subscriptions/feed` | JWT | нет | `PageOfPodcastCard` |
+| `GET` | `/users/me/history` | JWT | нет | `PageOfListenHistory` |
+| `POST` | `/authors/me` | роль `author` | `CreateAuthorProfileRequest` | `AuthorProfileResponse` |
+| `GET` | `/authors/me` | роль `author` | нет | `AuthorProfileResponse` |
+| `PUT` | `/authors/me` | роль `author` | `UpdateAuthorProfileRequest` | `AuthorProfileResponse` |
+| `GET` | `/authors/{authorId}` | публичный, токен опционален | нет | `AuthorProfileResponse` |
+| `GET` | `/authors/{authorId}/podcasts` | публичный, токен опционален | нет | `PageOfPodcastCard` |
+| `GET` | `/authors/{authorId}/playlists` | публичный, токен опционален | нет | `PageOfPlaylistCard` |
+| `GET` | `/categories` | публичный | нет | массив `CategoryResponse` |
+| `POST` | `/categories` | роль `admin` | `CreateCategoryRequest` | `CategoryResponse` |
+| `PUT` | `/categories/{categoryId}` | роль `admin` | `UpdateCategoryRequest` | `CategoryResponse` |
+| `DELETE` | `/categories/{categoryId}` | роль `admin` | нет | `204` |
+| `GET` | `/podcasts` | публичный, токен опционален | нет | `PageOfPodcastCard` |
+| `POST` | `/podcasts` | роль `author` | `CreatePodcastRequest` | `PodcastDetailResponse` |
+| `GET` | `/podcasts/{podcastId}` | публичный, токен опционален | нет | `PodcastDetailResponse` |
+| `PUT` | `/podcasts/{podcastId}` | роль `author`, владелец | `UpdatePodcastRequest` | `PodcastDetailResponse` |
+| `DELETE` | `/podcasts/{podcastId}` | роль `author`, владелец | нет | `204` |
+| `POST` | `/podcasts/{podcastId}/publish` | роль `author`, владелец | нет | `PodcastDetailResponse` |
+| `POST` | `/podcasts/{podcastId}/progress` | JWT | `SaveProgressRequest` | `204` |
+| `GET` | `/podcasts/{podcastId}/transcript` | публичный | нет | `PodcastTranscriptResponse` |
+| `GET` | `/podcasts/{podcastId}/summary` | публичный | нет | `PodcastSummaryResponse` |
+| `POST` | `/podcasts/{podcastId}/vote` | JWT | `VoteRequest` | `VoteResponse` |
+| `DELETE` | `/podcasts/{podcastId}/vote` | JWT | нет | `VoteResponse` |
+| `GET` | `/playlists` | публичный, токен опционален | нет | `PageOfPlaylistCard` |
+| `POST` | `/playlists` | JWT | `CreatePlaylistRequest` | `PlaylistDetailResponse` |
+| `GET` | `/playlists/{playlistId}` | публичный или владелец | нет | `PlaylistDetailResponse` |
+| `PUT` | `/playlists/{playlistId}` | владелец | `UpdatePlaylistRequest` | `PlaylistDetailResponse` |
+| `DELETE` | `/playlists/{playlistId}` | владелец | нет | `204` |
+| `POST` | `/playlists/{playlistId}/podcasts` | владелец | `AddPodcastToPlaylistRequest` | `PlaylistDetailResponse` |
+| `DELETE` | `/playlists/{playlistId}/podcasts/{podcastId}` | владелец | нет | `204` |
+| `PUT` | `/playlists/{playlistId}/podcasts/reorder` | владелец | `ReorderPlaylistRequest` | `PlaylistDetailResponse` |
+| `POST` | `/playlists/{playlistId}/vote` | JWT | `VoteRequest` | `VoteResponse` |
+| `DELETE` | `/playlists/{playlistId}/vote` | JWT | нет | `VoteResponse` |
+| `POST` | `/authors/{authorId}/subscribe` | JWT | нет | `AuthorSubscriptionResponse` |
+| `DELETE` | `/authors/{authorId}/subscribe` | JWT | нет | `AuthorSubscriptionResponse` |
+| `GET` | `/search/suggest` | публичный | нет | массив `SearchSuggestItem` |
+| `GET` | `/search` | публичный, токен опционален | нет | `SearchResponse` |
 
-## Users
+## Параметры списков
 
-### GET `/users/me/profile`
-
-Получает приватный профиль текущего пользователя.
-
-| Параметры | Описание |
+| Endpoint | Query параметры |
 |---|---|
-| Header `Authorization` | `Bearer <access_token>`, обязательно |
+| `GET /podcasts` | `q`, `categoryId`, `authorId`, `sort`, `page`, `size` |
+| `GET /authors/{authorId}/podcasts` | `q`, `sort`, `page`, `size` |
+| `GET /playlists` | `q`, `sort`, `page`, `size` |
+| `GET /users/me/playlists` | `page`, `size` |
+| `GET /authors/{authorId}/playlists` | `page`, `size` |
+| `GET /users/me/subscriptions` | `page`, `size` |
+| `GET /users/me/subscriptions/feed` | `sort`, `page`, `size` |
+| `GET /users/me/history` | `page`, `size` |
+| `GET /search` | `q`, `type`, `categoryId`, `sort`, `page`, `size` |
+| `GET /search/suggest` | `q` |
 
-Ответ `200`: `UserProfilePrivateResponse`.
+## Пользовательские профили
+
+### `GET /users/me/profile`
+
+Возвращает приватный профиль текущего пользователя. Требуется JWT.
+
+```bash
+curl -H "Authorization: Bearer ${TOKEN}" \
+  http://localhost:8082/podcast/v1/users/me/profile
+```
+
+Коды: `200`, `401`, `404`.
+
+### `PUT /users/me/profile`
+
+Обновляет username и avatar URL текущего пользователя.
 
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440001",
-  "userId": "00000000-0000-0000-0000-000000000001",
-  "username": "demo_user",
-  "avatarUrl": "https://cdn.example.com/u/demo.png",
-  "theme": "DARK",
-  "language": "RU",
-  "createdAt": "2026-05-20T10:00:00Z"
+  "username": "dev-user-updated",
+  "avatarUrl": "https://cdn.example.local/users/dev.png"
 }
 ```
 
-Ошибки: `401`, `404`.
+Коды: `200`, `400`, `401`, `404`, `409`.
 
-### PUT `/users/me/profile`
+### `GET /users/me/settings`
 
-Обновляет username/avatar текущего пользователя.
+Возвращает настройки интерфейса: `theme`, `language`. Коды: `200`, `401`, `404`.
 
-Request body: `UpdateUserProfileRequest`.
-
-```json
-{
-  "username": "demo_user_2",
-  "avatarUrl": "https://cdn.example.com/u/demo2.png"
-}
-```
-
-Ответ `200`: `UserProfilePrivateResponse`. Ошибки: `400`, `401`, `404`, `409`.
-
-### GET `/users/me/settings`
-
-Возвращает тему и язык текущего пользователя. Ответ `200`:
-
-```json
-{
-  "theme": "DARK",
-  "language": "RU"
-}
-```
-
-Ошибки: `401`, `404`.
-
-### PUT `/users/me/settings`
-
-Request body:
+### `PUT /users/me/settings`
 
 ```json
 {
   "theme": "LIGHT",
-  "language": "EN"
+  "language": "RU"
 }
 ```
 
-Ответ `200`: `UserSettingsResponse`. Ошибки: `400`, `401`, `404`.
+Коды: `200`, `400`, `401`, `404`.
 
-## Authors
+## Авторы
 
-### POST `/authors/me`
+### `POST /authors/me`
 
-Создаёт профиль автора для текущего пользователя. Нужна роль `author`.
-
-Request body:
+Создаёт авторский профиль для текущего пользователя. Требуется роль `author`.
 
 ```json
 {
-  "authorName": "Backend Talks",
-  "description": "Подкаст о backend-разработке"
+  "authorName": "Backend Kitchen",
+  "description": "Практические выпуски о Java и сервисах"
 }
 ```
 
-Ответ `201`: `AuthorProfileResponse`. Ошибки: `400`, `401`, `403`, `404`, `409`.
+Коды: `201`, `400`, `401`, `403`, `404`, `409`.
 
-### GET `/authors/me`
+### `GET /authors/me`
 
-Получает профиль автора текущего пользователя. Нужна роль `author`.
+Возвращает авторский профиль текущего пользователя. Требуется роль `author`. Коды: `200`, `401`, `403`, `404`.
 
-Ответ `200`: `AuthorProfileResponse`. Ошибки: `401`, `403`, `404`.
+### `PUT /authors/me`
 
-### PUT `/authors/me`
-
-Обновляет профиль автора. Нужна роль `author`.
+Обновляет авторский профиль текущего пользователя. Требуется роль `author`.
 
 ```json
 {
-  "authorName": "Backend Talks Updated",
+  "authorName": "Backend Kitchen Updated",
   "description": "Новые выпуски каждую неделю"
 }
 ```
 
-Ответ `200`: `AuthorProfileResponse`. Ошибки: `400`, `401`, `403`, `404`, `409`.
+Коды: `200`, `400`, `401`, `403`, `404`, `409`.
 
-### GET `/authors/{authorId}`
+### `GET /authors/{authorId}`
 
-Публичный профиль автора. Токен опционален: с токеном заполняется `isSubscribed`.
+Публичная страница автора. При наличии JWT поле `isSubscribed` рассчитывается для текущего пользователя. Коды: `200`, `404`.
 
-| Path | Тип |
-|---|---|
-| `authorId` | uuid |
+### `GET /authors/{authorId}/podcasts`
 
-Ответ `200`:
+Публичный список подкастов автора с фильтрацией `q` и сортировкой. Коды: `200`, `400`, `404`.
+
+### `GET /authors/{authorId}/playlists`
+
+Публичные плейлисты автора. Коды: `200`, `400`, `404`.
+
+## Категории
+
+### `GET /categories`
+
+Возвращает категории по `position`.
+
+```bash
+curl http://localhost:8082/podcast/v1/categories
+```
+
+Коды: `200`.
+
+### `POST /categories`
+
+Создаёт категорию. Требуется роль `admin`.
 
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440100",
-  "userId": "00000000-0000-0000-0000-000000000001",
-  "authorName": "Backend Talks",
-  "avatarUrl": "https://cdn.example.com/u/demo.png",
-  "description": "Подкаст о backend-разработке",
-  "subscribersCount": 42,
-  "isSubscribed": false,
-  "createdAt": "2026-05-20T10:00:00Z"
+  "name": "Security",
+  "position": 90
 }
 ```
 
-Ошибки: `404`.
+Коды: `201`, `400`, `401`, `403`, `409`.
 
-### GET `/authors/{authorId}/podcasts`
+### `PUT /categories/{categoryId}`
 
-Список опубликованных подкастов автора.
+Обновляет категорию. Требуется роль `admin`. Коды: `200`, `400`, `401`, `403`, `404`, `409`.
 
-| Query | Тип | По умолчанию |
-|---|---|---|
-| `q` | string | нет |
-| `sort` | `DATE_DESC`, `DATE_ASC`, `RATING`, `VIEWS` | `DATE_DESC` |
-| `page` | integer | `1` |
-| `size` | integer | `20` |
+### `DELETE /categories/{categoryId}`
 
-Ответ `200`: `PageResponse<PodcastCard>`. Ошибки: `400`, `404`.
+Удаляет категорию. Требуется роль `admin`. Если категория используется бизнес-правилами, возвращается `422` или `409` в зависимости от причины. Коды: `204`, `401`, `403`, `404`, `422`.
 
-### GET `/authors/{authorId}/playlists`
+## Подкасты и медиа
 
-Список публичных плейлистов автора.
+### `GET /podcasts`
 
-| Query | Тип | По умолчанию |
-|---|---|---|
-| `page` | integer | `1` |
-| `size` | integer | `20` |
+Каталог опубликованных подкастов. JWT опционален.
 
-Ответ `200`: `PageResponse<PlaylistCard>`. Ошибки: `400`, `404`.
-
-## Categories
-
-### GET `/categories`
-
-Возвращает категории, отсортированные по позиции.
-
-Ответ `200`:
-
-```json
-[
-  {
-    "id": "550e8400-e29b-41d4-a716-446655440200",
-    "name": "Technology",
-    "position": 1
-  }
-]
+```bash
+curl "http://localhost:8082/podcast/v1/podcasts?q=Kafka&sort=DATE_DESC&page=1&size=20"
 ```
 
-### POST `/categories`
+Коды: `200`, `400`.
 
-Создаёт категорию. Нужна роль `admin`.
+### `POST /podcasts`
+
+Создаёт черновик подкаста. Требуется роль `author` и существующий author profile.
 
 ```json
 {
-  "name": "Science",
-  "position": 2
+  "title": "Kafka в production",
+  "description": "Разбор topic, consumer group и DLT",
+  "categoryId": "48b67732-5676-36bd-a97f-44d01de91376",
+  "coverImageUrl": "https://cdn.example.local/covers/kafka.png"
 }
 ```
 
-Ответ `201`: `CategoryResponse`. Ошибки: `400`, `401`, `403`, `409`.
+Коды: `201`, `400`, `401`, `403`, `404`, `409`.
 
-### PUT `/categories/{categoryId}`
+### `GET /podcasts/{podcastId}`
 
-Обновляет категорию. Нужна роль `admin`.
+Возвращает детали выпуска. Неопубликованный выпуск доступен владельцу с JWT. Коды: `200`, `403`, `404`.
 
-```json
-{
-  "name": "Science & Tech",
-  "position": 3
-}
-```
+### `PUT /podcasts/{podcastId}`
 
-Ответ `200`: `CategoryResponse`. Ошибки: `400`, `401`, `403`, `404`, `409`.
+Обновляет метаданные выпуска. Требуется роль `author` и владение выпуском. Коды: `200`, `400`, `401`, `403`, `404`, `422`.
 
-### DELETE `/categories/{categoryId}`
+### `DELETE /podcasts/{podcastId}`
 
-Удаляет категорию. Нужна роль `admin`.
+Архивирует или удаляет выпуск согласно бизнес-правилам сервиса. Требуется роль `author` и владение. Коды: `204`, `401`, `403`, `404`.
 
-Ответ `204`, body отсутствует. Ошибки: `401`, `403`, `404`, `409`.
+### `POST /podcasts/{podcastId}/publish`
 
-## Podcasts
+Переводит выпуск в публикационный flow. Требуется роль `author` и владение. Коды: `202`, `401`, `403`, `404`, `422`.
 
-### GET `/podcasts`
+### `GET /podcasts/{podcastId}/transcript`
 
-Возвращает каталог опубликованных подкастов. Токен опционален.
+Возвращает транскрипт выпуска. Коды: `200`, `404`.
 
-| Query | Тип | По умолчанию |
-|---|---|---|
-| `q` | string | нет |
-| `categoryId` | uuid | нет |
-| `authorId` | uuid | нет |
-| `sort` | `DATE_DESC`, `DATE_ASC`, `RATING`, `VIEWS` | `DATE_DESC` |
-| `page` | integer | `1` |
-| `size` | integer | `20` |
+### `GET /podcasts/{podcastId}/summary`
 
-Ответ `200`: `PageResponse<PodcastCard>`.
+Возвращает краткое содержание выпуска. Коды: `200`, `404`.
 
-```json
-{
-  "items": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440300",
-      "title": "Spring Security без боли",
-      "author": {
-        "id": "550e8400-e29b-41d4-a716-446655440100",
-        "authorName": "Backend Talks",
-        "avatarUrl": null,
-        "subscribersCount": 42,
-        "isSubscribed": false
-      },
-      "category": {
-        "id": "550e8400-e29b-41d4-a716-446655440200",
-        "name": "Technology",
-        "position": 1
-      },
-      "coverImageUrl": null,
-      "durationSeconds": 1800,
-      "status": "PUBLISHED",
-      "viewsCount": 100,
-      "likesCount": 10,
-      "dislikesCount": 1,
-      "publishedAt": "2026-05-20T10:00:00Z",
-      "createdAt": "2026-05-20T09:00:00Z",
-      "currentUserVote": null,
-      "progressSeconds": null,
-      "progressPercent": null
-    }
-  ],
-  "meta": {
-    "page": 1,
-    "size": 20,
-    "totalElements": 1,
-    "totalPages": 1
-  }
-}
-```
-
-Ошибки: `400`.
-
-### POST `/podcasts`
-
-Создаёт черновик подкаста для текущего автора. Нужна роль `author` и существующий author profile.
-
-```json
-{
-  "title": "Spring Security без боли",
-  "description": "Разбираем JWT, роли и фильтры.",
-  "categoryId": "550e8400-e29b-41d4-a716-446655440200",
-  "coverImageUrl": "https://cdn.example.com/podcast.png"
-}
-```
-
-Ответ `201`: `PodcastDetailResponse`. Ошибки: `400`, `401`, `403`, `404`, `409`.
-
-### GET `/podcasts/{podcastId}`
-
-Возвращает детали подкаста. Публично доступны опубликованные подкасты; владелец с токеном может получить свой неопубликованный подкаст.
-
-Ответ `200`: `PodcastDetailResponse`. Ошибки: `404`.
-
-### PUT `/podcasts/{podcastId}`
-
-Обновляет подкаст. Нужна роль `author` и владение подкастом.
-
-```json
-{
-  "title": "Spring Security на практике",
-  "description": "Обновлённое описание",
-  "categoryId": "550e8400-e29b-41d4-a716-446655440200",
-  "coverImageUrl": null
-}
-```
-
-Ответ `200`: `PodcastDetailResponse`. Ошибки: `400`, `401`, `403`, `404`, `422`.
-
-### DELETE `/podcasts/{podcastId}`
-
-Архивирует подкаст. Нужна роль `author` и владение.
-
-Ответ `204`, body отсутствует. Ошибки: `401`, `403`, `404`, `422`.
-
-### POST `/podcasts/{podcastId}/publish`
-
-Переводит подкаст в публикационный flow. Нужна роль `author` и владение.
-
-Ответ `202`: `PodcastDetailResponse`. Возможные бизнес-ошибки: нет audio URL, неподходящий статус. Ошибки: `401`, `403`, `404`, `422`.
-
-### POST `/podcasts/{podcastId}/progress`
+### `POST /podcasts/{podcastId}/progress`
 
 Сохраняет прогресс прослушивания текущего пользователя.
 
 ```json
 {
-  "progressSeconds": 600
+  "progressSeconds": 640
 }
 ```
 
-Ответ `204`, body отсутствует. Ошибки: `400`, `401`, `404`, `422`.
+Коды: `204`, `400`, `401`, `404`, `422`.
 
-### GET `/podcasts/{podcastId}/transcript`
+## Плейлисты
 
-Возвращает transcript подкаста.
+### `GET /playlists`
 
-Ответ `200`:
+Возвращает публичные плейлисты. JWT опционален. Коды: `200`, `400`.
+
+### `POST /playlists`
+
+Создаёт плейлист текущего пользователя.
 
 ```json
 {
-  "podcastId": "550e8400-e29b-41d4-a716-446655440300",
-  "language": "ru",
-  "content": "Текстовая расшифровка выпуска...",
-  "generatedAt": "2026-05-20T10:00:00Z"
+  "title": "Backend essentials",
+  "description": "Подборка выпусков для backend-разработчика",
+  "coverImageUrl": "https://cdn.example.local/playlists/backend.png",
+  "isPublic": true
 }
 ```
 
-Ошибки: `404`.
+Коды: `201`, `400`, `401`, `404`.
 
-### GET `/podcasts/{podcastId}/summary`
+### `GET /playlists/{playlistId}`
 
-Возвращает summary подкаста. Ответ `200`: `PodcastSummaryResponse`. Ошибки: `404`.
+Публичный плейлист доступен всем. Приватный плейлист доступен владельцу. Коды: `200`, `403`, `404`.
 
-### POST `/podcasts/{podcastId}/vote`
+### `PUT /playlists/{playlistId}`
 
-Ставит или меняет голос текущего пользователя.
+Обновляет плейлист владельца. Коды: `200`, `400`, `401`, `403`, `404`.
+
+### `DELETE /playlists/{playlistId}`
+
+Удаляет плейлист владельца. Коды: `204`, `401`, `403`, `404`.
+
+### `POST /playlists/{playlistId}/podcasts`
+
+Добавляет опубликованный подкаст в плейлист владельца.
+
+```json
+{
+  "podcastId": "22222222-2222-2222-2222-222222222222"
+}
+```
+
+Коды: `200`, `400`, `401`, `403`, `404`, `409`, `422`.
+
+### `DELETE /playlists/{playlistId}/podcasts/{podcastId}`
+
+Удаляет выпуск из плейлиста владельца. Коды: `204`, `401`, `403`, `404`.
+
+### `PUT /playlists/{playlistId}/podcasts/reorder`
+
+Меняет порядок выпусков.
+
+```json
+{
+  "items": [
+    {
+      "podcastId": "22222222-2222-2222-2222-222222222222",
+      "position": 1
+    }
+  ]
+}
+```
+
+Коды: `200`, `400`, `401`, `403`, `404`, `422`.
+
+### `GET /users/me/playlists`
+
+Возвращает плейлисты текущего пользователя. Требуется JWT. Коды: `200`, `400`, `401`.
+
+### `GET /authors/{authorId}/playlists`
+
+Возвращает публичные плейлисты автора. Коды: `200`, `400`, `404`.
+
+## Голоса
+
+### `POST /podcasts/{podcastId}/vote`
+
+Создаёт или меняет голос за подкаст.
 
 ```json
 {
@@ -402,340 +340,68 @@ Request body:
 }
 ```
 
-Ответ `200`:
+Коды: `200`, `400`, `401`, `404`, `422`.
 
-```json
-{
-  "targetId": "550e8400-e29b-41d4-a716-446655440300",
-  "targetType": "PODCAST",
-  "likesCount": 11,
-  "dislikesCount": 1,
-  "currentUserVote": "LIKE"
-}
+### `DELETE /podcasts/{podcastId}/vote`
+
+Удаляет голос за подкаст и возвращает актуальные счётчики. Коды: `200`, `401`, `404`.
+
+### `POST /playlists/{playlistId}/vote`
+
+Создаёт или меняет голос за плейлист. Коды: `200`, `400`, `401`, `404`.
+
+### `DELETE /playlists/{playlistId}/vote`
+
+Удаляет голос за плейлист и возвращает актуальные счётчики. Коды: `200`, `401`, `404`.
+
+## Подписки
+
+### `GET /users/me/subscriptions`
+
+Возвращает подписки текущего пользователя. Коды: `200`, `400`, `401`.
+
+### `GET /users/me/subscriptions/feed`
+
+Возвращает ленту опубликованных подкастов авторов, на которых подписан текущий пользователь. Коды: `200`, `400`, `401`.
+
+### `POST /authors/{authorId}/subscribe`
+
+Подписывает текущего пользователя на автора. Самоподписка блокируется на уровне БД trigger. Коды: `200`, `401`, `404`, `422`.
+
+### `DELETE /authors/{authorId}/subscribe`
+
+Отписывает текущего пользователя от автора. Коды: `200`, `401`, `404`.
+
+## История прослушивания
+
+### `GET /users/me/history`
+
+Возвращает историю прослушивания текущего пользователя. Коды: `200`, `400`, `401`.
+
+## Поиск
+
+### `GET /search/suggest`
+
+Возвращает подсказки для строки `q`.
+
+```bash
+curl "http://localhost:8082/podcast/v1/search/suggest?q=Kafka"
 ```
 
-Ошибки: `400`, `401`, `404`, `422`.
+Коды: `200`, `400`.
 
-### DELETE `/podcasts/{podcastId}/vote`
+### `GET /search`
 
-Удаляет голос текущего пользователя.
+Возвращает результаты полнотекстового поиска.
 
-Ответ `200`: `VoteResponse` с `currentUserVote: null`. Ошибки: `401`, `404`.
+```bash
+curl "http://localhost:8082/podcast/v1/search?q=Kafka&type=ALL&sort=RELEVANCE&page=1&size=10"
+```
 
-Несоответствие: описание в `openapi-2.yaml` допускает `204`, если пользователь не голосовал, но текущий контроллер возвращает `200 OK`.
+Коды: `200`, `400`.
 
-## Playlists
+## Известные расхождения контракта и реализации
 
-### GET `/users/me/playlists`
-
-Список плейлистов текущего пользователя.
-
-| Query | Тип | По умолчанию |
+| Область | Контракт | Реализация |
 |---|---|---|
-| `page` | integer | `1` |
-| `size` | integer | `20` |
-
-Ответ `200`: `PageResponse<PlaylistCard>`. Ошибки: `400`, `401`.
-
-### GET `/playlists`
-
-Возвращает публичные плейлисты. Токен опционален.
-
-| Query | Тип | По умолчанию |
-|---|---|---|
-| `q` | string | нет |
-| `sort` | `DATE_DESC`, `DATE_ASC`, `RATING` | `DATE_DESC` |
-| `page` | integer | `1` |
-| `size` | integer | `20` |
-
-Ответ `200`: `PageResponse<PlaylistCard>`.
-
-### POST `/playlists`
-
-Создаёт плейлист текущего пользователя.
-
-```json
-{
-  "title": "Backend essentials",
-  "description": "Выпуски для спокойного погружения",
-  "coverImageUrl": "https://cdn.example.com/playlist.png",
-  "isPublic": true
-}
-```
-
-Ответ `201`: `PlaylistDetailResponse`. Ошибки: `400`, `401`, `404`.
-
-### GET `/playlists/{playlistId}`
-
-Возвращает детали плейлиста. Публичный плейлист доступен всем; приватный доступен владельцу.
-
-Ответ `200`:
-
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440400",
-  "title": "Backend essentials",
-  "coverImageUrl": null,
-  "owner": {
-    "id": "550e8400-e29b-41d4-a716-446655440001",
-    "username": "demo_user"
-  },
-  "isPublic": true,
-  "podcastsCount": 1,
-  "likesCount": 5,
-  "dislikesCount": 0,
-  "createdAt": "2026-05-20T10:00:00Z",
-  "currentUserVote": null,
-  "description": "Выпуски для спокойного погружения",
-  "updatedAt": "2026-05-20T10:00:00Z",
-  "podcasts": []
-}
-```
-
-Ошибки: `404`.
-
-### PUT `/playlists/{playlistId}`
-
-Обновляет плейлист владельца.
-
-```json
-{
-  "title": "Backend essentials 2026",
-  "description": null,
-  "coverImageUrl": null,
-  "isPublic": false
-}
-```
-
-Ответ `200`: `PlaylistDetailResponse`. Ошибки: `400`, `401`, `403`, `404`.
-
-### DELETE `/playlists/{playlistId}`
-
-Удаляет плейлист владельца.
-
-Ответ `204`, body отсутствует. Ошибки: `401`, `403`, `404`.
-
-### POST `/playlists/{playlistId}/podcasts`
-
-Добавляет опубликованный подкаст в плейлист владельца.
-
-```json
-{
-  "podcastId": "550e8400-e29b-41d4-a716-446655440300"
-}
-```
-
-Ответ `200`: `PlaylistDetailResponse`. Ошибки: `400`, `401`, `403`, `404`, `409`, `422`.
-
-### DELETE `/playlists/{playlistId}/podcasts/{podcastId}`
-
-Удаляет подкаст из плейлиста владельца.
-
-Ответ `204`, body отсутствует. Ошибки: `401`, `403`, `404`.
-
-### PUT `/playlists/{playlistId}/podcasts/reorder`
-
-Меняет порядок подкастов в плейлисте.
-
-```json
-{
-  "items": [
-    {
-      "podcastId": "550e8400-e29b-41d4-a716-446655440300",
-      "position": 1
-    }
-  ]
-}
-```
-
-Ответ `200`: `PlaylistDetailResponse`. Ошибки: `400`, `401`, `403`, `404`, `422`.
-
-### POST `/playlists/{playlistId}/vote`
-
-Ставит или меняет голос за плейлист.
-
-```json
-{
-  "voteType": "DISLIKE"
-}
-```
-
-Ответ `200`: `VoteResponse`. Ошибки: `400`, `401`, `404`.
-
-### DELETE `/playlists/{playlistId}/vote`
-
-Удаляет голос за плейлист.
-
-Ответ `200`: `VoteResponse` с `currentUserVote: null`. Ошибки: `401`, `404`.
-
-## Subscriptions
-
-### GET `/users/me/subscriptions`
-
-Список авторов, на которых подписан текущий пользователь.
-
-| Query | Тип | По умолчанию |
-|---|---|---|
-| `page` | integer | `1` |
-| `size` | integer | `20` |
-
-Ответ `200`: `PageResponse<SubscriptionResponse>`. Ошибки: `400`, `401`.
-
-### GET `/users/me/subscriptions/feed`
-
-Лента опубликованных подкастов авторов, на которых подписан текущий пользователь.
-
-| Query | Тип | По умолчанию |
-|---|---|---|
-| `sort` | `DATE_DESC`, `DATE_ASC`, `RATING`, `VIEWS` | `DATE_DESC` |
-| `page` | integer | `1` |
-| `size` | integer | `20` |
-
-Ответ `200`: `PageResponse<PodcastCard>`. Ошибки: `400`, `401`.
-
-### POST `/authors/{authorId}/subscribe`
-
-Подписывает текущего пользователя на автора.
-
-Ответ `200`:
-
-```json
-{
-  "authorId": "550e8400-e29b-41d4-a716-446655440100",
-  "subscribersCount": 43,
-  "isSubscribed": true
-}
-```
-
-Ошибки: `401`, `404`, `409`, `422`.
-
-### DELETE `/authors/{authorId}/subscribe`
-
-Отписывает текущего пользователя.
-
-Ответ `200`: `AuthorSubscriptionResponse` с `isSubscribed: false`. Ошибки: `401`, `404`.
-
-## Listen history
-
-### GET `/users/me/history`
-
-История прослушивания текущего пользователя.
-
-| Query | Тип | По умолчанию |
-|---|---|---|
-| `page` | integer | `1` |
-| `size` | integer | `20` |
-
-Ответ `200`:
-
-```json
-{
-  "items": [
-    {
-      "podcast": {
-        "id": "550e8400-e29b-41d4-a716-446655440300",
-        "title": "Spring Security без боли",
-        "author": null,
-        "category": null,
-        "coverImageUrl": null,
-        "durationSeconds": 1800,
-        "status": "PUBLISHED",
-        "viewsCount": 100,
-        "likesCount": 10,
-        "dislikesCount": 1,
-        "publishedAt": "2026-05-20T10:00:00Z",
-        "createdAt": "2026-05-20T09:00:00Z",
-        "currentUserVote": null,
-        "progressSeconds": 600,
-        "progressPercent": 33
-      },
-      "progressSeconds": 600,
-      "progressPercent": 33,
-      "completed": false,
-      "lastListenedAt": "2026-05-20T10:30:00Z"
-    }
-  ],
-  "meta": {
-    "page": 1,
-    "size": 20,
-    "totalElements": 1,
-    "totalPages": 1
-  }
-}
-```
-
-Ошибки: `400`, `401`.
-
-## Search
-
-### GET `/search/suggest`
-
-Возвращает autocomplete-подсказки.
-
-| Query | Тип | Обяз. | Валидация |
-|---|---|---:|---|
-| `q` | string | да | минимум 1 символ |
-
-Ответ `200`:
-
-```json
-[
-  {
-    "type": "PODCAST",
-    "id": "550e8400-e29b-41d4-a716-446655440300",
-    "label": "Spring Security без боли",
-    "coverUrl": null
-  }
-]
-```
-
-Ошибки: `400`.
-
-### GET `/search`
-
-Полнотекстовый поиск по подкастам, авторам и плейлистам. Токен опционален.
-
-| Query | Тип | По умолчанию |
-|---|---|---|
-| `q` | string, обязательно | нет |
-| `type` | `ALL`, `PODCAST`, `AUTHOR`, `PLAYLIST` | `ALL` |
-| `categoryId` | uuid | нет |
-| `sort` | `RELEVANCE`, `DATE`, `RATING`, `VIEWS` | `RELEVANCE` |
-| `page` | integer | `1` |
-| `size` | integer | `20` |
-
-Ответ `200`:
-
-```json
-{
-  "podcasts": {
-    "items": [],
-    "meta": {
-      "page": 1,
-      "size": 20,
-      "totalElements": 0,
-      "totalPages": 0
-    }
-  },
-  "authors": {
-    "items": [],
-    "meta": {
-      "page": 1,
-      "size": 20,
-      "totalElements": 0,
-      "totalPages": 0
-    }
-  },
-  "playlists": {
-    "items": [],
-    "meta": {
-      "page": 1,
-      "size": 20,
-      "totalElements": 0,
-      "totalPages": 0
-    }
-  }
-}
-```
-
-Ошибки: `400`.
+| `DELETE /podcasts/{podcastId}/vote` | допускается `204`, если голос отсутствовал | контроллер возвращает `200 OK` с `VoteResponse` |

@@ -1,8 +1,8 @@
-# Dev JWT scripts
+# Скрипты локальных JWT
 
-Скрипты выпускают локальные JWT для ручной проверки `podcast-core` в dev-окружении. Токены подписываются HS256 секретом из `ACCESS_TOKEN_SECRET`; при отсутствии переменной используется локальный dev secret `dev-access-token-secret-change-me`.
+Скрипты выпускают локальные JWT для ручной проверки `podcast-core` в dev-окружении. Токены подписываются HS256 secret из `PODCAST_ACCESS_TOKEN_SECRET`; при отсутствии переменной используется локальный dev secret `dev-access-token-secret-change-me`.
 
-## Dev пользователь
+## Dev-пользователь
 
 ```json
 {
@@ -38,13 +38,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\.dev-tools\jwt\generate-ad
 ./.dev-tools/jwt/generate-admin-token.sh
 ```
 
-## Authorization header
+## Header авторизации
 
 ```http
 Authorization: Bearer <token>
 ```
 
-## Payload
+## Полезная нагрузка токена
 
 ```json
 {

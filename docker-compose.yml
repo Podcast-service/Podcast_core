@@ -3,15 +3,15 @@ services:
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-podcast_db}
-      POSTGRES_USER: ${POSTGRES_USER:-podcast_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-podcast_pass}
+      POSTGRES_DB: ${PODCAST_DB:-podcast_db}
+      POSTGRES_USER: ${PODCAST_DB_USER:-podcast_user}
+      POSTGRES_PASSWORD: ${PODCAST_DB_PASSWORD:-podcast_pass}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${PODCAST_DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-podcast_user} -d ${POSTGRES_DB:-podcast_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${PODCAST_DB_USER:-podcast_user} -d ${PODCAST_DB:-podcast_db}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -21,20 +21,20 @@ services:
     hostname: kafka
     restart: unless-stopped
     ports:
-      - "${KAFKA_INTERNAL_PORT:-9092}:9092"
-      - "${KAFKA_EXTERNAL_PORT:-9094}:9094"
+      - "${PODCAST_KAFKA_INTERNAL_PORT:-9092}:9092"
+      - "${PODCAST_KAFKA_EXTERNAL_PORT:-9094}:9094"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
 
       KAFKA_LISTENERS: INTERNAL://:9092,EXTERNAL://:9094,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://${KAFKA_EXTERNAL_HOST:-host.docker.internal}:${KAFKA_EXTERNAL_PORT:-9094}
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://${PODCAST_KAFKA_EXTERNAL_HOST:-host.docker.internal}:${PODCAST_KAFKA_EXTERNAL_PORT:-9094}
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
 
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: ${KAFKA_AUTO_CREATE_TOPICS_ENABLE:-true}
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: ${PODCAST_KAFKA_AUTO_CREATE_TOPICS_ENABLE:-true}
 
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -47,7 +47,7 @@ services:
     depends_on:
       - kafka
     ports:
-      - "${KAFKA_UI_PORT:-8081}:8080"
+      - "${PODCAST_KAFKA_UI_PORT:-8081}:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
@@ -57,30 +57,31 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    command: ["--spring.profiles.active=${PODCAST_SPRING_PROFILES_ACTIVE:-docker,dev}"]
     depends_on:
       postgres:
         condition: service_healthy
       kafka:
         condition: service_started
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker,dev}
-      SERVER_PORT: ${SERVER_PORT:-8082}
-      SERVER_SERVLET_CONTEXT_PATH: ${SERVER_SERVLET_CONTEXT_PATH:-/podcast/v1}
-      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-podcast_db}
-      DB_USERNAME: ${POSTGRES_USER:-podcast_user}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-podcast_pass}
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
-      KAFKA_CONSUMER_GROUP: ${KAFKA_CONSUMER_GROUP:-podcast-service}
-      KAFKA_TOPIC_USERS: ${KAFKA_TOPIC_USERS:-podcasts.users}
-      KAFKA_TOPIC_PODCASTS: ${KAFKA_TOPIC_PODCASTS:-podcasts.podcasts}
-      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET:-dev-access-token-secret-change-me}
-      ACCESS_TOKEN_ISSUER: ${ACCESS_TOKEN_ISSUER:-auth-service}
-      AUTH_ENABLED: ${AUTH_ENABLED:-true}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8082}
-      DEV_SEED_ENABLED: ${DEV_SEED_ENABLED:-true}
-      SWAGGER_OPENAPI_URL: ${SWAGGER_OPENAPI_URL:-/podcast/v1/openapi/podcast-service-dev.yaml}
+      PODCAST_SERVER_PORT: ${PODCAST_SERVER_PORT:-8082}
+      PODCAST_SERVER_SERVLET_CONTEXT_PATH: ${PODCAST_SERVER_SERVLET_CONTEXT_PATH:-/podcast/v1}
+      PODCAST_DB_URL: jdbc:postgresql://postgres:5432/${PODCAST_DB:-podcast_db}
+      PODCAST_DB_USER: ${PODCAST_DB_USER:-podcast_user}
+      PODCAST_DB_PASSWORD: ${PODCAST_DB_PASSWORD:-podcast_pass}
+      PODCAST_KAFKA_BOOTSTRAP_SERVERS: ${PODCAST_KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      PODCAST_KAFKA_CONSUMER_GROUP: ${PODCAST_KAFKA_CONSUMER_GROUP:-podcast-service}
+      PODCAST_KAFKA_TOPIC_USERS: ${PODCAST_KAFKA_TOPIC_USERS:-podcasts.users}
+      PODCAST_KAFKA_TOPIC_PODCASTS: ${PODCAST_KAFKA_TOPIC_PODCASTS:-podcasts.podcasts}
+      PODCAST_ACCESS_TOKEN_SECRET: ${PODCAST_ACCESS_TOKEN_SECRET:-dev-access-token-secret-change-me}
+      PODCAST_ACCESS_TOKEN_ISSUER: ${PODCAST_ACCESS_TOKEN_ISSUER:-auth-service}
+      PODCAST_AUTH_ENABLED: ${PODCAST_AUTH_ENABLED:-true}
+      PODCAST_CORS_ALLOWED_ORIGINS: ${PODCAST_CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8082}
+      PODCAST_DEV_SEED_ENABLED: ${PODCAST_DEV_SEED_ENABLED:-true}
+      PODCAST_SWAGGER_ENABLED: ${PODCAST_SWAGGER_ENABLED:-true}
+      PODCAST_SWAGGER_OPENAPI_URL: ${PODCAST_SWAGGER_OPENAPI_URL:-/openapi/podcast-service-dev.yaml}
     ports:
-      - "${APP_PORT:-8082}:${SERVER_PORT:-8082}"
+      - "${PODCAST_APP_PORT:-8082}:${PODCAST_SERVER_PORT:-8082}"
 
 volumes:
   postgres_data:
