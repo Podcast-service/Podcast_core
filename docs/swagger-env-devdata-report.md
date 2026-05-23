@@ -14,7 +14,7 @@ Dev OpenAPI-документ доступен по адресу:
 http://localhost:8082/podcast/v1/openapi/podcast-service-dev.yaml
 ```
 
-Причина проблемы со Swagger была в рассинхронизации локальных путей после введения production-префикса API. Runtime routes находятся под `/podcast/v1`, а часть Swagger-настроек и документации ссылалась на root-level URL. Springdoc получает `PODCAST_SWAGGER_OPENAPI_URL=/podcast/v1/openapi/podcast-service-dev.yaml`, а обе OpenAPI-спецификации содержат local server URL `http://localhost:8082/podcast/v1`.
+Причина проблемы со Swagger была в рассинхронизации локальных путей после введения production-префикса API. Runtime routes находятся под `/podcast/v1`, а Swagger UI config получал URL уже с context path и формировал двойной путь `/podcast/v1/podcast/v1/openapi/podcast-service-dev.yaml`. Springdoc получает servlet-relative `PODCAST_SWAGGER_OPENAPI_URL=/openapi/podcast-service-dev.yaml`, а внешний OpenAPI URL остаётся `http://localhost:8082/podcast/v1/openapi/podcast-service-dev.yaml`.
 
 JWT bearer auth описан через OpenAPI security scheme `bearerAuth`. Swagger UI показывает Authorize dialog и отправляет header:
 

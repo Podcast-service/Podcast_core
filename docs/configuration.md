@@ -39,7 +39,7 @@ Docker Compose автоматически читает `.env` из корня п
 | `PODCAST_CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:5173,http://localhost:8082` | Разрешённые browser origins |
 | `PODCAST_DEV_SEED_ENABLED` | `true` в профиле `dev` | Включает dev seed |
 | `PODCAST_SWAGGER_ENABLED` | `true` в профиле `dev`, `false` по умолчанию | Включает SpringDoc OpenAPI/Swagger endpoints |
-| `PODCAST_SWAGGER_OPENAPI_URL` | `/podcast/v1/openapi/podcast-service-dev.yaml` | URL dev OpenAPI document для Swagger UI |
+| `PODCAST_SWAGGER_OPENAPI_URL` | `/openapi/podcast-service-dev.yaml` | Servlet-relative URL dev OpenAPI document для Swagger UI |
 
 ## Ключевые переменные для серверного окружения
 
@@ -161,10 +161,10 @@ springdoc:
   swagger-ui:
     enabled: ${PODCAST_SWAGGER_ENABLED:false}
     path: /swagger
-    url: ${PODCAST_SWAGGER_OPENAPI_URL:/podcast/v1/openapi/podcast-service-dev.yaml}
+    url: ${PODCAST_SWAGGER_OPENAPI_URL:/openapi/podcast-service-dev.yaml}
 ```
 
-Swagger использует dev-спецификацию из static resources, а не `openapi-2.yaml`.
+Swagger использует dev-спецификацию из static resources, а не `openapi-2.yaml`. Значение `PODCAST_SWAGGER_OPENAPI_URL` хранится без `/podcast/v1`, потому что Springdoc добавляет servlet context path при формировании Swagger UI config.
 
 ## Feature flags
 

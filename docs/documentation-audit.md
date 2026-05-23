@@ -60,7 +60,7 @@
 |---|---|---|
 | DELETE `/podcasts/{podcastId}/vote` | Описание допускает `204`, если голос отсутствовал | Контроллер возвращает `200 OK` с `VoteResponse` |
 | Sort enum name | `SortPodcast` | Java DTO называется `SortPodcasts`; значения совпадают |
-| Dev Swagger | Каноничный контракт находится в `openapi-2.yaml` | Swagger UI использует `/podcast/v1/openapi/podcast-service-dev.yaml` |
+| Dev Swagger | Каноничный контракт находится в `openapi-2.yaml` | Swagger UI использует servlet-relative `/openapi/podcast-service-dev.yaml`; внешний URL содержит `/podcast/v1` |
 | `CreateUserRequest` | Не описан как REST request | Используется как Kafka payload события `user.created` |
 | Kafka topic `podcasts` | Присутствует в config | Доменный код не публикует события в этот topic |
 

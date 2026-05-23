@@ -132,7 +132,8 @@ http://localhost:8082/podcast/v1/swagger
 - доступен `/openapi/podcast-service-dev.yaml`;
 - `PODCAST_SWAGGER_ENABLED=true` включён в local/dev окружении;
 - security config разрешает `/swagger`, `/swagger-ui/**`, `/v3/api-docs/**`, `/openapi/**`;
-- OpenAPI document доступен по `/podcast/v1/openapi/podcast-service-dev.yaml`.
+- OpenAPI document снаружи доступен по `/podcast/v1/openapi/podcast-service-dev.yaml`;
+- `PODCAST_SWAGGER_OPENAPI_URL` задаётся как `/openapi/podcast-service-dev.yaml`, без повторного `/podcast/v1`.
 
 ## Миграции БД
 

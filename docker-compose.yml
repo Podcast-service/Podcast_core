@@ -79,7 +79,7 @@ services:
       PODCAST_CORS_ALLOWED_ORIGINS: ${PODCAST_CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8082}
       PODCAST_DEV_SEED_ENABLED: ${PODCAST_DEV_SEED_ENABLED:-true}
       PODCAST_SWAGGER_ENABLED: ${PODCAST_SWAGGER_ENABLED:-true}
-      PODCAST_SWAGGER_OPENAPI_URL: ${PODCAST_SWAGGER_OPENAPI_URL:-/podcast/v1/openapi/podcast-service-dev.yaml}
+      PODCAST_SWAGGER_OPENAPI_URL: ${PODCAST_SWAGGER_OPENAPI_URL:-/openapi/podcast-service-dev.yaml}
     ports:
       - "${PODCAST_APP_PORT:-8082}:${PODCAST_SERVER_PORT:-8082}"
 
