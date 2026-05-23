@@ -1,10 +1,11 @@
 param(
-    [string]$UserId = "550e8400-e29b-41d4-a716-446655440000",
-    [string]$Email = "dev@example.com",
+    [string]$UserId = "00000000-0000-0000-0000-000000000001",
+    [string]$Email = "dev.user@example.local",
     [string[]]$Roles = @("user", "author"),
-    [int]$TtlMinutes = 60,
+    [int]$TtlMinutes = 10080,
     [string]$Issuer = "auth-service",
-    [string]$Secret = $env:ACCESS_TOKEN_SECRET,
+    [string]$Secret = $env:PODCAST_ACCESS_TOKEN_SECRET,
+    [string]$OutputPath = ".dev/dev-token.txt",
     [switch]$Raw
 )
 
@@ -61,11 +62,43 @@ if ($Raw) {
     exit 0
 }
 
+$resolvedOutputPath = $null
+if (-not [string]::IsNullOrWhiteSpace($OutputPath)) {
+    $parent = Split-Path -Parent $OutputPath
+    if (-not [string]::IsNullOrWhiteSpace($parent)) {
+        New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    }
+
+    $expiresAt = [DateTimeOffset]::FromUnixTimeSeconds(($payload | ConvertFrom-Json).exp).ToLocalTime()
+    @(
+        "Dev JWT for podcast-core"
+        ""
+        "GeneratedAt: $([DateTimeOffset]::Now.ToString("u"))"
+        "ExpiresAt:   $($expiresAt.ToString("u"))"
+        "UserId:      $UserId"
+        "Email:       $Email"
+        "Roles:       $($normalizedRoles -join ",")"
+        ""
+        "Swagger Authorize value:"
+        "Bearer $token"
+        ""
+        "Raw token:"
+        $token
+    ) | Set-Content -Path $OutputPath -Encoding UTF8
+
+    $resolvedOutputPath = (Resolve-Path $OutputPath).Path
+}
+
 Write-Output "Dev JWT:"
 Write-Output $token
 Write-Output ""
 Write-Output "Use in Swagger Authorize as:"
 Write-Output "Bearer $token"
 Write-Output ""
+if ($resolvedOutputPath) {
+    Write-Output "Saved to local git-ignored file:"
+    Write-Output $resolvedOutputPath
+    Write-Output ""
+}
 Write-Output "podcast-core must be started with the same secret:"
-Write-Output "`$env:ACCESS_TOKEN_SECRET = `"$Secret`""
+Write-Output "`$env:PODCAST_ACCESS_TOKEN_SECRET = `"$Secret`""

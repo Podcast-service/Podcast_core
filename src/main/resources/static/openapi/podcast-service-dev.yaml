@@ -16,7 +16,7 @@ info:
     - авторизованный пользователь — профиль, настройки, плейлисты и голосование.
 
 servers:
-  - url: http://localhost:8082
+  - url: http://localhost:8082/podcast/v1
     description: Local development
 
 security:
@@ -37,6 +37,12 @@ tags:
     description: Плейлисты и управление треклистом
   - name: Votes
     description: Голосование за подкасты и плейлисты
+  - name: Subscriptions
+    description: Подписки на авторов и лента подписок
+  - name: Listen History
+    description: История и прогресс прослушивания
+  - name: Search
+    description: Поиск и подсказки
 
 components:
   securitySchemes:
@@ -144,6 +150,16 @@ components:
       type: string
       enum: [DATE_DESC, DATE_ASC, RATING]
       default: DATE_DESC
+
+    SearchType:
+      type: string
+      enum: [ALL, PODCAST, AUTHOR, PLAYLIST]
+      default: ALL
+
+    SearchSort:
+      type: string
+      enum: [RELEVANCE, DATE, RATING, VIEWS]
+      default: RELEVANCE
 
     PageMeta:
       type: object
@@ -676,6 +692,83 @@ components:
           type: string
           format: date-time
 
+    SubscriptionResponse:
+      type: object
+      required: [author, subscribedAt]
+      properties:
+        author:
+          $ref: '#/components/schemas/AuthorCard'
+        subscribedAt:
+          type: string
+          format: date-time
+
+    AuthorSubscriptionResponse:
+      type: object
+      required: [authorId, subscribersCount, isSubscribed]
+      properties:
+        authorId:
+          type: string
+          format: uuid
+        subscribersCount:
+          type: integer
+          format: int64
+        isSubscribed:
+          type: boolean
+
+    SaveProgressRequest:
+      type: object
+      required: [progressSeconds]
+      properties:
+        progressSeconds:
+          type: integer
+          minimum: 0
+
+    ListenHistoryItem:
+      type: object
+      required: [podcast, progressSeconds, completed, lastListenedAt]
+      properties:
+        podcast:
+          $ref: '#/components/schemas/PodcastCard'
+        progressSeconds:
+          type: integer
+        progressPercent:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 100
+        completed:
+          type: boolean
+        lastListenedAt:
+          type: string
+          format: date-time
+
+    SearchSuggestItem:
+      type: object
+      required: [type, id, label]
+      properties:
+        type:
+          type: string
+          enum: [PODCAST, AUTHOR, PLAYLIST]
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+        coverUrl:
+          type: string
+          format: uri
+          nullable: true
+
+    SearchResponse:
+      type: object
+      properties:
+        podcasts:
+          $ref: '#/components/schemas/PageOfPodcastCard'
+        authors:
+          $ref: '#/components/schemas/PageOfAuthorCard'
+        playlists:
+          $ref: '#/components/schemas/PageOfPlaylistCard'
+
     PageOfPodcastCard:
       type: object
       required: [items, meta]
@@ -695,6 +788,39 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PlaylistCard'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    PageOfAuthorCard:
+      type: object
+      required: [items, meta]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorCard'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    PageOfSubscription:
+      type: object
+      required: [items, meta]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubscriptionResponse'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    PageOfListenHistory:
+      type: object
+      required: [items, meta]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListenHistoryItem'
         meta:
           $ref: '#/components/schemas/PageMeta'
 
@@ -831,6 +957,61 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PageOfPlaylistCard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /users/me/subscriptions:
+    get:
+      tags: [Subscriptions]
+      summary: Мои подписки на авторов
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Подписки текущего пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfSubscription'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /users/me/subscriptions/feed:
+    get:
+      tags: [Subscriptions]
+      summary: Лента подписок
+      parameters:
+        - name: sort
+          in: query
+          schema:
+            $ref: '#/components/schemas/SortPodcasts'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Подкасты авторов, на которых подписан пользователь
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfPodcastCard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /users/me/history:
+    get:
+      tags: [Listen History]
+      summary: История прослушивания
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: История прослушивания текущего пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfListenHistory'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -1192,6 +1373,28 @@ paths:
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
+  /podcasts/{podcastId}/progress:
+    post:
+      tags: [Listen History]
+      summary: Сохранить прогресс прослушивания
+      parameters:
+        - $ref: '#/components/parameters/PathPodcastId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveProgressRequest'
+      responses:
+        '204':
+          description: Прогресс сохранён
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /podcasts/{podcastId}/transcript:
     get:
       tags: [Podcast Media]
@@ -1525,3 +1728,104 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /authors/{authorId}/subscribe:
+    post:
+      tags: [Subscriptions]
+      summary: Подписаться на автора
+      parameters:
+        - $ref: '#/components/parameters/PathAuthorId'
+      responses:
+        '200':
+          description: Подписка оформлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorSubscriptionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    delete:
+      tags: [Subscriptions]
+      summary: Отписаться от автора
+      parameters:
+        - $ref: '#/components/parameters/PathAuthorId'
+      responses:
+        '200':
+          description: Подписка отменена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorSubscriptionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /search/suggest:
+    get:
+      tags: [Search]
+      summary: Подсказки поиска
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: До 5 подсказок
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 5
+                items:
+                  $ref: '#/components/schemas/SearchSuggestItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /search:
+    get:
+      tags: [Search]
+      summary: Полнотекстовый поиск
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/SearchType'
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: sort
+          in: query
+          schema:
+            $ref: '#/components/schemas/SearchSort'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Результаты поиска
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'

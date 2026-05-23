@@ -1,0 +1,9 @@
+app:
+  dev-seed:
+    enabled: ${PODCAST_DEV_SEED_ENABLED:true}
+
+springdoc:
+  api-docs:
+    enabled: ${PODCAST_SWAGGER_ENABLED:true}
+  swagger-ui:
+    enabled: ${PODCAST_SWAGGER_ENABLED:true}

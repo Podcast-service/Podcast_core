@@ -1,0 +1,407 @@
+# HTTP операции
+
+Общие правила:
+
+| Правило | Значение |
+|---|---|
+| Base path | `/podcast/v1` |
+| Авторизация | `Authorization: Bearer <access_token>` |
+| Публичные GET | доступны без токена |
+| Опциональный токен | публичная ручка использует токен для персонализации ответа |
+| Ошибки | формат `ApiErrorResponse` |
+
+## Сводная таблица
+
+| Метод | Путь | Доступ | Тело запроса | Ответ |
+|---|---|---|---|---|
+| `GET` | `/users/me/profile` | JWT | нет | `UserProfilePrivateResponse` |
+| `PUT` | `/users/me/profile` | JWT | `UpdateUserProfileRequest` | `UserProfilePrivateResponse` |
+| `GET` | `/users/me/settings` | JWT | нет | `UserSettingsResponse` |
+| `PUT` | `/users/me/settings` | JWT | `UpdateSettingsRequest` | `UserSettingsResponse` |
+| `GET` | `/users/me/playlists` | JWT | нет | `PageOfPlaylistCard` |
+| `GET` | `/users/me/subscriptions` | JWT | нет | `PageOfSubscription` |
+| `GET` | `/users/me/subscriptions/feed` | JWT | нет | `PageOfPodcastCard` |
+| `GET` | `/users/me/history` | JWT | нет | `PageOfListenHistory` |
+| `POST` | `/authors/me` | роль `author` | `CreateAuthorProfileRequest` | `AuthorProfileResponse` |
+| `GET` | `/authors/me` | роль `author` | нет | `AuthorProfileResponse` |
+| `PUT` | `/authors/me` | роль `author` | `UpdateAuthorProfileRequest` | `AuthorProfileResponse` |
+| `GET` | `/authors/{authorId}` | публичный, токен опционален | нет | `AuthorProfileResponse` |
+| `GET` | `/authors/{authorId}/podcasts` | публичный, токен опционален | нет | `PageOfPodcastCard` |
+| `GET` | `/authors/{authorId}/playlists` | публичный, токен опционален | нет | `PageOfPlaylistCard` |
+| `GET` | `/categories` | публичный | нет | массив `CategoryResponse` |
+| `POST` | `/categories` | роль `admin` | `CreateCategoryRequest` | `CategoryResponse` |
+| `PUT` | `/categories/{categoryId}` | роль `admin` | `UpdateCategoryRequest` | `CategoryResponse` |
+| `DELETE` | `/categories/{categoryId}` | роль `admin` | нет | `204` |
+| `GET` | `/podcasts` | публичный, токен опционален | нет | `PageOfPodcastCard` |
+| `POST` | `/podcasts` | роль `author` | `CreatePodcastRequest` | `PodcastDetailResponse` |
+| `GET` | `/podcasts/{podcastId}` | публичный, токен опционален | нет | `PodcastDetailResponse` |
+| `PUT` | `/podcasts/{podcastId}` | роль `author`, владелец | `UpdatePodcastRequest` | `PodcastDetailResponse` |
+| `DELETE` | `/podcasts/{podcastId}` | роль `author`, владелец | нет | `204` |
+| `POST` | `/podcasts/{podcastId}/publish` | роль `author`, владелец | нет | `PodcastDetailResponse` |
+| `POST` | `/podcasts/{podcastId}/progress` | JWT | `SaveProgressRequest` | `204` |
+| `GET` | `/podcasts/{podcastId}/transcript` | публичный | нет | `PodcastTranscriptResponse` |
+| `GET` | `/podcasts/{podcastId}/summary` | публичный | нет | `PodcastSummaryResponse` |
+| `POST` | `/podcasts/{podcastId}/vote` | JWT | `VoteRequest` | `VoteResponse` |
+| `DELETE` | `/podcasts/{podcastId}/vote` | JWT | нет | `VoteResponse` |
+| `GET` | `/playlists` | публичный, токен опционален | нет | `PageOfPlaylistCard` |
+| `POST` | `/playlists` | JWT | `CreatePlaylistRequest` | `PlaylistDetailResponse` |
+| `GET` | `/playlists/{playlistId}` | публичный или владелец | нет | `PlaylistDetailResponse` |
+| `PUT` | `/playlists/{playlistId}` | владелец | `UpdatePlaylistRequest` | `PlaylistDetailResponse` |
+| `DELETE` | `/playlists/{playlistId}` | владелец | нет | `204` |
+| `POST` | `/playlists/{playlistId}/podcasts` | владелец | `AddPodcastToPlaylistRequest` | `PlaylistDetailResponse` |
+| `DELETE` | `/playlists/{playlistId}/podcasts/{podcastId}` | владелец | нет | `204` |
+| `PUT` | `/playlists/{playlistId}/podcasts/reorder` | владелец | `ReorderPlaylistRequest` | `PlaylistDetailResponse` |
+| `POST` | `/playlists/{playlistId}/vote` | JWT | `VoteRequest` | `VoteResponse` |
+| `DELETE` | `/playlists/{playlistId}/vote` | JWT | нет | `VoteResponse` |
+| `POST` | `/authors/{authorId}/subscribe` | JWT | нет | `AuthorSubscriptionResponse` |
+| `DELETE` | `/authors/{authorId}/subscribe` | JWT | нет | `AuthorSubscriptionResponse` |
+| `GET` | `/search/suggest` | публичный | нет | массив `SearchSuggestItem` |
+| `GET` | `/search` | публичный, токен опционален | нет | `SearchResponse` |
+
+## Параметры списков
+
+| Endpoint | Query параметры |
+|---|---|
+| `GET /podcasts` | `q`, `categoryId`, `authorId`, `sort`, `page`, `size` |
+| `GET /authors/{authorId}/podcasts` | `q`, `sort`, `page`, `size` |
+| `GET /playlists` | `q`, `sort`, `page`, `size` |
+| `GET /users/me/playlists` | `page`, `size` |
+| `GET /authors/{authorId}/playlists` | `page`, `size` |
+| `GET /users/me/subscriptions` | `page`, `size` |
+| `GET /users/me/subscriptions/feed` | `sort`, `page`, `size` |
+| `GET /users/me/history` | `page`, `size` |
+| `GET /search` | `q`, `type`, `categoryId`, `sort`, `page`, `size` |
+| `GET /search/suggest` | `q` |
+
+## Пользовательские профили
+
+### `GET /users/me/profile`
+
+Возвращает приватный профиль текущего пользователя. Требуется JWT.
+
+```bash
+curl -H "Authorization: Bearer ${TOKEN}" \
+  http://localhost:8082/podcast/v1/users/me/profile
+```
+
+Коды: `200`, `401`, `404`.
+
+### `PUT /users/me/profile`
+
+Обновляет username и avatar URL текущего пользователя.
+
+```json
+{
+  "username": "dev-user-updated",
+  "avatarUrl": "https://cdn.example.local/users/dev.png"
+}
+```
+
+Коды: `200`, `400`, `401`, `404`, `409`.
+
+### `GET /users/me/settings`
+
+Возвращает настройки интерфейса: `theme`, `language`. Коды: `200`, `401`, `404`.
+
+### `PUT /users/me/settings`
+
+```json
+{
+  "theme": "LIGHT",
+  "language": "RU"
+}
+```
+
+Коды: `200`, `400`, `401`, `404`.
+
+## Авторы
+
+### `POST /authors/me`
+
+Создаёт авторский профиль для текущего пользователя. Требуется роль `author`.
+
+```json
+{
+  "authorName": "Backend Kitchen",
+  "description": "Практические выпуски о Java и сервисах"
+}
+```
+
+Коды: `201`, `400`, `401`, `403`, `404`, `409`.
+
+### `GET /authors/me`
+
+Возвращает авторский профиль текущего пользователя. Требуется роль `author`. Коды: `200`, `401`, `403`, `404`.
+
+### `PUT /authors/me`
+
+Обновляет авторский профиль текущего пользователя. Требуется роль `author`.
+
+```json
+{
+  "authorName": "Backend Kitchen Updated",
+  "description": "Новые выпуски каждую неделю"
+}
+```
+
+Коды: `200`, `400`, `401`, `403`, `404`, `409`.
+
+### `GET /authors/{authorId}`
+
+Публичная страница автора. При наличии JWT поле `isSubscribed` рассчитывается для текущего пользователя. Коды: `200`, `404`.
+
+### `GET /authors/{authorId}/podcasts`
+
+Публичный список подкастов автора с фильтрацией `q` и сортировкой. Коды: `200`, `400`, `404`.
+
+### `GET /authors/{authorId}/playlists`
+
+Публичные плейлисты автора. Коды: `200`, `400`, `404`.
+
+## Категории
+
+### `GET /categories`
+
+Возвращает категории по `position`.
+
+```bash
+curl http://localhost:8082/podcast/v1/categories
+```
+
+Коды: `200`.
+
+### `POST /categories`
+
+Создаёт категорию. Требуется роль `admin`.
+
+```json
+{
+  "name": "Security",
+  "position": 90
+}
+```
+
+Коды: `201`, `400`, `401`, `403`, `409`.
+
+### `PUT /categories/{categoryId}`
+
+Обновляет категорию. Требуется роль `admin`. Коды: `200`, `400`, `401`, `403`, `404`, `409`.
+
+### `DELETE /categories/{categoryId}`
+
+Удаляет категорию. Требуется роль `admin`. Если категория используется бизнес-правилами, возвращается `422` или `409` в зависимости от причины. Коды: `204`, `401`, `403`, `404`, `422`.
+
+## Подкасты и медиа
+
+### `GET /podcasts`
+
+Каталог опубликованных подкастов. JWT опционален.
+
+```bash
+curl "http://localhost:8082/podcast/v1/podcasts?q=Kafka&sort=DATE_DESC&page=1&size=20"
+```
+
+Коды: `200`, `400`.
+
+### `POST /podcasts`
+
+Создаёт черновик подкаста. Требуется роль `author` и существующий author profile.
+
+```json
+{
+  "title": "Kafka в production",
+  "description": "Разбор topic, consumer group и DLT",
+  "categoryId": "48b67732-5676-36bd-a97f-44d01de91376",
+  "coverImageUrl": "https://cdn.example.local/covers/kafka.png"
+}
+```
+
+Коды: `201`, `400`, `401`, `403`, `404`, `409`.
+
+### `GET /podcasts/{podcastId}`
+
+Возвращает детали выпуска. Неопубликованный выпуск доступен владельцу с JWT. Коды: `200`, `403`, `404`.
+
+### `PUT /podcasts/{podcastId}`
+
+Обновляет метаданные выпуска. Требуется роль `author` и владение выпуском. Коды: `200`, `400`, `401`, `403`, `404`, `422`.
+
+### `DELETE /podcasts/{podcastId}`
+
+Архивирует или удаляет выпуск согласно бизнес-правилам сервиса. Требуется роль `author` и владение. Коды: `204`, `401`, `403`, `404`.
+
+### `POST /podcasts/{podcastId}/publish`
+
+Переводит выпуск в публикационный flow. Требуется роль `author` и владение. Коды: `202`, `401`, `403`, `404`, `422`.
+
+### `GET /podcasts/{podcastId}/transcript`
+
+Возвращает транскрипт выпуска. Коды: `200`, `404`.
+
+### `GET /podcasts/{podcastId}/summary`
+
+Возвращает краткое содержание выпуска. Коды: `200`, `404`.
+
+### `POST /podcasts/{podcastId}/progress`
+
+Сохраняет прогресс прослушивания текущего пользователя.
+
+```json
+{
+  "progressSeconds": 640
+}
+```
+
+Коды: `204`, `400`, `401`, `404`, `422`.
+
+## Плейлисты
+
+### `GET /playlists`
+
+Возвращает публичные плейлисты. JWT опционален. Коды: `200`, `400`.
+
+### `POST /playlists`
+
+Создаёт плейлист текущего пользователя.
+
+```json
+{
+  "title": "Backend essentials",
+  "description": "Подборка выпусков для backend-разработчика",
+  "coverImageUrl": "https://cdn.example.local/playlists/backend.png",
+  "isPublic": true
+}
+```
+
+Коды: `201`, `400`, `401`, `404`.
+
+### `GET /playlists/{playlistId}`
+
+Публичный плейлист доступен всем. Приватный плейлист доступен владельцу. Коды: `200`, `403`, `404`.
+
+### `PUT /playlists/{playlistId}`
+
+Обновляет плейлист владельца. Коды: `200`, `400`, `401`, `403`, `404`.
+
+### `DELETE /playlists/{playlistId}`
+
+Удаляет плейлист владельца. Коды: `204`, `401`, `403`, `404`.
+
+### `POST /playlists/{playlistId}/podcasts`
+
+Добавляет опубликованный подкаст в плейлист владельца.
+
+```json
+{
+  "podcastId": "22222222-2222-2222-2222-222222222222"
+}
+```
+
+Коды: `200`, `400`, `401`, `403`, `404`, `409`, `422`.
+
+### `DELETE /playlists/{playlistId}/podcasts/{podcastId}`
+
+Удаляет выпуск из плейлиста владельца. Коды: `204`, `401`, `403`, `404`.
+
+### `PUT /playlists/{playlistId}/podcasts/reorder`
+
+Меняет порядок выпусков.
+
+```json
+{
+  "items": [
+    {
+      "podcastId": "22222222-2222-2222-2222-222222222222",
+      "position": 1
+    }
+  ]
+}
+```
+
+Коды: `200`, `400`, `401`, `403`, `404`, `422`.
+
+### `GET /users/me/playlists`
+
+Возвращает плейлисты текущего пользователя. Требуется JWT. Коды: `200`, `400`, `401`.
+
+### `GET /authors/{authorId}/playlists`
+
+Возвращает публичные плейлисты автора. Коды: `200`, `400`, `404`.
+
+## Голоса
+
+### `POST /podcasts/{podcastId}/vote`
+
+Создаёт или меняет голос за подкаст.
+
+```json
+{
+  "voteType": "LIKE"
+}
+```
+
+Коды: `200`, `400`, `401`, `404`, `422`.
+
+### `DELETE /podcasts/{podcastId}/vote`
+
+Удаляет голос за подкаст и возвращает актуальные счётчики. Коды: `200`, `401`, `404`.
+
+### `POST /playlists/{playlistId}/vote`
+
+Создаёт или меняет голос за плейлист. Коды: `200`, `400`, `401`, `404`.
+
+### `DELETE /playlists/{playlistId}/vote`
+
+Удаляет голос за плейлист и возвращает актуальные счётчики. Коды: `200`, `401`, `404`.
+
+## Подписки
+
+### `GET /users/me/subscriptions`
+
+Возвращает подписки текущего пользователя. Коды: `200`, `400`, `401`.
+
+### `GET /users/me/subscriptions/feed`
+
+Возвращает ленту опубликованных подкастов авторов, на которых подписан текущий пользователь. Коды: `200`, `400`, `401`.
+
+### `POST /authors/{authorId}/subscribe`
+
+Подписывает текущего пользователя на автора. Самоподписка блокируется на уровне БД trigger. Коды: `200`, `401`, `404`, `422`.
+
+### `DELETE /authors/{authorId}/subscribe`
+
+Отписывает текущего пользователя от автора. Коды: `200`, `401`, `404`.
+
+## История прослушивания
+
+### `GET /users/me/history`
+
+Возвращает историю прослушивания текущего пользователя. Коды: `200`, `400`, `401`.
+
+## Поиск
+
+### `GET /search/suggest`
+
+Возвращает подсказки для строки `q`.
+
+```bash
+curl "http://localhost:8082/podcast/v1/search/suggest?q=Kafka"
+```
+
+Коды: `200`, `400`.
+
+### `GET /search`
+
+Возвращает результаты полнотекстового поиска.
+
+```bash
+curl "http://localhost:8082/podcast/v1/search?q=Kafka&type=ALL&sort=RELEVANCE&page=1&size=10"
+```
+
+Коды: `200`, `400`.
+
+## Известные расхождения контракта и реализации
+
+| Область | Контракт | Реализация |
+|---|---|---|
+| `DELETE /podcasts/{podcastId}/vote` | допускается `204`, если голос отсутствовал | контроллер возвращает `200 OK` с `VoteResponse` |

@@ -1,103 +1,48 @@
-# Podcast-Core
+# Podcast Core
 
-## Сборка и запуск
-- `docker compose build`
-- `docker compose up`
+`Podcast Core` — микросервис доменной части подкаст-платформы. Он предоставляет REST API для подкастов, авторов, пользователей, категорий, плейлистов, голосов, подписок, истории прослушивания и поиска. Сервис хранит данные в PostgreSQL и принимает события пользователей из Kafka от сервиса аутентификации.
 
-## Swagger
-Расположение: http://localhost:8082/swagger
-
-## Авторизация в DEV
-В обычном сценарии токен приходит из `auth-service`: логинимся, берём `access_token`, открываем Swagger и вставляем токен в `Authorize` для схемы `bearerAuth`.
-
-Если нужно быстро проверить `podcast-core` отдельно от `auth-service`, можно выпустить локальный dev JWT через готовый скрипт.
-
-Главное правило: `podcast-core` и скрипт должны использовать один и тот же `ACCESS_TOKEN_SECRET`.
-
-При запуске через `docker compose up` dev-секрет уже прокидывается в контейнер по умолчанию: `dev-access-token-secret-change-me`. Если запускаешь сервис напрямую через Gradle или IDE, задай переменную окружения сам.
-
-### Windows PowerShell
-
-Задаём секрет в консоли, из которой запускается сервис:
+## Быстрый старт
 
 ```powershell
-$env:ACCESS_TOKEN_SECRET = "dev-access-token-secret-change-me"
+Copy-Item .env.example .env
+docker compose up -d --build
 ```
 
-Генерируем токен:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-dev-token.ps1
-```
-
-Для конкретного пользователя из локальной БД:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-dev-token.ps1 -UserId "<user_profiles.user_id>" -Roles user,author
-```
-
-Для админских ручек:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-dev-token.ps1 -UserId "<user_profiles.user_id>" -Roles user,author,admin
-```
-
-Если у тебя разрешён запуск локальных PowerShell-скриптов, можно короче: `.\scripts\generate-dev-token.ps1`.
-
-### Linux/macOS
-
-Задаём секрет в консоли, из которой запускается сервис:
+Проверка:
 
 ```bash
-export ACCESS_TOKEN_SECRET="dev-access-token-secret-change-me"
+curl http://localhost:8082/podcast/v1/actuator/health
+curl http://localhost:8082/podcast/v1/categories
 ```
 
-Генерируем токен:
+Swagger UI:
 
-```bash
-chmod +x ./scripts/generate-dev-token.sh
-./scripts/generate-dev-token.sh
+```text
+http://localhost:8082/podcast/v1/swagger
 ```
 
-Для конкретного пользователя из локальной БД:
+## Документация
 
-```bash
-./scripts/generate-dev-token.sh --user-id "<user_profiles.user_id>" --roles user,author
-```
+Главная точка входа: [docs/README.md](docs/README.md).
 
-Для админских ручек:
+| Раздел | Ссылка |
+|---|---|
+| Архитектура | [docs/architecture/overview.md](docs/architecture/overview.md) |
+| REST API | [docs/api/README.md](docs/api/README.md) |
+| Kafka | [docs/kafka/overview.md](docs/kafka/overview.md) |
+| Конфигурация | [docs/configuration/environments.md](docs/configuration/environments.md) |
+| Локальная разработка | [docs/development/local-setup.md](docs/development/local-setup.md) |
+| Эксплуатация | [docs/operations/deployment.md](docs/operations/deployment.md) |
+| Frontend/mobile | [docs/frontend/integration.md](docs/frontend/integration.md) |
+| QA | [docs/qa/testing-strategy.md](docs/qa/testing-strategy.md) |
 
-```bash
-./scripts/generate-dev-token.sh --user-id "<user_profiles.user_id>" --roles user,author,admin
-```
+## Основные переменные
 
-Скрипт печатает готовый JWT и строку `Bearer ...`. В Swagger открываем `Authorize`, выбираем `bearerAuth` и вставляем токен.
+Все проектные переменные окружения используют префикс `PODCAST_*`. Полный каталог: [docs/configuration/env-vars.md](docs/configuration/env-vars.md).
 
-Важно: `user_id` в токене должен существовать в таблице `user_profiles`, если ручка работает с профилем, плейлистами или авторским контентом. Роль `author` нужна для авторских операций, роль `admin` — для управления категориями. Это только локальный dev-инструмент, в проде токены выдаёт `auth-service`.
+Для production profile не используется `dev`, а `PODCAST_SWAGGER_ENABLED` и `PODCAST_DEV_SEED_ENABLED` отключаются, если Swagger и seed data не закрыты отдельным инфраструктурным контуром.
 
-## Профиль автора
-Профиль пользователя создаётся через Kafka-событие от `auth-service`, поэтому перед авторскими ручками в `podcast-core` уже должна быть запись в `user_profiles`.
+## Dev JWT
 
-Рабочий поток такой:
-
-1. Пользователь регистрируется или создаётся в `auth-service`.
-2. `auth-service` отправляет пользовательское событие, а `podcast-core` создаёт `user_profiles`.
-3. Пользователю выдаётся роль `author`, и новый access token уже содержит эту роль.
-4. Фронт вызывает `POST /authors/me` с Bearer token и создаёт запись в `author_profiles`.
-
-`avatarUrl` у автора берётся из профиля пользователя и меняется через `PUT /users/me/profile`. Сам профиль автора хранит `authorName`, `description` и счётчик подписчиков.
-
-## CORS
-В dev-режиме сервис по умолчанию принимает браузерные запросы только с:
-
-- `http://localhost:3000`
-- `http://localhost:5173`
-- `http://localhost:8082`
-
-Для другого фронтенда задай переменную:
-
-```bash
-CORS_ALLOWED_ORIGINS="https://frontend.example.com,https://admin.example.com"
-```
-
-Wildcard `*` намеренно не используется: API работает с Bearer-токенами, поэтому источники браузерных запросов должны быть явными.
+Локальные токены создаются скриптами из `.dev-tools/jwt/`. Подробности: [docs/development/jwt-dev-tools.md](docs/development/jwt-dev-tools.md).

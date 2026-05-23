@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-USER_ID="550e8400-e29b-41d4-a716-446655440000"
-EMAIL="dev@example.com"
+USER_ID="00000000-0000-0000-0000-000000000001"
+EMAIL="dev.user@example.local"
 ROLES="user,author"
-TTL_MINUTES="60"
+TTL_MINUTES="10080"
 ISSUER="auth-service"
-SECRET="${ACCESS_TOKEN_SECRET:-}"
+SECRET="${PODCAST_ACCESS_TOKEN_SECRET:-}"
 RAW="false"
+OUTPUT_PATH=".dev/dev-token.txt"
 
 usage() {
   cat <<'EOF'
@@ -15,16 +16,17 @@ Usage: ./scripts/generate-dev-token.sh [options]
 
 Options:
   --user-id UUID       JWT user_id claim. Must exist in user_profiles for most private endpoints.
-  --email EMAIL        JWT email claim. Default: dev@example.com
+  --email EMAIL        JWT email claim. Default: dev.user@example.local
   --roles LIST         Comma-separated roles. Default: user,author
-  --ttl MINUTES        Token lifetime in minutes. Default: 60
+  --ttl MINUTES        Token lifetime in minutes. Default: 10080
   --issuer ISSUER      JWT issuer. Default: auth-service
-  --secret SECRET      Signing secret. Defaults to ACCESS_TOKEN_SECRET env var.
+  --secret SECRET      Signing secret. Defaults to PODCAST_ACCESS_TOKEN_SECRET env var.
+  --output PATH        File for the generated token notes. Default: .dev/dev-token.txt
   --raw                Print only token.
   -h, --help           Show this help.
 
 Example:
-  ACCESS_TOKEN_SECRET=dev-access-token-secret-change-me ./scripts/generate-dev-token.sh --roles user,author,admin
+  PODCAST_ACCESS_TOKEN_SECRET=dev-access-token-secret-change-me ./scripts/generate-dev-token.sh --roles user,author,admin
 EOF
 }
 
@@ -52,6 +54,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --secret)
       SECRET="${2:?Missing value for --secret}"
+      shift 2
+      ;;
+    --output)
+      OUTPUT_PATH="${2:?Missing value for --output}"
       shift 2
       ;;
     --raw)
@@ -131,6 +137,25 @@ if [[ "$RAW" == "true" ]]; then
   exit 0
 fi
 
+if [[ -n "$OUTPUT_PATH" ]]; then
+  mkdir -p "$(dirname "$OUTPUT_PATH")"
+  {
+    echo "Dev JWT for podcast-core"
+    echo
+    echo "GeneratedAt: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+    echo "ExpiresAt:   $(date -u -d "@$exp" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || date -u -r "$exp" '+%Y-%m-%d %H:%M:%S UTC')"
+    echo "UserId:      $USER_ID"
+    echo "Email:       $EMAIL"
+    echo "Roles:       $ROLES"
+    echo
+    echo "Swagger Authorize value:"
+    echo "Bearer $token"
+    echo
+    echo "Raw token:"
+    echo "$token"
+  } > "$OUTPUT_PATH"
+fi
+
 cat <<EOF
 Dev JWT:
 $token
@@ -138,6 +163,9 @@ $token
 Use in Swagger Authorize as:
 Bearer $token
 
+Saved to local git-ignored file:
+${OUTPUT_PATH}
+
 podcast-core must be started with the same secret:
-export ACCESS_TOKEN_SECRET="$SECRET"
+export PODCAST_ACCESS_TOKEN_SECRET="$SECRET"
 EOF
