@@ -21,7 +21,7 @@
 Authorization: Bearer <access_token>
 ```
 
-JWT подписывается секретом из `ACCESS_TOKEN_SECRET`, содержит issuer из `ACCESS_TOKEN_ISSUER` и claim `user_id`. Для ролевых ручек используется claim `roles`.
+JWT подписывается секретом из `PODCAST_ACCESS_TOKEN_SECRET`, содержит issuer из `PODCAST_ACCESS_TOKEN_ISSUER` и claim `user_id`. Для ролевых ручек используется claim `roles`.
 
 | Тип доступа | Поведение |
 |---|---|

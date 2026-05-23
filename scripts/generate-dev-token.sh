@@ -6,7 +6,7 @@ EMAIL="dev.user@example.local"
 ROLES="user,author"
 TTL_MINUTES="10080"
 ISSUER="auth-service"
-SECRET="${ACCESS_TOKEN_SECRET:-}"
+SECRET="${PODCAST_ACCESS_TOKEN_SECRET:-}"
 RAW="false"
 OUTPUT_PATH=".dev/dev-token.txt"
 
@@ -20,13 +20,13 @@ Options:
   --roles LIST         Comma-separated roles. Default: user,author
   --ttl MINUTES        Token lifetime in minutes. Default: 10080
   --issuer ISSUER      JWT issuer. Default: auth-service
-  --secret SECRET      Signing secret. Defaults to ACCESS_TOKEN_SECRET env var.
+  --secret SECRET      Signing secret. Defaults to PODCAST_ACCESS_TOKEN_SECRET env var.
   --output PATH        File for the generated token notes. Default: .dev/dev-token.txt
   --raw                Print only token.
   -h, --help           Show this help.
 
 Example:
-  ACCESS_TOKEN_SECRET=dev-access-token-secret-change-me ./scripts/generate-dev-token.sh --roles user,author,admin
+  PODCAST_ACCESS_TOKEN_SECRET=dev-access-token-secret-change-me ./scripts/generate-dev-token.sh --roles user,author,admin
 EOF
 }
 
@@ -167,5 +167,5 @@ Saved to local git-ignored file:
 ${OUTPUT_PATH}
 
 podcast-core must be started with the same secret:
-export ACCESS_TOKEN_SECRET="$SECRET"
+export PODCAST_ACCESS_TOKEN_SECRET="$SECRET"
 EOF

@@ -93,11 +93,15 @@ Kafka UI используется для просмотра topic `podcasts.user
 
 ## Local DB tooling
 
-PostgreSQL публикуется на port из `.env` `POSTGRES_PORT`, default `5432`.
+PostgreSQL публикуется на port из `.env` `PODCAST_DB_PORT`, default `5432`.
 
 ```bash
 docker compose exec postgres psql -U podcast_user -d podcast_db
 ```
+
+## Dev seed data
+
+Spring profile `dev` активирует `DevDataSeeder`. Локальная БД получает наполненный dataset для frontend-разработки: пользователи, авторы, категории, подкасты в разных статусах, transcript/summary, плейлисты, подписки, голоса и история прослушивания. Default JWT scripts используют пользователя `dev-user`, который входит в этот dataset.
 
 ## Debugging
 

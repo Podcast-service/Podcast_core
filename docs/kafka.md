@@ -6,8 +6,8 @@ Kafka используется для синхронизации пользов�
 
 | Логическое имя | Переменная | Значение по умолчанию | Назначение |
 |---|---|---|---|
-| `users` | `KAFKA_TOPIC_USERS` | `podcasts.users` | События пользователей из `auth-service` |
-| `podcasts` | `KAFKA_TOPIC_PODCASTS` | `podcasts.podcasts` | Зарезервировано конфигом; текущий код не публикует доменные события подкастов |
+| `users` | `PODCAST_KAFKA_TOPIC_USERS` | `podcasts.users` | События пользователей из `auth-service` |
+| `podcasts` | `PODCAST_KAFKA_TOPIC_PODCASTS` | `podcasts.podcasts` | Зарезервировано конфигом; текущий код не публикует доменные события подкастов |
 
 DLT создаётся по правилу `<source-topic>.DLT`, например `podcasts.users.DLT`.
 
@@ -113,7 +113,7 @@ Producer:
 
 ## Интеграция с auth-service
 
-- `auth-service` публикует событие именно в `podcasts.users` или значение `KAFKA_TOPIC_USERS` синхронизировано в обоих сервисах.
+- `auth-service` публикует событие именно в `podcasts.users` или значение `PODCAST_KAFKA_TOPIC_USERS` синхронизировано в обоих сервисах.
 - `eventType` равен `user.created`.
 - `payload.userId` совпадает с JWT claim `user_id`, который потом приходит в `podcast-core`.
 - `payload.username` проходит ограничения БД и сервиса.

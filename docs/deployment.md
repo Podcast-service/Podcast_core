@@ -17,11 +17,11 @@ docker build -t podcast-core:local .
 
 ```bash
 docker run --rm -p 8082:8082 \
-  -e DB_URL="jdbc:postgresql://host.docker.internal:5432/podcast_db" \
-  -e DB_USERNAME="podcast_user" \
-  -e DB_PASSWORD="podcast_pass" \
-  -e KAFKA_BOOTSTRAP_SERVERS="host.docker.internal:9092" \
-  -e ACCESS_TOKEN_SECRET="change-me" \
+  -e PODCAST_DB_URL="jdbc:postgresql://host.docker.internal:5432/podcast_db" \
+  -e PODCAST_DB_USER="podcast_user" \
+  -e PODCAST_DB_PASSWORD="podcast_pass" \
+  -e PODCAST_KAFKA_BOOTSTRAP_SERVERS="host.docker.internal:9092" \
+  -e PODCAST_ACCESS_TOKEN_SECRET="change-me" \
   podcast-core:local
 ```
 
@@ -39,12 +39,13 @@ Compose включает `postgres`, `kafka`, `kafka-ui`, `app` и запуск�
 Для сервера отредактируй `.env` перед запуском. Минимально:
 
 ```env
-SPRING_PROFILES_ACTIVE=docker
-DEV_SEED_ENABLED=false
-ACCESS_TOKEN_SECRET=<strong-production-secret>
-POSTGRES_PASSWORD=<strong-db-password>
-CORS_ALLOWED_ORIGINS=https://frontend.example.com
-KAFKA_EXTERNAL_HOST=<server-domain-or-ip>
+PODCAST_SPRING_PROFILES_ACTIVE=docker
+PODCAST_DEV_SEED_ENABLED=false
+PODCAST_SWAGGER_ENABLED=false
+PODCAST_ACCESS_TOKEN_SECRET=<strong-production-secret>
+PODCAST_DB_PASSWORD=<strong-db-password>
+PODCAST_CORS_ALLOWED_ORIGINS=https://frontend.example.com
+PODCAST_KAFKA_EXTERNAL_HOST=<server-domain-or-ip>
 ```
 
 `.env.example` хранится в Git как шаблон. Реальный `.env` с секретами находится вне репозитория.
@@ -53,15 +54,16 @@ KAFKA_EXTERNAL_HOST=<server-domain-or-ip>
 
 | Настройка | Требование |
 |---|---|
-| `SPRING_PROFILES_ACTIVE` | Не включать `dev` |
-| `ACCESS_TOKEN_SECRET` | Брать из secret storage |
-| `ACCESS_TOKEN_ISSUER` | Совпадает с issuer `auth-service` |
-| `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | Production PostgreSQL |
-| `KAFKA_BOOTSTRAP_SERVERS` | Production Kafka |
-| `KAFKA_TOPIC_USERS` | Совпадает с topic в `auth-service` |
-| `CORS_ALLOWED_ORIGINS` | Только реальные frontend origins |
-| `DEV_SEED_ENABLED` | `false` или отсутствует без `dev` profile |
-| `SERVER_SERVLET_CONTEXT_PATH` | `/podcast/v1` |
+| `PODCAST_SPRING_PROFILES_ACTIVE` | Не включает `dev` |
+| `PODCAST_ACCESS_TOKEN_SECRET` | Secret storage |
+| `PODCAST_ACCESS_TOKEN_ISSUER` | Совпадает с issuer `auth-service` |
+| `PODCAST_DB_URL`, `PODCAST_DB_USER`, `PODCAST_DB_PASSWORD` | Production PostgreSQL |
+| `PODCAST_KAFKA_BOOTSTRAP_SERVERS` | Production Kafka |
+| `PODCAST_KAFKA_TOPIC_USERS` | Совпадает с topic в `auth-service` |
+| `PODCAST_CORS_ALLOWED_ORIGINS` | Только реальные frontend origins |
+| `PODCAST_DEV_SEED_ENABLED` | `false` или отсутствует без `dev` profile |
+| `PODCAST_SWAGGER_ENABLED` | `false`, если Swagger не закрыт отдельным контуром доступа |
+| `PODCAST_SERVER_SERVLET_CONTEXT_PATH` | `/podcast/v1` |
 | Actuator | Health exposed, metrics по решению DevOps |
 
 ## Миграции
@@ -106,7 +108,8 @@ GET /podcast/v1/actuator/health/readiness
 
 - `.dev/dev-token.txt`, secrets и production env files находятся вне Git.
 - Не использовать dev secret в production.
-- Не включать `AUTH_ENABLED=false` в production.
+- `PODCAST_AUTH_ENABLED=false` не используется в production.
+- `PODCAST_SWAGGER_ENABLED=false` используется для публичного production API, если Swagger UI не закрыт инфраструктурной авторизацией.
 - Не открывать CORS wildcard для browser clients.
 - Публичные GET endpoint'ы работают без side effects, кроме документированных счётчиков просмотров при наличии такой логики.
 - Доступность Swagger в production определяется политикой безопасности команды.

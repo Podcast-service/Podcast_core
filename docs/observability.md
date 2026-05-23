@@ -24,7 +24,7 @@
 ## Что не логировать
 
 - JWT access token.
-- `ACCESS_TOKEN_SECRET`.
+- `PODCAST_ACCESS_TOKEN_SECRET`.
 - Пароли БД.
 - Полные sensitive payloads.
 - PII сверх необходимого минимума.

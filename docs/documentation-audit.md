@@ -19,6 +19,7 @@
 | `docs/deployment.md` | Обновлён |
 | `docs/dev-tools.md` | Создан |
 | `.dev-tools/jwt/README.md` | Создан |
+| `docs/swagger-env-devdata-report.md` | Создан |
 
 ## Источники
 

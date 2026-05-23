@@ -16,8 +16,8 @@ Authorization: Bearer <access_token>
 |---|---|
 | Algorithm | `HS256` |
 | Signature | HMAC SHA-256 |
-| Secret | `ACCESS_TOKEN_SECRET` |
-| Issuer | `ACCESS_TOKEN_ISSUER`, default `auth-service` |
+| Secret | `PODCAST_ACCESS_TOKEN_SECRET` |
+| Issuer | `PODCAST_ACCESS_TOKEN_ISSUER`, default `auth-service` |
 | Audience | Не валидируется текущим кодом |
 | Expiration | Claim `exp`, Unix timestamp seconds |
 | Not before | Claim `nbf`, опционально |
@@ -54,7 +54,7 @@ JWT payload:
 | `user_id` | string UUID | Principal id, маппится в `AuthenticatedUser.userId()` |
 | `email` | string | Маппится в `AuthenticatedUser.email()` |
 | `roles` | array of string | Преобразуется в Spring authorities |
-| `iss` | string | Сравнивается с `ACCESS_TOKEN_ISSUER` |
+| `iss` | string | Сравнивается с `PODCAST_ACCESS_TOKEN_ISSUER` |
 | `exp` | integer | Срок действия токена |
 | `nbf` | integer | Начало действия токена, если claim присутствует |
 | `aud` | any | Не используется текущей реализацией |
@@ -133,4 +133,4 @@ TOKEN="$(./.dev-tools/jwt/generate-author-token.sh --raw)"
 curl -H "Authorization: Bearer ${TOKEN}" http://localhost:8082/podcast/v1/users/me/profile
 ```
 
-Generated token files сохраняются в `.dev/jwt/`, которая игнорируется Git.
+Generated token files сохраняются в `.dev/jwt/`, которая игнорируется Git. Секрет для подписи берётся из `PODCAST_ACCESS_TOKEN_SECRET`; default dev value совпадает с `.env.example`.

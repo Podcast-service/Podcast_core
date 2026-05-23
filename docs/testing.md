@@ -37,6 +37,10 @@ Linux/macOS:
 | `ListenHistoryServiceTest` | Прогресс и история |
 | `SearchServiceTest` | Поиск |
 
+## Dev seed data
+
+Dev profile поднимает реалистичный набор данных для ручных frontend/e2e сценариев: десятки пользователей, авторов, категорий и плейлистов, больше сотни подкастов, transcript/summary, votes, subscriptions и listen history. Данные создаются `DevDataSeeder` только в Spring profile `dev`.
+
 ## Что важно покрывать
 
 ### Security

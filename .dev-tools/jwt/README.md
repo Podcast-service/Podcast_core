@@ -1,6 +1,6 @@
 # Dev JWT scripts
 
-Скрипты выпускают локальные JWT для ручной проверки `podcast-core` в dev-окружении. Токены подписываются HS256 секретом из `ACCESS_TOKEN_SECRET`; при отсутствии переменной используется локальный dev secret `dev-access-token-secret-change-me`.
+Скрипты выпускают локальные JWT для ручной проверки `podcast-core` в dev-окружении. Токены подписываются HS256 секретом из `PODCAST_ACCESS_TOKEN_SECRET`; при отсутствии переменной используется локальный dev secret `dev-access-token-secret-change-me`.
 
 ## Dev пользователь
 

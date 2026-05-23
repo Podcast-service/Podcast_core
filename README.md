@@ -82,16 +82,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\.dev-tools\jwt\generate-ad
 
 | Переменная | Для чего |
 |---|---|
-| `SPRING_PROFILES_ACTIVE` | Для локальной разработки обычно `docker,dev`; на сервере чаще `docker` без `dev` |
-| `ACCESS_TOKEN_SECRET` | Секрет проверки JWT. В production брать только из secret storage |
-| `ACCESS_TOKEN_ISSUER` | Issuer токена от `auth-service` |
-| `CORS_ALLOWED_ORIGINS` | Разрешённые frontend origins через запятую |
-| `POSTGRES_PASSWORD` | Пароль PostgreSQL |
-| `KAFKA_TOPIC_USERS` | Топик, куда `auth-service` публикует `user.created` |
-| `KAFKA_EXTERNAL_HOST` | Host/IP для подключения к Kafka снаружи Docker-сети |
-| `DEV_SEED_ENABLED` | Включает тестовые данные в `dev` profile |
+| `PODCAST_SPRING_PROFILES_ACTIVE` | Для локальной разработки обычно `docker,dev`; на сервере чаще `docker` без `dev` |
+| `PODCAST_ACCESS_TOKEN_SECRET` | Секрет проверки JWT. В production брать только из secret storage |
+| `PODCAST_ACCESS_TOKEN_ISSUER` | Issuer токена от `auth-service` |
+| `PODCAST_CORS_ALLOWED_ORIGINS` | Разрешённые frontend origins через запятую |
+| `PODCAST_DB_PASSWORD` | Пароль PostgreSQL |
+| `PODCAST_KAFKA_TOPIC_USERS` | Топик, куда `auth-service` публикует `user.created` |
+| `PODCAST_KAFKA_EXTERNAL_HOST` | Host/IP для подключения к Kafka снаружи Docker-сети |
+| `PODCAST_DEV_SEED_ENABLED` | Включает тестовые данные в `dev` profile |
+| `PODCAST_SWAGGER_ENABLED` | Включает Swagger UI/OpenAPI endpoints для local/dev |
 
-Для серверного окружения используются production-секреты и пароли в `.env`, профиль `docker` без `dev`, production origins в `CORS_ALLOWED_ORIGINS` и внешний адрес Kafka в `KAFKA_EXTERNAL_HOST`.
+Для серверного окружения используются production-секреты и пароли в `.env`, профиль `docker` без `dev`, production origins в `PODCAST_CORS_ALLOWED_ORIGINS`, внешний адрес Kafka в `PODCAST_KAFKA_EXTERNAL_HOST` и `PODCAST_SWAGGER_ENABLED=false`, если Swagger не публикуется наружу.
 
 Подробно все переменные описаны в [docs/configuration.md](docs/configuration.md).
 

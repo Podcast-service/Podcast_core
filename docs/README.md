@@ -53,6 +53,7 @@ curl http://localhost:8082/podcast/v1/categories
 | [deployment.md](deployment.md) | DevOps, Backend | Docker, окружения, rollout, production checklist |
 | [dev-tools.md](dev-tools.md) | Backend, QA | Dev JWT scripts и локальные утилиты |
 | [documentation-audit.md](documentation-audit.md) | Команда | Источники, расхождения и факты, требующие уточнения |
+| [swagger-env-devdata-report.md](swagger-env-devdata-report.md) | Backend, DevOps, QA | Swagger, `PODCAST_*` env и dev seed report |
 
 ## Основные сценарии
 

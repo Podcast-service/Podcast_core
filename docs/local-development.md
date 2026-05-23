@@ -36,7 +36,7 @@ docker compose up --build
 | `kafka-ui` | `8081` | UI для Kafka |
 | `app` | `8082` | `podcast-core` |
 
-Порты можно поменять в `.env`: `APP_PORT`, `POSTGRES_PORT`, `KAFKA_UI_PORT`, `KAFKA_INTERNAL_PORT`, `KAFKA_EXTERNAL_PORT`.
+Порты меняются в `.env`: `PODCAST_APP_PORT`, `PODCAST_DB_PORT`, `PODCAST_KAFKA_UI_PORT`, `PODCAST_KAFKA_INTERNAL_PORT`, `PODCAST_KAFKA_EXTERNAL_PORT`.
 
 Реальный `.env` игнорируется Git. В репозитории хранится только безопасный шаблон `.env.example`.
 
@@ -54,17 +54,15 @@ curl http://localhost:8082/podcast/v1/categories
 Windows PowerShell:
 
 ```powershell
-$env:ACCESS_TOKEN_SECRET = "dev-access-token-secret-change-me"
-$env:SPRING_PROFILES_ACTIVE = "dev"
-.\gradlew.bat bootRun
+$env:PODCAST_ACCESS_TOKEN_SECRET = "dev-access-token-secret-change-me"
+.\gradlew.bat bootRun --args="--spring.profiles.active=dev"
 ```
 
 Linux/macOS:
 
 ```bash
-export ACCESS_TOKEN_SECRET="dev-access-token-secret-change-me"
-export SPRING_PROFILES_ACTIVE=dev
-./gradlew bootRun
+export PODCAST_ACCESS_TOKEN_SECRET="dev-access-token-secret-change-me"
+./gradlew bootRun --args='--spring.profiles.active=dev'
 ```
 
 ## Dev seed
@@ -75,16 +73,19 @@ export SPRING_PROFILES_ACTIVE=dev
 - авторов;
 - категории;
 - опубликованные подкасты;
+- черновики, processing, failed и archived подкасты;
 - transcript/summary;
 - плейлисты;
 - подписки;
 - голоса;
 - историю прослушивания.
 
+Dev seed создаёт порядка 36 пользователей, 14 авторов, 12 категорий, 126 подкастов, 72 плейлиста и сотни связей для голосов, подписок, истории и содержимого плейлистов. Данные включают кириллицу, латиницу, разные даты, пустые optional fields и длинные тексты для проверки frontend-состояний.
+
 Сидер идемпотентный и нужен только для разработки. Отключение:
 
 ```bash
-DEV_SEED_ENABLED=false
+PODCAST_DEV_SEED_ENABLED=false
 ```
 
 ## Dev token
@@ -129,6 +130,7 @@ http://localhost:8082/podcast/v1/swagger
 
 - приложение запущено на `8082`;
 - доступен `/openapi/podcast-service-dev.yaml`;
+- `PODCAST_SWAGGER_ENABLED=true` включён в local/dev окружении;
 - security config разрешает `/swagger`, `/swagger-ui/**`, `/v3/api-docs/**`, `/openapi/**`;
 - OpenAPI document доступен по `/podcast/v1/openapi/podcast-service-dev.yaml`.
 
@@ -159,7 +161,7 @@ http://localhost:8081
 
 | Симптом | Возможная причина | Действие |
 |---|---|---|
-| `401` в Swagger | Не вставлен Bearer token или secret не совпадает | Генерация нового token с текущим `ACCESS_TOKEN_SECRET` |
+| `401` в Swagger | Не вставлен Bearer token или secret не совпадает | Генерация нового token с текущим `PODCAST_ACCESS_TOKEN_SECRET` |
 | `403` на author/admin ручке | В token нет роли | Сгенерировать token с `author` или `admin` |
 | `404` на `/users/me/*` | `user_id` из token отсутствует в `user_profiles` | Использовать dev user id или дождаться Kafka-события от `auth-service` |
 | Swagger не открывается | Неверный URL или приложение не запущено | URL Swagger: `http://localhost:8082/podcast/v1/swagger` |
