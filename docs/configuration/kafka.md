@@ -4,11 +4,15 @@
 |---|---|
 | Bootstrap servers | `PODCAST_KAFKA_BOOTSTRAP_SERVERS` |
 | Consumer group | `PODCAST_KAFKA_CONSUMER_GROUP` |
-| Users topic | `PODCAST_KAFKA_TOPIC_USERS` |
-| Deserializer | `ErrorHandlingDeserializer` + `JsonDeserializer` |
-| Default value type | `EventEnvelope` |
-| Trusted packages | `podcastService.infrastructure.messaging.event,podcastService.user.dto` |
-| Producer value serializer | `JsonSerializer` |
+| User registration topic | `PODCAST_KAFKA_TOPIC_USER_REGISTER` |
+| Media topic | `PODCAST_KAFKA_TOPIC_MEDIA` |
+| Consumer auto commit | disabled |
+| Listener ack mode | `record` |
+| Deserializer | `ErrorHandlingDeserializer` + `StringDeserializer` |
+| Producer value serializer | `StringSerializer` |
+| Retry backoff | `PODCAST_KAFKA_RETRY_BACKOFF_MS` |
+| Retry attempts | `PODCAST_KAFKA_RETRY_MAX_ATTEMPTS` |
+| DLT suffix | `PODCAST_KAFKA_DLT_SUFFIX` |
 
 Kafka UI для local/dev:
 

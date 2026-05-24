@@ -49,7 +49,7 @@ Enums: `Theme` = `DARK`, `LIGHT`; `Language` = `RU`, `EN`.
 | `PodcastTranscriptResponse` | `podcastId`, `language`, `content`, `generatedAt` |
 | `PodcastSummaryResponse` | `podcastId`, `language`, `content`, `generatedAt` |
 
-`PodcastStatus`: `DRAFT`, `PROCESSING`, `PUBLISHED`, `FAILED`, `ARCHIVED`.
+`PodcastStatus`: `DRAFT`, `PROCESSING`, `READY_TO_PUBLISH`, `PUBLISHED`, `FAILED`, `UPLOAD_ERROR`, `ARCHIVED`.
 
 ### Поля подкаста
 

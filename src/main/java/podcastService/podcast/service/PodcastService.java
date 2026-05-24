@@ -295,6 +295,10 @@ public class PodcastService {
             throw new BusinessRuleException("Cannot publish an archived podcast");
         }
 
+        if (podcast.getStatus() == Status.UPLOAD_ERROR) {
+            throw new BusinessRuleException("Cannot publish a podcast with upload error");
+        }
+
         if (isBlank(podcast.getAudioUrl())) {
             throw new BusinessRuleException("Cannot publish a podcast without uploaded audio");
         }

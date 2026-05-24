@@ -1,8 +1,8 @@
 # Поток Kafka-сообщений
 
-## Входящий поток пользователя
+## Регистрация пользователя
 
-`auth-service` публикует событие `user.created` в topic `podcasts.users`. Микросервис подкастов читает событие consumer group `podcast-service`, валидирует envelope и создаёт локальный `user_profiles`.
+`auth-service` публикует raw JSON в topic `podcast.user.register`. Микросервис подкастов создаёт или обновляет локальный `user_profiles`.
 
 ```mermaid
 sequenceDiagram
@@ -10,35 +10,37 @@ sequenceDiagram
     participant Kafka as Kafka
     participant Core as podcast-core
     participant DB as PostgreSQL
-    Auth->>Kafka: user.created
-    Kafka->>Core: EventEnvelope
-    Core->>Core: проверка eventType, occurredAt, payload
-    Core->>DB: insert user_profiles
+    Auth->>Kafka: podcast.user.register
+    Kafka->>Core: raw JSON
+    Core->>Core: parse + validate user_id, username
+    Core->>DB: upsert user_profiles by user_id
 ```
 
-## Формат envelope
+## Media flow
 
-```json
-{
-  "eventType": "user.created",
-  "occurredAt": "2026-05-23T10:00:00Z",
-  "payload": {
-    "userId": "00000000-0000-0000-0000-000000000001",
-    "username": "dev-user"
-  }
-}
+Topic `media` передаёт только метаданные загрузки. Файлы через Kafka не передаются.
+
+```mermaid
+sequenceDiagram
+    participant Media as media-service
+    participant Kafka as Kafka
+    participant Core as podcast-core
+    participant DB as PostgreSQL
+    Media->>Kafka: media event
+    Kafka->>Core: raw JSON
+    Core->>Core: parse + validate base fields
+    Core->>Core: route by type/event
+    Core->>DB: update target entity
 ```
+
+## Состояния `podcast_file`
+
+| Событие | Поведение |
+|---|---|
+| `start_upload` | `DRAFT`, `FAILED`, `UPLOAD_ERROR` переходят в `PROCESSING`; `READY_TO_PUBLISH`, `PUBLISHED`, `ARCHIVED` не откатываются |
+| `uploaded` | сохраняются `audio_url`, `audio_url_file`, `audio_size_file`; статус становится `READY_TO_PUBLISH`, кроме `PUBLISHED` и `ARCHIVED` |
+| `error` | статус становится `UPLOAD_ERROR`, кроме `READY_TO_PUBLISH`, `PUBLISHED`, `ARCHIVED` |
 
 ## Повторные попытки и DLT
 
-Kafka error handler выполняет до трёх повторных попыток с задержкой 1000 мс для ретрайных ошибок. Неретрайные ошибки сразу отправляются в DLT.
-
-| Ошибка | Поведение |
-|---|---|
-| `InvalidKafkaMessageException` | без retry, отправка в DLT |
-| `KafkaDeserializationException` | без retry, отправка в DLT |
-| `KafkaMessageValidationException` | без retry, отправка в DLT |
-| `IllegalArgumentException` | без retry, отправка в DLT |
-| прочие runtime ошибки | retry, затем DLT |
-
-DLT topic формируется как `<исходный topic>.DLT`, например `podcasts.users.DLT`.
+Kafka error handler выполняет retry для `KafkaRetryableProcessingException` и прочих runtime ошибок. Невалидные сообщения и неизвестные `type/event` отправляются в DLT без повторов.

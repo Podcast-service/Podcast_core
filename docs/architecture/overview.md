@@ -26,7 +26,7 @@
 | Доступ к данным | `*.repository`, `*.specifications` | JPA repository, динамические фильтры, полнотекстовые запросы |
 | Маппинг | `*.mapper` | преобразование entity в DTO |
 | Безопасность | `infrastructure.security` | JWT validation, роли, security handlers, CORS |
-| Kafka | `infrastructure.messaging`, `user.messaging` | события пользователей, обработка ошибок, DLT |
+| Kafka | `infrastructure.messaging`, `user.messaging`, `media.messaging` | входящие события пользователей и медиа, обработка ошибок, DLT |
 | Ошибки | `common.exception` | единый формат ошибок и централизованная обработка |
 
 ## Технологии
@@ -43,16 +43,18 @@
 
 ## Границы ответственности
 
-Сервис не выполняет регистрацию, логин, выпуск refresh token и хранение паролей. Эти функции находятся в сервисе аутентификации. Микросервис подкастов принимает JWT access token и события `user.created`, чтобы связать внешнего пользователя с локальным профилем.
+Сервис не выполняет регистрацию, логин, выпуск refresh token и хранение паролей. Эти функции находятся в сервисе аутентификации. Микросервис подкастов принимает JWT access token и событие `podcast.user.register`, чтобы связать внешнего пользователя с локальным профилем.
 
 ## Хранилища и интеграции
 
 | Интеграция | Направление | Назначение |
 |---|---|---|
 | PostgreSQL | чтение/запись | доменные таблицы и индексы поиска |
-| Kafka topic `podcasts.users` | входящий поток | создание локального user profile |
-| Kafka topic `podcasts.users.DLT` | исходящая запись от error handler | сообщения, не обработанные основным consumer |
-| `auth-service` | логическая зависимость | issuer JWT и producer события `user.created` |
+| Kafka topic `podcast.user.register` | входящий поток | создание и обновление локального user profile |
+| Kafka topic `media` | входящий поток | обновление метаданных загрузки файлов, обложек и аватаров |
+| Kafka topics `*.DLT` | исходящая запись от error handler | сообщения, не обработанные основными consumer |
+| `auth-service` | логическая зависимость | issuer JWT и producer события `podcast.user.register` |
+| media-service | логическая зависимость | producer topic `media` |
 
 ## Принципы обработки ошибок
 
@@ -65,6 +67,6 @@ HTTP ошибки возвращаются в формате `ApiErrorResponse`.
 | Ресурс | Ограничение |
 |---|---|
 | PostgreSQL | индексы поиска, количество соединений Hikari, стоимость count-запросов |
-| Kafka | количество partition в `podcasts.users`, consumer group rebalance |
+| Kafka | количество partition в `podcast.user.register` и `media`, consumer group rebalance |
 | Search | полнотекстовые индексы `tsvector` и trigram indexes |
 | HTTP | размер страниц, сортировки, public endpoints с высокой нагрузкой |

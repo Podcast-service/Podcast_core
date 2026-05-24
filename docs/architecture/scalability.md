@@ -17,7 +17,7 @@
 
 ## Kafka
 
-Масштабирование consumer зависит от количества partition topic `podcasts.users`. Один partition обрабатывается только одним экземпляром consumer group.
+Масштабирование consumer зависит от количества partitions в topics `podcast.user.register` и `media`. Один partition обрабатывается только одним экземпляром внутри consumer group.
 
 ## Ограничения текущей реализации
 

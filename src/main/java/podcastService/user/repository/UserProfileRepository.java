@@ -18,8 +18,26 @@ public interface UserProfileRepository extends JpaRepository<UserProfileEntity, 
             value = """
                     insert into user_profiles (user_id, username)
                     values (:userId, :username)
+                    on conflict (user_id) do update
+                       set username = excluded.username
+                     where user_profiles.username is distinct from excluded.username
                     """,
             nativeQuery = true
     )
-    void insertUserProfile(@Param("userId") UUID userId, @Param("username") String username);
+    void upsertUserProfile(@Param("userId") UUID userId, @Param("username") String username);
+
+    @Modifying
+    @Query(
+            value = """
+                    update user_profiles
+                       set avatar_url = :avatarUrl
+                     where id = :objectId
+                        or user_id = :objectId
+                    """,
+            nativeQuery = true
+    )
+    int updateAvatarByProfileIdOrUserId(
+            @Param("objectId") UUID objectId,
+            @Param("avatarUrl") String avatarUrl
+    );
 }

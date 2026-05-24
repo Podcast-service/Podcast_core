@@ -39,7 +39,7 @@
 |---|---|
 | `title` | непустая строка |
 | `duration_seconds` | `NULL` или значение `>= 0` |
-| `status` | `DRAFT`, `PROCESSING`, `PUBLISHED`, `FAILED`, `ARCHIVED` |
+| `status` | `DRAFT`, `PROCESSING`, `READY_TO_PUBLISH`, `PUBLISHED`, `FAILED`, `UPLOAD_ERROR`, `ARCHIVED` |
 | `views_count`, `likes_count`, `dislikes_count` | значения `>= 0` |
 | `audio_url_file` | `NULL` или непустая строка |
 | `audio_size_file` | `NULL` или значение `>= 0` |
@@ -54,7 +54,9 @@
 | Статус | Значение |
 |---|---|
 | `DRAFT` | черновик |
-| `PROCESSING` | публикационный процесс или обработка медиа |
+| `PROCESSING` | загрузка аудиофайла или публикационный процесс |
+| `READY_TO_PUBLISH` | аудиофайл загружен, выпуск готов к публикационному flow |
 | `PUBLISHED` | доступен публично |
 | `FAILED` | ошибка обработки |
+| `UPLOAD_ERROR` | ошибка загрузки аудиофайла |
 | `ARCHIVED` | архивирован |
