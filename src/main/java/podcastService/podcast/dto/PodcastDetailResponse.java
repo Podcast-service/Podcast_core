@@ -1,5 +1,6 @@
 package podcastService.podcast.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import podcastService.author.dto.AuthorCard;
 import podcastService.category.dto.CategoryResponse;
 import podcastService.podcast.entity.Status;
@@ -15,6 +16,8 @@ public record PodcastDetailResponse(
         CategoryResponse category,
         String coverImageUrl,
         Long durationSeconds,
+        @JsonProperty("num_speakers")
+        Integer numSpeakers,
         Status status,
         Long viewsCount,
         Long likesCount,
@@ -26,6 +29,10 @@ public record PodcastDetailResponse(
         Integer progressPercent,
         String description,
         String audioUrl,
+        @JsonProperty("audio_url_file")
+        String audioUrlFile,
+        @JsonProperty("audio_size_file")
+        Long audioSizeFile,
         Boolean hasTranscript,
         Boolean hasSummary
 ) {

@@ -20,6 +20,7 @@ import podcastService.podcast.dto.CreatePodcastRequest;
 import podcastService.podcast.dto.PodcastCard;
 import podcastService.podcast.dto.PodcastDetailResponse;
 import podcastService.podcast.dto.PodcastFilter;
+import podcastService.podcast.dto.PodcastSpeakersResponse;
 import podcastService.podcast.dto.SortPodcasts;
 import podcastService.podcast.dto.UpdatePodcastRequest;
 import podcastService.podcast.entity.PodcastEntity;
@@ -144,6 +145,7 @@ public class PodcastService {
         entity.setTitle(normalizeRequiredText(request.title(), "title"));
         entity.setDescription(normalizeNullableText(request.description()));
         entity.setCoverImageUrl(normalizeNullableText(request.coverImageUrl()));
+        entity.setNumSpeakers(validateNumSpeakers(request.numSpeakers()));
         entity.setStatus(Status.DRAFT);
 
         PodcastEntity saved = podcastRepository.saveAndFlush(entity);
@@ -168,35 +170,23 @@ public class PodcastService {
 
     @Transactional(readOnly = true)
     public PodcastDetailResponse getById(UUID podcastId, UUID currentUserId) {
-        PodcastEntity podcast = podcastRepository.findDetailedById(podcastId)
-                .orElseThrow(() -> new NotFoundException("Podcast not found"));
-
-        UUID currentAuthorId = resolveAuthorIdByUserId(currentUserId);
-        UUID currentUserProfileId = resolveUserProfileId(currentUserId);
-
-        boolean visible = podcast.getStatus() == Status.PUBLISHED
-                || (currentAuthorId != null && currentAuthorId.equals(podcast.getAuthor().getId()));
-
-        if (!visible) {
-            log.warn(
-                    "Access denied to podcast details: podcastId={}, status={}, currentUserId={}, currentAuthorId={}, ownerAuthorId={}",
-                    podcastId,
-                    podcast.getStatus(),
-                    currentUserId,
-                    currentAuthorId,
-                    podcast.getAuthor().getId()
-            );
-            throw new NotFoundException("Podcast not found");
-        }
+        VisiblePodcast visiblePodcast = findVisiblePodcast(podcastId, currentUserId, "details");
+        PodcastEntity podcast = visiblePodcast.podcast();
 
         return podcastMapper.toDetail(
                 podcast,
-                currentAuthorId,
-                resolveSubscribedAuthorIds(Set.of(podcast.getAuthor().getId()), currentUserProfileId),
-                resolveCurrentUserVote(podcast.getId(), currentUserProfileId),
+                visiblePodcast.currentAuthorId(),
+                resolveSubscribedAuthorIds(Set.of(podcast.getAuthor().getId()), visiblePodcast.currentUserProfileId()),
+                resolveCurrentUserVote(podcast.getId(), visiblePodcast.currentUserProfileId()),
                 hasTranscript(podcast.getId()),
                 hasSummary(podcast.getId())
         );
+    }
+
+    @Transactional(readOnly = true)
+    public PodcastSpeakersResponse getSpeakersById(UUID podcastId, UUID currentUserId) {
+        PodcastEntity podcast = findVisiblePodcast(podcastId, currentUserId, "speakers").podcast();
+        return new PodcastSpeakersResponse(podcast.getId(), podcast.getNumSpeakers());
     }
 
     @Transactional
@@ -469,7 +459,50 @@ public class PodcastService {
         return normalized.isEmpty() ? null : normalized;
     }
 
+    private int validateNumSpeakers(Integer value) {
+        if (value == null) {
+            throw new BadRequestException("num_speakers must not be null");
+        }
+        if (value < 1 || value > 32) {
+            throw new BadRequestException("num_speakers must be between 1 and 32");
+        }
+        return value;
+    }
+
+    private VisiblePodcast findVisiblePodcast(UUID podcastId, UUID currentUserId, String resource) {
+        PodcastEntity podcast = podcastRepository.findDetailedById(podcastId)
+                .orElseThrow(() -> new NotFoundException("Podcast not found"));
+
+        UUID currentAuthorId = resolveAuthorIdByUserId(currentUserId);
+        UUID currentUserProfileId = resolveUserProfileId(currentUserId);
+
+        boolean visible = podcast.getStatus() == Status.PUBLISHED
+                || (currentAuthorId != null && currentAuthorId.equals(podcast.getAuthor().getId()));
+
+        if (!visible) {
+            log.warn(
+                    "Access denied to podcast {}: podcastId={}, status={}, currentUserId={}, currentAuthorId={}, ownerAuthorId={}",
+                    resource,
+                    podcastId,
+                    podcast.getStatus(),
+                    currentUserId,
+                    currentAuthorId,
+                    podcast.getAuthor().getId()
+            );
+            throw new NotFoundException("Podcast not found");
+        }
+
+        return new VisiblePodcast(podcast, currentAuthorId, currentUserProfileId);
+    }
+
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private record VisiblePodcast(
+            PodcastEntity podcast,
+            UUID currentAuthorId,
+            UUID currentUserProfileId
+    ) {
     }
 }

@@ -24,7 +24,7 @@ Production URL задаётся инфраструктурой reverse proxy.
 |---|---|
 | Главная лента | `GET /podcasts`, `GET /playlists` |
 | Поиск | `GET /search`, `GET /search/suggest` |
-| Выпуск | `GET /podcasts/{podcastId}`, transcript, summary, progress |
+| Выпуск | `GET /podcasts/{podcastId}`, `GET /podcasts/{podcastId}/speakers`, transcript, summary, progress |
 | Плейлист | `GET /playlists/{playlistId}` |
 | Профиль автора | `GET /authors/{authorId}`, podcasts, playlists |
 | Личный кабинет | `/users/me/profile`, settings, playlists, subscriptions, history |

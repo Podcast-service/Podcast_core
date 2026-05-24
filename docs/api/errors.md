@@ -31,6 +31,23 @@
 
 Ошибки bean validation и query validation возвращаются как `VALIDATION_ERROR`. Для field-level ошибок используется `details.fields`.
 
+Пример ошибки при создании подкаста без корректного количества спикеров:
+
+```json
+{
+  "code": "VALIDATION_ERROR",
+  "message": "Request validation failed",
+  "timestamp": "2026-05-24T08:00:00Z",
+  "details": {
+    "fields": {
+      "numSpeakers": "num_speakers must be greater than 0"
+    }
+  }
+}
+```
+
+Если JSON содержит нечисловое значение `num_speakers`, запрос завершается `400 VALIDATION_ERROR`, так как тело не соответствует модели `CreatePodcastRequest`.
+
 ## Authorization errors
 
 Неверная схема header:

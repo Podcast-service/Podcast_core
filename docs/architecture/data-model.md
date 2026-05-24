@@ -33,6 +33,18 @@
 | `playlist_votes` | один голос пользователя на плейлист |
 | `listen_history` | одна запись прогресса пользователя на подкаст |
 
+## Ограничения таблицы `podcasts`
+
+| Поле | Ограничение |
+|---|---|
+| `title` | непустая строка |
+| `duration_seconds` | `NULL` или значение `>= 0` |
+| `status` | `DRAFT`, `PROCESSING`, `PUBLISHED`, `FAILED`, `ARCHIVED` |
+| `views_count`, `likes_count`, `dislikes_count` | значения `>= 0` |
+| `audio_url_file` | `NULL` или непустая строка |
+| `audio_size_file` | `NULL` или значение `>= 0` |
+| `num_speakers` | обязательное значение в диапазоне `1..32` |
+
 ## Индексы поиска
 
 Для поиска используются `tsvector` и trigram indexes. Индексы есть у профилей пользователей, авторов, подкастов и плейлистов. Полнотекстовый поиск реализован в `SearchRepository`.

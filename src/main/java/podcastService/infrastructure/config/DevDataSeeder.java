@@ -178,6 +178,9 @@ public class DevDataSeeder implements ApplicationRunner {
                 String description = buildPodcastDescription(author.name(), TOPICS[topicIndex], episode, status);
                 String cover = episode % 7 == 0 ? null : "https://cdn.example.com/dev/covers/podcast-" + index + ".jpg";
                 String audio = publishedLike ? "https://cdn.example.com/dev/audio/podcast-" + index + ".mp3" : null;
+                String audioFile = publishedLike ? "/dev/audio/podcast-" + index + ".mp3" : null;
+                long audioSizeFile = publishedLike ? 5_000_000L + (long) duration * 220L : 0L;
+                int numSpeakers = 1 + ((authorIndex + episode) % 5);
                 long views = publishedLike ? 25L + (long) authorIndex * 43L + episode * 17L : 0L;
                 long likes = publishedLike ? 3L + (authorIndex + episode) % 31 : 0L;
                 long dislikes = publishedLike ? (authorIndex + episode) % 5 : 0L;
@@ -185,6 +188,7 @@ public class DevDataSeeder implements ApplicationRunner {
 
                 PodcastSeed podcast = new PodcastSeed(
                         podcastId, author.id(), categoryId, title, description, cover, audio,
+                        audioFile, publishedLike ? audioSizeFile : null, numSpeakers,
                         duration == 0 ? null : duration, status, views, likes, dislikes, daysAgo
                 );
                 result.add(podcast);
@@ -379,9 +383,10 @@ public class DevDataSeeder implements ApplicationRunner {
         jdbcTemplate.update("""
                 insert into podcasts (
                     id, author_id, category_id, title, description, cover_image_url, audio_url,
+                    audio_url_file, audio_size_file, num_speakers,
                     duration_seconds, status, views_count, likes_count, dislikes_count, published_at, created_at
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                         case when ? in ('PUBLISHED', 'ARCHIVED') then now() - (? * interval '1 day') else null end,
                         now() - (? * interval '1 day'))
                 on conflict (id) do update
@@ -391,6 +396,9 @@ public class DevDataSeeder implements ApplicationRunner {
                        description = excluded.description,
                        cover_image_url = excluded.cover_image_url,
                        audio_url = excluded.audio_url,
+                       audio_url_file = excluded.audio_url_file,
+                       audio_size_file = excluded.audio_size_file,
+                       num_speakers = excluded.num_speakers,
                        duration_seconds = excluded.duration_seconds,
                        status = excluded.status,
                        views_count = excluded.views_count,
@@ -398,7 +406,8 @@ public class DevDataSeeder implements ApplicationRunner {
                        dislikes_count = excluded.dislikes_count,
                        published_at = excluded.published_at
                 """, podcast.id(), podcast.authorId(), podcast.categoryId(), podcast.title(), podcast.description(),
-                podcast.coverImageUrl(), podcast.audioUrl(), podcast.durationSeconds(), podcast.status(),
+                podcast.coverImageUrl(), podcast.audioUrl(), podcast.audioUrlFile(), podcast.audioSizeFile(),
+                podcast.numSpeakers(), podcast.durationSeconds(), podcast.status(),
                 podcast.viewsCount(), podcast.likesCount(), podcast.dislikesCount(), podcast.status(),
                 podcast.daysAgo(), podcast.daysAgo() + 3);
     }
@@ -565,6 +574,9 @@ public class DevDataSeeder implements ApplicationRunner {
             String description,
             String coverImageUrl,
             String audioUrl,
+            String audioUrlFile,
+            Long audioSizeFile,
+            int numSpeakers,
             Integer durationSeconds,
             String status,
             long viewsCount,

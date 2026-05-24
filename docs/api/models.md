@@ -41,14 +41,35 @@ Enums: `Theme` = `DARK`, `LIGHT`; `Language` = `RU`, `EN`.
 
 | Модель | Поля |
 |---|---|
-| `PodcastCard` | `id`, `title`, `author`, `category`, `coverImageUrl`, `durationSeconds`, `status`, `viewsCount`, `likesCount`, `dislikesCount`, `publishedAt`, `createdAt`, `currentUserVote`, `progressSeconds`, `progressPercent` |
-| `PodcastDetailResponse` | поля карточки, `description`, `audioUrl`, `updatedAt` |
-| `CreatePodcastRequest` | `title`, `description`, `categoryId`, `coverImageUrl` |
+| `PodcastCard` | `id`, `title`, `author`, `category`, `coverImageUrl`, `durationSeconds`, `num_speakers`, `status`, `viewsCount`, `likesCount`, `dislikesCount`, `publishedAt`, `createdAt`, `currentUserVote`, `progressSeconds`, `progressPercent` |
+| `PodcastDetailResponse` | поля карточки, `description`, `audioUrl`, `audio_url_file`, `audio_size_file`, `hasTranscript`, `hasSummary` |
+| `PodcastSpeakersResponse` | `podcastId`, `num_speakers` |
+| `CreatePodcastRequest` | `title`, `description`, `categoryId`, `coverImageUrl`, `num_speakers` |
 | `UpdatePodcastRequest` | `title`, `description`, `categoryId`, `coverImageUrl` |
 | `PodcastTranscriptResponse` | `podcastId`, `language`, `content`, `generatedAt` |
 | `PodcastSummaryResponse` | `podcastId`, `language`, `content`, `generatedAt` |
 
 `PodcastStatus`: `DRAFT`, `PROCESSING`, `PUBLISHED`, `FAILED`, `ARCHIVED`.
+
+### Поля подкаста
+
+| Поле | Тип | Nullable | Ограничения | Назначение |
+|---|---|---:|---|---|
+| `num_speakers` | integer | нет | `1..32` | количество спикеров в выпуске |
+| `audio_url_file` | string | да | пустая строка не допускается на уровне БД | URL или путь к аудиофайлу выпуска |
+| `audio_size_file` | integer int64 | да | `>= 0` | размер аудиофайла в байтах |
+
+`CreatePodcastRequest` принимает `num_speakers` в snake case. Для совместимости с Java-клиентами backend также принимает alias `numSpeakers`.
+
+```json
+{
+  "title": "Архитектура поиска",
+  "description": "Разговор о полнотекстовом поиске и ранжировании",
+  "categoryId": "48b67732-5676-36bd-a97f-44d01de91376",
+  "coverImageUrl": "https://cdn.example.local/covers/search.png",
+  "num_speakers": 3
+}
+```
 
 ## Плейлисты
 

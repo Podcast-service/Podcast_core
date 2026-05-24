@@ -39,6 +39,15 @@ public class PodcastEntity {
     @Column(name = "audio_url", columnDefinition = "text")
     private String audioUrl;
 
+    @Column(name = "audio_url_file", columnDefinition = "text")
+    private String audioUrlFile;
+
+    @Column(name = "audio_size_file")
+    private Long audioSizeFile;
+
+    @Column(name = "num_speakers", nullable = false)
+    private Integer numSpeakers;
+
     @Column(name = "duration_seconds")
     private Long durationSeconds;
 
@@ -58,9 +67,9 @@ public class PodcastEntity {
     @Column(name = "published_at")
     private OffsetDateTime publishedAt;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at", nullable = false, insertable = false)
     private OffsetDateTime updatedAt;
 }

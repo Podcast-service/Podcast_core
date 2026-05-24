@@ -368,7 +368,7 @@ components:
 
     PodcastCard:
       type: object
-      required: [id, title, author, status, viewsCount, likesCount, dislikesCount, createdAt]
+      required: [id, title, author, status, num_speakers, viewsCount, likesCount, dislikesCount, createdAt]
       properties:
         id:
           type: string
@@ -390,6 +390,11 @@ components:
           type: integer
           nullable: true
           example: 1830
+        num_speakers:
+          type: integer
+          minimum: 1
+          maximum: 32
+          example: 2
         status:
           $ref: '#/components/schemas/PodcastStatus'
         viewsCount:
@@ -438,6 +443,16 @@ components:
               type: string
               format: uri
               nullable: true
+            audio_url_file:
+              type: string
+              nullable: true
+              example: /dev/audio/podcast-1.mp3
+            audio_size_file:
+              type: integer
+              format: int64
+              nullable: true
+              minimum: 0
+              example: 52428800
             hasTranscript:
               type: boolean
               nullable: true
@@ -447,9 +462,24 @@ components:
               nullable: true
               example: false
 
+    PodcastSpeakersResponse:
+      type: object
+      required: [podcastId, num_speakers]
+      description: Количество спикеров в подкасте
+      properties:
+        podcastId:
+          type: string
+          format: uuid
+          example: 22222222-2222-2222-2222-222222222222
+        num_speakers:
+          type: integer
+          minimum: 1
+          maximum: 32
+          example: 2
+
     CreatePodcastRequest:
       type: object
-      required: [title]
+      required: [title, num_speakers]
       properties:
         title:
           type: string
@@ -468,6 +498,11 @@ components:
           type: string
           format: uri
           nullable: true
+        num_speakers:
+          type: integer
+          minimum: 1
+          maximum: 32
+          example: 2
 
     UpdatePodcastRequest:
       type: object
@@ -1268,6 +1303,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreatePodcastRequest'
+            example:
+              title: "Как работает Kafka"
+              description: "Разбираем брокеры сообщений с нуля"
+              categoryId: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+              num_speakers: 2
       responses:
         '201':
           description: Подкаст создан
@@ -1347,6 +1387,29 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /podcasts/{podcastId}/speakers:
+    get:
+      tags: [Podcasts]
+      summary: Количество спикеров подкаста
+      description: Публично доступен только для `PUBLISHED`; автор-владелец может получить данные своего неопубликованного подкаста с Bearer token.
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathPodcastId'
+      responses:
+        '200':
+          description: Количество спикеров
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastSpeakersResponse'
+              example:
+                podcastId: "22222222-2222-2222-2222-222222222222"
+                num_speakers: 2
         '404':
           $ref: '#/components/responses/NotFound'
 

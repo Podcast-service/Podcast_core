@@ -64,6 +64,7 @@ public class SecurityConfiguration {
                                 HttpMethod.GET,
                                 "/podcasts",
                                 "/podcasts/*",
+                                "/podcasts/*/speakers",
                                 "/podcasts/*/transcript",
                                 "/podcasts/*/summary"
                         ).permitAll()

@@ -38,6 +38,7 @@ public class PodcastMapper {
                 toCategoryResponse(entity.getCategory()),
                 entity.getCoverImageUrl(),
                 entity.getDurationSeconds() == null ? null : entity.getDurationSeconds().intValue(),
+                entity.getNumSpeakers(),
                 entity.getStatus(),
                 entity.getViewsCount(),
                 entity.getLikesCount(),
@@ -73,6 +74,7 @@ public class PodcastMapper {
                 toCategoryResponse(entity.getCategory()),
                 entity.getCoverImageUrl(),
                 entity.getDurationSeconds(),
+                entity.getNumSpeakers(),
                 entity.getStatus(),
                 entity.getViewsCount(),
                 entity.getLikesCount(),
@@ -84,6 +86,8 @@ public class PodcastMapper {
                 null,
                 entity.getDescription(),
                 entity.getAudioUrl(),
+                entity.getAudioUrlFile(),
+                entity.getAudioSizeFile(),
                 hasTranscript,
                 hasSummary
         );

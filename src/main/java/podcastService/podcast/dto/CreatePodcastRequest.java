@@ -1,6 +1,10 @@
 package podcastService.podcast.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -16,6 +20,13 @@ public record CreatePodcastRequest(
         String description,
 
         UUID  categoryId,
-        String coverImageUrl
+        String coverImageUrl,
+
+        @JsonProperty("num_speakers")
+        @JsonAlias("numSpeakers")
+        @NotNull(message = "num_speakers must not be null")
+        @Min(value = 1, message = "num_speakers must be greater than 0")
+        @Max(value = 32, message = "num_speakers must be less than or equal to 32")
+        Integer numSpeakers
 ) {
 }
