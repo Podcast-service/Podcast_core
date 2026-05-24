@@ -26,6 +26,6 @@ public class PodcastCoverUploadedHandler implements MediaUploadEventHandler {
 
     @Override
     public void handle(MediaUploadEventDto event, KafkaRecordContext context) {
-        service.updateCoverFromMediaEvent(event.objectId(), event.audioUrlFile(), event.timestamp());
+        service.updateCoverFromMediaEvent(event.objectId(), event.uploadedImageUrl(), event.timestamp());
     }
 }

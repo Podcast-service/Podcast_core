@@ -26,6 +26,6 @@ public class AvatarUploadedHandler implements MediaUploadEventHandler {
 
     @Override
     public void handle(MediaUploadEventDto event, KafkaRecordContext context) {
-        service.updateAvatarFromMediaEvent(event.objectId(), event.audioUrlFile());
+        service.updateAvatarFromMediaEvent(event.objectId(), event.uploadedImageUrl());
     }
 }

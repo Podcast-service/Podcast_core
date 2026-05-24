@@ -33,6 +33,7 @@ class MediaContractDtoTest {
                   "event": "uploaded",
                   "audio_url_file": "https://storage.example.local/source.mp3",
                   "audio_file_size": 123456,
+                  "duration_seconds": 2400,
                   "timestamp": "2026-03-22T12:35:56Z",
                   "extra": "ignored"
                 }
@@ -42,7 +43,24 @@ class MediaContractDtoTest {
         assertThat(event.event()).isEqualTo(MediaUploadEventType.UPLOADED);
         assertThat(event.objectId()).isEqualTo(UUID.fromString("00000000-0000-0000-0000-000000000301"));
         assertThat(event.audioFileSize()).isEqualTo(123456L);
+        assertThat(event.durationSeconds()).isEqualTo(2400L);
         assertThat(event.timestamp()).isEqualTo(OffsetDateTime.parse("2026-03-22T12:35:56Z"));
+    }
+
+    @Test
+    void imageUploadDefaultsMissingEventToUploadedAndUsesImageUrl() {
+        MediaUploadEventDto event = reader.read("""
+                {
+                  "object_type": "podcast_cover_url",
+                  "object_id": "00000000-0000-0000-0000-000000000301",
+                  "image_url": "https://storage.example.local/covers/podcast.jpg",
+                  "timestamp": "2026-03-22T12:35:56Z"
+                }
+                """, MediaUploadEventDto.class, CONTEXT);
+
+        assertThat(event.normalizedObjectType()).isEqualTo(MediaObjectType.PODCAST_COVER_URL);
+        assertThat(event.normalizedEvent()).isEqualTo(MediaUploadEventType.UPLOADED);
+        assertThat(event.uploadedImageUrl()).isEqualTo("https://storage.example.local/covers/podcast.jpg");
     }
 
     @Test

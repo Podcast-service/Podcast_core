@@ -304,6 +304,10 @@ public class PodcastService {
             throw new BusinessRuleException("Cannot publish a podcast without processed audio_url");
         }
 
+        if (podcast.getDurationSeconds() == null || podcast.getDurationSeconds() <= 0) {
+            throw new BusinessRuleException("Cannot publish a podcast without positive duration_seconds");
+        }
+
         podcast.setStatus(Status.PUBLISHED);
 
         PodcastEntity saved = podcastRepository.saveAndFlush(podcast);

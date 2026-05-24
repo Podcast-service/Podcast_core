@@ -23,11 +23,11 @@
 | `object_type` | `event` | Поведение |
 |---|---|---|
 | `podcast_file_url` | `start_upload` | `podcasts.status = UPLOADING` |
-| `podcast_file_url` | `uploaded` | сохраняются `audio_url_file`, `audio_size_file`; статус `UPLOADED` |
+| `podcast_file_url` | `uploaded` | сохраняются `audio_url_file`, `audio_size_file`, `duration_seconds`; статус `UPLOADED` |
 | `podcast_file_url` | `upload_failed`, `error` | `podcasts.status = FAILED` |
-| `podcast_cover_url` | `uploaded` | обновляется `podcasts.cover_image_url` |
-| `avatar` | `uploaded` | обновляется `user_profiles.avatar_url` |
-| `playlist` | `uploaded` | обновляется `playlists.cover_image_url` |
+| `podcast_cover_url` | `uploaded` или отсутствует | `image_url` сохраняется в `podcasts.cover_image_url` |
+| `avatar` | `uploaded` или отсутствует | `image_url` сохраняется в `user_profiles.avatar_url` |
+| `playlist` | `uploaded` или отсутствует | `image_url` сохраняется в `playlists.cover_image_url` |
 
 ## `MediaWorkerConsumer`
 

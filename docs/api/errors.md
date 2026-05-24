@@ -48,6 +48,18 @@
 
 Если JSON содержит нечисловое значение `num_speakers`, запрос завершается `400 VALIDATION_ERROR`, так как тело не соответствует модели `CreatePodcastRequest`.
 
+## Ошибки бизнес-правил
+
+Публикация подкаста возвращает `422 BUSINESS_RULE_VIOLATION`, если media lifecycle ещё не завершён, отсутствует processed `audioUrl` или отсутствует положительный `durationSeconds`.
+
+```json
+{
+  "code": "BUSINESS_RULE_VIOLATION",
+  "message": "Cannot publish a podcast without positive duration_seconds",
+  "timestamp": "2026-05-24T08:00:00Z"
+}
+```
+
 ## Authorization errors
 
 Неверная схема header:

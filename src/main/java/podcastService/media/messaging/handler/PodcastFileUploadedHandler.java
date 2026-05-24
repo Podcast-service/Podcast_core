@@ -26,6 +26,12 @@ public class PodcastFileUploadedHandler implements MediaUploadEventHandler {
 
     @Override
     public void handle(MediaUploadEventDto event, KafkaRecordContext context) {
-        service.markFileUploaded(event.targetPodcastId(), event.audioUrlFile(), event.audioFileSize(), event.timestamp());
+        service.markFileUploaded(
+                event.targetPodcastId(),
+                event.audioUrlFile(),
+                event.audioFileSize(),
+                event.durationSeconds(),
+                event.timestamp()
+        );
     }
 }

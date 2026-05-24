@@ -38,10 +38,17 @@ public class PodcastMediaMetadataService {
     }
 
     @Transactional
-    public void markFileUploaded(UUID podcastId, String audioUrlFile, Long audioSizeFile, OffsetDateTime eventTimestamp) {
+    public void markFileUploaded(
+            UUID podcastId,
+            String audioUrlFile,
+            Long audioSizeFile,
+            Long durationSeconds,
+            OffsetDateTime eventTimestamp
+    ) {
         PodcastEntity podcast = findForUpdate(podcastId);
         podcast.setAudioUrlFile(normalizeMediaPath(audioUrlFile, "audio_url_file"));
         podcast.setAudioSizeFile(normalizeAudioSize(audioSizeFile));
+        podcast.setDurationSeconds(normalizeDurationSeconds(durationSeconds));
         applyStatusTransition(podcast, Status.UPLOADED, eventTimestamp, "media uploaded");
     }
 
@@ -160,6 +167,16 @@ public class PodcastMediaMetadataService {
         }
         if (value < 0) {
             throw new InvalidKafkaMessageException("Received negative audio_file_size in Kafka event");
+        }
+        return value;
+    }
+
+    private Long normalizeDurationSeconds(Long value) {
+        if (value == null) {
+            throw new InvalidKafkaMessageException("Received null duration_seconds in Kafka event");
+        }
+        if (value <= 0) {
+            throw new InvalidKafkaMessageException("Received non-positive duration_seconds in Kafka event");
         }
         return value;
     }

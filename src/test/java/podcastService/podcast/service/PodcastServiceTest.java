@@ -174,6 +174,7 @@ class PodcastServiceTest {
     void publishAllowsProcessedPodcastWithAudioUrl() {
         PodcastEntity podcast = podcast(Status.PROCESSED);
         podcast.setAudioUrl("https://cdn.example.local/hls/podcast/master.m3u8");
+        podcast.setDurationSeconds(2400L);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
         when(authorRepository.findByUserProfileUserId(USER_ID)).thenReturn(Optional.of(author()));
         when(podcastRepository.saveAndFlush(podcast)).thenReturn(podcast);
@@ -186,6 +187,18 @@ class PodcastServiceTest {
 
         assertThat(response.status()).isEqualTo(Status.PUBLISHED);
         assertThat(podcast.getStatus()).isEqualTo(Status.PUBLISHED);
+    }
+
+    @Test
+    void publishRejectsProcessedPodcastWithoutDuration() {
+        PodcastEntity podcast = podcast(Status.PROCESSED);
+        podcast.setAudioUrl("https://cdn.example.local/hls/podcast/master.m3u8");
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+        when(authorRepository.findByUserProfileUserId(USER_ID)).thenReturn(Optional.of(author()));
+
+        assertThatThrownBy(() -> service.publish(PODCAST_ID, USER_ID))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage("Cannot publish a podcast without positive duration_seconds");
     }
 
     private AuthorEntity author() {

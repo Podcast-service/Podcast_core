@@ -11,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import podcastService.podcast.entity.PodcastEntity;
 import podcastService.podcast.entity.Status;
 import podcastService.podcast.repository.PodcastRepository;
+import podcastService.infrastructure.messaging.error.InvalidKafkaMessageException;
 import podcastService.transcript.entity.PodcastTranscriptEntity;
 import podcastService.transcript.entity.PodcastTranscriptId;
 import podcastService.transcript.repository.PodcastTranscriptRepository;
@@ -20,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -75,13 +77,24 @@ class PodcastMediaMetadataServiceTest {
         PodcastEntity podcast = podcast(Status.UPLOADING);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
 
-        service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", 123L, null);
+        service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", 123L, 2400L, null);
 
         assertThat(podcast.getAudioUrlFile()).isEqualTo("/media/audio.mp3");
         assertThat(podcast.getAudioUrl()).isNull();
         assertThat(podcast.getAudioSizeFile()).isEqualTo(123L);
+        assertThat(podcast.getDurationSeconds()).isEqualTo(2400L);
         assertThat(podcast.getStatus()).isEqualTo(Status.UPLOADED);
         verify(podcastRepository).saveAndFlush(podcast);
+    }
+
+    @Test
+    void uploadedRejectsMissingDurationSeconds() {
+        PodcastEntity podcast = podcast(Status.UPLOADING);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+
+        assertThatThrownBy(() -> service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", 123L, null, null))
+                .isInstanceOf(InvalidKafkaMessageException.class)
+                .hasMessage("Received null duration_seconds in Kafka event");
     }
 
     @Test

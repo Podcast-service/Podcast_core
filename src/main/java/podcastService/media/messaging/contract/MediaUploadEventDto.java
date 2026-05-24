@@ -17,8 +17,12 @@ public record MediaUploadEventDto(
         UUID podcastId,
         @JsonProperty("audio_url_file")
         String audioUrlFile,
+        @JsonProperty("image_url")
+        String imageUrl,
         @JsonProperty("audio_file_size")
         Long audioFileSize,
+        @JsonProperty("duration_seconds")
+        Long durationSeconds,
         String error,
         OffsetDateTime timestamp
 ) {
@@ -26,7 +30,15 @@ public record MediaUploadEventDto(
         if (event != null) {
             return event;
         }
-        return error == null || error.isBlank() ? null : MediaUploadEventType.UPLOAD_FAILED;
+        if (error != null && !error.isBlank()) {
+            return MediaUploadEventType.UPLOAD_FAILED;
+        }
+        if (objectType == MediaObjectType.PODCAST_COVER_URL
+                || objectType == MediaObjectType.AVATAR
+                || objectType == MediaObjectType.PLAYLIST) {
+            return MediaUploadEventType.UPLOADED;
+        }
+        return null;
     }
 
     public MediaObjectType normalizedObjectType() {
@@ -38,5 +50,9 @@ public record MediaUploadEventDto(
 
     public UUID targetPodcastId() {
         return podcastId != null ? podcastId : objectId;
+    }
+
+    public String uploadedImageUrl() {
+        return imageUrl != null ? imageUrl : audioUrlFile;
     }
 }

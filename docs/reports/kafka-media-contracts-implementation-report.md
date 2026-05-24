@@ -38,7 +38,7 @@
 | Событие | Изменяемая таблица | Поля |
 |---|---|---|
 | `media.upload/start_upload` | `podcasts` | `status = UPLOADING` |
-| `media.upload/uploaded` | `podcasts` | `audio_url_file`, `audio_size_file`, `status = UPLOADED` |
+| `media.upload/uploaded` | `podcasts` | `audio_url_file`, `audio_size_file`, `duration_seconds`, `status = UPLOADED` |
 | `media.upload/error` | `podcasts` | `status = FAILED` |
 | `media.worker/start_processing` | `podcasts` | `status = PROCESSING` |
 | `media.worker/processed` | `podcasts` | `audio_url`, `status = PROCESSED` |
@@ -68,6 +68,12 @@ Kafka использует `DefaultErrorHandler`, фиксированный bac
 | `/podcast/v1/actuator/health` | `UP` |
 | Kafka smoke `media.upload` + `media.worker` | подкаст переведён в `PROCESSED`, audio metadata сохранена |
 | Kafka smoke `media.subtitle` + `tts.start` | payload сохранён в `podcast_transcripts.content` |
+
+## Обновление контракта `media.upload`
+
+`media.upload` использует разные payload-ветки по `object_type`. Для `podcast_file_url/uploaded` поле `duration_seconds` является обязательным и сохраняется в `podcasts.duration_seconds`. Для `podcast_cover_url`, `avatar` и `playlist` используется поле `image_url`; `event` для успешной загрузки изображения опционален и при отсутствии трактуется как `uploaded`.
+
+Публикация подкаста требует завершённого media lifecycle: статус `PROCESSED`, непустой `audio_url` и положительный `duration_seconds`.
 
 ## Факты, требующие уточнения
 
