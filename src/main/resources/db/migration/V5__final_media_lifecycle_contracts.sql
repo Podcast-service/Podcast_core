@@ -33,15 +33,7 @@ ALTER TABLE podcasts
 
 ALTER TABLE podcasts
   ADD CONSTRAINT chk_podcasts_publish_consistency
-  CHECK (
-    status <> 'PUBLISHED'
-    OR (
-      audio_url IS NOT NULL
-      AND btrim(audio_url) <> ''
-      AND duration_seconds IS NOT NULL
-      AND duration_seconds > 0
-    )
-  );
+  CHECK (status <> 'PUBLISHED' OR (audio_url IS NOT NULL AND btrim(audio_url) <> ''));
 
 CREATE OR REPLACE FUNCTION podcasts_state_tg()
 RETURNS trigger
@@ -59,10 +51,6 @@ BEGIN
   IF NEW.status = 'PUBLISHED' THEN
     IF NEW.audio_url IS NULL OR btrim(NEW.audio_url) = '' THEN
       RAISE EXCEPTION 'podcast cannot be published without audio_url';
-    END IF;
-
-    IF NEW.duration_seconds IS NULL OR NEW.duration_seconds <= 0 THEN
-      RAISE EXCEPTION 'podcast cannot be published without positive duration_seconds';
     END IF;
   END IF;
 

@@ -53,6 +53,6 @@ public record MediaUploadEventDto(
     }
 
     public String uploadedImageUrl() {
-        return imageUrl != null ? imageUrl : audioUrlFile;
+        return imageUrl;
     }
 }

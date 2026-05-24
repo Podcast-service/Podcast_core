@@ -73,6 +73,23 @@ class PodcastMediaMetadataServiceTest {
     }
 
     @Test
+    void uploadedDoesNotMutateMetadataWhenTransitionWouldDowngradeStatus() {
+        PodcastEntity podcast = podcast(Status.PROCESSED);
+        podcast.setAudioUrlFile("/media/original.mp3");
+        podcast.setAudioSizeFile(100L);
+        podcast.setDurationSeconds(1000L);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+
+        service.markFileUploaded(PODCAST_ID, "/media/stale.mp3", 999L, 9999L, null);
+
+        assertThat(podcast.getAudioUrlFile()).isEqualTo("/media/original.mp3");
+        assertThat(podcast.getAudioSizeFile()).isEqualTo(100L);
+        assertThat(podcast.getDurationSeconds()).isEqualTo(1000L);
+        assertThat(podcast.getStatus()).isEqualTo(Status.PROCESSED);
+        verify(podcastRepository, never()).saveAndFlush(any(PodcastEntity.class));
+    }
+
+    @Test
     void uploadedStoresSourceAudioMetadataAndMarksUploaded() {
         PodcastEntity podcast = podcast(Status.UPLOADING);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
@@ -95,6 +112,16 @@ class PodcastMediaMetadataServiceTest {
         assertThatThrownBy(() -> service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", 123L, null, null))
                 .isInstanceOf(InvalidKafkaMessageException.class)
                 .hasMessage("Received null duration_seconds in Kafka event");
+    }
+
+    @Test
+    void uploadedRejectsMissingAudioFileSize() {
+        PodcastEntity podcast = podcast(Status.UPLOADING);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+
+        assertThatThrownBy(() -> service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", null, 2400L, null))
+                .isInstanceOf(InvalidKafkaMessageException.class)
+                .hasMessage("Received null audio_file_size in Kafka event");
     }
 
     @Test

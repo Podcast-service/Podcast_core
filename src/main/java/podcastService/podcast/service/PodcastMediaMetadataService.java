@@ -18,6 +18,7 @@ import podcastService.transcript.repository.PodcastTranscriptRepository;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 @Slf4j
 @Service
@@ -25,6 +26,8 @@ import java.util.UUID;
 public class PodcastMediaMetadataService {
 
     private static final String DEFAULT_LANGUAGE = "RU";
+    private static final int MAX_MEDIA_PATH_LENGTH = 4096;
+    private static final int MAX_TRANSCRIPT_CONTENT_LENGTH = 500_000;
 
     private final PodcastRepository podcastRepository;
     private final PodcastTranscriptRepository podcastTranscriptRepository;
@@ -34,7 +37,8 @@ public class PodcastMediaMetadataService {
     @Transactional
     public void markFileUploadStarted(UUID podcastId, OffsetDateTime eventTimestamp) {
         PodcastEntity podcast = findForUpdate(podcastId);
-        applyStatusTransition(podcast, Status.UPLOADING, eventTimestamp, "media upload started");
+        persistMediaState(podcast, Status.UPLOADING, eventTimestamp, "media upload started", ignored -> {
+        });
     }
 
     @Transactional
@@ -46,23 +50,25 @@ public class PodcastMediaMetadataService {
             OffsetDateTime eventTimestamp
     ) {
         PodcastEntity podcast = findForUpdate(podcastId);
-        podcast.setAudioUrlFile(normalizeMediaPath(audioUrlFile, "audio_url_file"));
-        podcast.setAudioSizeFile(normalizeAudioSize(audioSizeFile));
-        podcast.setDurationSeconds(normalizeDurationSeconds(durationSeconds));
-        applyStatusTransition(podcast, Status.UPLOADED, eventTimestamp, "media uploaded");
+        persistMediaState(podcast, Status.UPLOADED, eventTimestamp, "media uploaded", entity -> {
+            entity.setAudioUrlFile(normalizeMediaPath(audioUrlFile, "audio_url_file"));
+            entity.setAudioSizeFile(normalizeAudioSize(audioSizeFile));
+            entity.setDurationSeconds(normalizeDurationSeconds(durationSeconds));
+        });
     }
 
     @Transactional
     public void markProcessingStarted(UUID podcastId, OffsetDateTime eventTimestamp) {
         PodcastEntity podcast = findForUpdate(podcastId);
-        applyStatusTransition(podcast, Status.PROCESSING, eventTimestamp, "media processing started");
+        persistMediaState(podcast, Status.PROCESSING, eventTimestamp, "media processing started", ignored -> {
+        });
     }
 
     @Transactional
     public void markProcessed(UUID podcastId, String audioUrl, OffsetDateTime eventTimestamp) {
         PodcastEntity podcast = findForUpdate(podcastId);
-        podcast.setAudioUrl(normalizeMediaPath(audioUrl, "audio_url"));
-        applyStatusTransition(podcast, Status.PROCESSED, eventTimestamp, "media processed");
+        persistMediaState(podcast, Status.PROCESSED, eventTimestamp, "media processed",
+                entity -> entity.setAudioUrl(normalizeMediaPath(audioUrl, "audio_url")));
     }
 
     @Transactional
@@ -104,16 +110,17 @@ public class PodcastMediaMetadataService {
     public void saveTtsContent(UUID podcastId, String content, OffsetDateTime timestamp) {
         PodcastEntity podcast = findForUpdate(podcastId);
         PodcastTranscriptEntity transcript = findTranscriptOrNew(podcast);
-        transcript.setContent(normalizeMediaPath(content, "tts content"));
+        transcript.setContent(normalizeTranscriptContent(content, "tts content"));
         podcastTranscriptRepository.saveAndFlush(transcript);
         log.info("Podcast TTS content saved, podcastId={}, timestamp={}", podcastId, timestamp);
     }
 
-    private void applyStatusTransition(
+    private void persistMediaState(
             PodcastEntity podcast,
             Status target,
             OffsetDateTime eventTimestamp,
-            String reason
+            String reason,
+            Consumer<PodcastEntity> mutation
     ) {
         UUID podcastId = podcast.getId();
         if (!transitionPolicy.canMoveTo(podcast.getStatus(), target)) {
@@ -125,6 +132,7 @@ public class PodcastMediaMetadataService {
         }
 
         Status previous = podcast.getStatus();
+        mutation.accept(podcast);
         podcast.setStatus(target);
         podcastRepository.saveAndFlush(podcast);
         log.info("Podcast media status changed, podcastId={}, from={}, to={}, reason={}, eventTimestamp={}",
@@ -158,12 +166,27 @@ public class PodcastMediaMetadataService {
         if (value == null || value.isBlank()) {
             throw new InvalidKafkaMessageException("Received blank " + fieldName + " in Kafka event");
         }
-        return value.trim();
+        String normalized = value.trim();
+        if (normalized.length() > MAX_MEDIA_PATH_LENGTH) {
+            throw new InvalidKafkaMessageException("Received too long " + fieldName + " in Kafka event");
+        }
+        return normalized;
+    }
+
+    private String normalizeTranscriptContent(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new InvalidKafkaMessageException("Received blank " + fieldName + " in Kafka event");
+        }
+        String normalized = value.trim();
+        if (normalized.length() > MAX_TRANSCRIPT_CONTENT_LENGTH) {
+            throw new InvalidKafkaMessageException("Received too long " + fieldName + " in Kafka event");
+        }
+        return normalized;
     }
 
     private Long normalizeAudioSize(Long value) {
         if (value == null) {
-            return null;
+            throw new InvalidKafkaMessageException("Received null audio_file_size in Kafka event");
         }
         if (value < 0) {
             throw new InvalidKafkaMessageException("Received negative audio_file_size in Kafka event");
