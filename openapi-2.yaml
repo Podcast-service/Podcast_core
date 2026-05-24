@@ -172,15 +172,16 @@ components:
 
     PodcastStatus:
       type: string
-      enum: [DRAFT, PROCESSING, READY_TO_PUBLISH, PUBLISHED, FAILED, UPLOAD_ERROR, ARCHIVED]
+      enum: [DRAFT, UPLOADING, UPLOADED, PROCESSING, PROCESSED, PUBLISHED, FAILED, ARCHIVED]
       description: |
         Статус подкаста:
         - `DRAFT` — черновик, не опубликован
-        - `PROCESSING` — аудиофайл загружается или подкаст отправлен на обработку
-        - `READY_TO_PUBLISH` — аудиофайл загружен, подкаст готов к публикационному flow
+        - `UPLOADING` — исходный аудиофайл загружается
+        - `UPLOADED` — исходный аудиофайл загружен
+        - `PROCESSING` — аудиофайл обрабатывается media worker
+        - `PROCESSED` — обработанный аудиопоток готов к публикации
         - `PUBLISHED` — доступен публично
         - `FAILED` — ошибка обработки, можно повторить
-        - `UPLOAD_ERROR` — ошибка загрузки аудиофайла
         - `ARCHIVED` — скрыт из лент, доступен по прямой ссылке
 
     SortPodcast:

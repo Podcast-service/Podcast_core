@@ -10,6 +10,7 @@ import podcastService.author.entity.AuthorEntity;
 import podcastService.author.repository.AuthorRepository;
 import podcastService.category.repository.CategoryRepository;
 import podcastService.common.exception.NotFoundException;
+import podcastService.common.exception.BusinessRuleException;
 import podcastService.podcast.dto.CreatePodcastRequest;
 import podcastService.podcast.dto.PodcastDetailResponse;
 import podcastService.podcast.dto.PodcastSpeakersResponse;
@@ -63,7 +64,8 @@ class PodcastServiceTest {
                 subscriptionRepository,
                 podcastVoteRepository,
                 podcastTranscriptRepository,
-                podcastSummaryRepository
+                podcastSummaryRepository,
+                new PodcastMediaStatusTransitionPolicy()
         );
     }
 
@@ -100,7 +102,7 @@ class PodcastServiceTest {
         podcast.setAudioSizeFile(78_000_000L);
 
         when(podcastRepository.findDetailedById(PODCAST_ID)).thenReturn(Optional.of(podcast));
-        when(podcastTranscriptRepository.existsByIdPodcastId(PODCAST_ID)).thenReturn(true);
+        when(podcastTranscriptRepository.existsByIdPodcastIdAndContentIsNotNull(PODCAST_ID)).thenReturn(true);
         when(podcastSummaryRepository.existsByIdPodcastId(PODCAST_ID)).thenReturn(false);
 
         PodcastDetailResponse response = service.getById(PODCAST_ID, null);
@@ -144,6 +146,46 @@ class PodcastServiceTest {
         assertThatThrownBy(() -> service.getSpeakersById(PODCAST_ID, null))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage("Podcast not found");
+    }
+
+    @Test
+    void publishRejectsPodcastBeforeMediaIsProcessed() {
+        PodcastEntity podcast = podcast(Status.UPLOADED);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+        when(authorRepository.findByUserProfileUserId(USER_ID)).thenReturn(Optional.of(author()));
+
+        assertThatThrownBy(() -> service.publish(PODCAST_ID, USER_ID))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage("Cannot publish a podcast before media is processed");
+    }
+
+    @Test
+    void publishRejectsProcessedPodcastWithoutAudioUrl() {
+        PodcastEntity podcast = podcast(Status.PROCESSED);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+        when(authorRepository.findByUserProfileUserId(USER_ID)).thenReturn(Optional.of(author()));
+
+        assertThatThrownBy(() -> service.publish(PODCAST_ID, USER_ID))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage("Cannot publish a podcast without processed audio_url");
+    }
+
+    @Test
+    void publishAllowsProcessedPodcastWithAudioUrl() {
+        PodcastEntity podcast = podcast(Status.PROCESSED);
+        podcast.setAudioUrl("https://cdn.example.local/hls/podcast/master.m3u8");
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+        when(authorRepository.findByUserProfileUserId(USER_ID)).thenReturn(Optional.of(author()));
+        when(podcastRepository.saveAndFlush(podcast)).thenReturn(podcast);
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(author().getUserProfile()));
+        when(subscriptionRepository.findSubscribedAuthorIds(any(), any())).thenReturn(java.util.Set.of());
+        when(podcastTranscriptRepository.existsByIdPodcastIdAndContentIsNotNull(PODCAST_ID)).thenReturn(false);
+        when(podcastSummaryRepository.existsByIdPodcastId(PODCAST_ID)).thenReturn(false);
+
+        PodcastDetailResponse response = service.publish(PODCAST_ID, USER_ID);
+
+        assertThat(response.status()).isEqualTo(Status.PUBLISHED);
+        assertThat(podcast.getStatus()).isEqualTo(Status.PUBLISHED);
     }
 
     private AuthorEntity author() {

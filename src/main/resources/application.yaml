@@ -50,7 +50,10 @@ app:
   kafka:
     topics:
       user-register: ${PODCAST_KAFKA_TOPIC_USER_REGISTER:podcast.user.register}
-      media: ${PODCAST_KAFKA_TOPIC_MEDIA:media}
+      media-upload: ${PODCAST_KAFKA_TOPIC_MEDIA_UPLOAD:media.upload}
+      media-worker: ${PODCAST_KAFKA_TOPIC_MEDIA_WORKER:media.worker}
+      media-subtitle: ${PODCAST_KAFKA_TOPIC_MEDIA_SUBTITLE:media.subtitle}
+      tts-start: ${PODCAST_KAFKA_TOPIC_TTS_START:tts.start}
     retry:
       backoff-ms: ${PODCAST_KAFKA_RETRY_BACKOFF_MS:1000}
       max-attempts: ${PODCAST_KAFKA_RETRY_MAX_ATTEMPTS:3}

@@ -170,16 +170,21 @@ public class DevDataSeeder implements ApplicationRunner {
             for (int episode = 1; episode <= 9; episode++) {
                 String status = statusFor(authorIndex, episode);
                 boolean publishedLike = status.equals("PUBLISHED") || status.equals("ARCHIVED");
+                boolean hasSourceAudio = publishedLike
+                        || status.equals("UPLOADED")
+                        || status.equals("PROCESSING")
+                        || status.equals("PROCESSED");
+                boolean hasProcessedAudio = publishedLike || status.equals("PROCESSED");
                 int topicIndex = (authorIndex * 3 + episode) % TOPICS.length;
                 UUID podcastId = uuid("podcast", index);
                 UUID categoryId = categoryIds.get((authorIndex + episode) % categoryIds.size());
-                int duration = publishedLike ? 480 + ((authorIndex + 1) * 137 + episode * 211) % 7200 : 0;
+                int duration = hasProcessedAudio ? 480 + ((authorIndex + 1) * 137 + episode * 211) % 7200 : 0;
                 String title = buildPodcastTitle(author.name(), TOPICS[topicIndex], episode, status);
                 String description = buildPodcastDescription(author.name(), TOPICS[topicIndex], episode, status);
                 String cover = episode % 7 == 0 ? null : "https://cdn.example.com/dev/covers/podcast-" + index + ".jpg";
-                String audio = publishedLike ? "https://cdn.example.com/dev/audio/podcast-" + index + ".mp3" : null;
-                String audioFile = publishedLike ? "/dev/audio/podcast-" + index + ".mp3" : null;
-                long audioSizeFile = publishedLike ? 5_000_000L + (long) duration * 220L : 0L;
+                String audio = hasProcessedAudio ? "https://cdn.example.com/dev/audio/podcast-" + index + ".m3u8" : null;
+                String audioFile = hasSourceAudio ? "/dev/audio/source-podcast-" + index + ".mp3" : null;
+                long audioSizeFile = hasSourceAudio ? 5_000_000L + (long) Math.max(duration, 1200) * 220L : 0L;
                 int numSpeakers = 1 + ((authorIndex + episode) % 5);
                 long views = publishedLike ? 25L + (long) authorIndex * 43L + episode * 17L : 0L;
                 long likes = publishedLike ? 3L + (authorIndex + episode) % 31 : 0L;
@@ -526,7 +531,12 @@ public class DevDataSeeder implements ApplicationRunner {
             return authorIndex % 2 == 0 ? "DRAFT" : "ARCHIVED";
         }
         if (episode == 8) {
-            return authorIndex % 3 == 0 ? "PROCESSING" : "PUBLISHED";
+            return switch (authorIndex % 4) {
+                case 0 -> "UPLOADING";
+                case 1 -> "UPLOADED";
+                case 2 -> "PROCESSING";
+                default -> "PROCESSED";
+            };
         }
         return authorIndex % 4 == 0 ? "FAILED" : "PUBLISHED";
     }
@@ -534,7 +544,10 @@ public class DevDataSeeder implements ApplicationRunner {
     private static String buildPodcastTitle(String authorName, String topic, int episode, String status) {
         String suffix = switch (status) {
             case "DRAFT" -> "черновик";
+            case "UPLOADING" -> "uploading";
+            case "UPLOADED" -> "uploaded";
             case "PROCESSING" -> "processing";
+            case "PROCESSED" -> "processed";
             case "FAILED" -> "failed";
             case "ARCHIVED" -> "архив";
             default -> "episode";

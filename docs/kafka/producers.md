@@ -5,7 +5,10 @@
 | Producer | Topic | Назначение |
 |---|---|---|
 | `auth-service` | `podcast.user.register` | передаёт регистрацию пользователя для локального `user_profiles` |
-| media-service | `media` | передаёт метаданные статуса загрузки файлов, обложек и аватаров |
+| media upload service | `media.upload` | передаёт метаданные загрузки файлов, обложек и аватаров |
+| media worker | `media.worker` | передаёт статусы обработки аудиофайла |
+| subtitles/STT service | `media.subtitle` | передаёт результат генерации субтитров |
+| TTS service | `tts.start` | передаёт текст TTS-flow |
 
 ## Внутренние продюсеры
 

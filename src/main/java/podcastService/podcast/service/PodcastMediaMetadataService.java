@@ -1,5 +1,8 @@
 package podcastService.podcast.service;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -9,8 +12,11 @@ import podcastService.infrastructure.messaging.error.KafkaRetryableProcessingExc
 import podcastService.podcast.entity.PodcastEntity;
 import podcastService.podcast.entity.Status;
 import podcastService.podcast.repository.PodcastRepository;
+import podcastService.transcript.entity.PodcastTranscriptEntity;
+import podcastService.transcript.entity.PodcastTranscriptId;
+import podcastService.transcript.repository.PodcastTranscriptRepository;
 
-import java.util.Set;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Slf4j
@@ -18,109 +24,132 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PodcastMediaMetadataService {
 
-    private static final Set<Status> FILE_START_TERMINAL_STATUSES = Set.of(
-            Status.READY_TO_PUBLISH,
-            Status.PUBLISHED,
-            Status.ARCHIVED
-    );
-
-    private static final Set<Status> FILE_ERROR_TERMINAL_STATUSES = Set.of(
-            Status.READY_TO_PUBLISH,
-            Status.PUBLISHED,
-            Status.ARCHIVED
-    );
+    private static final String DEFAULT_LANGUAGE = "RU";
 
     private final PodcastRepository podcastRepository;
+    private final PodcastTranscriptRepository podcastTranscriptRepository;
+    private final ObjectMapper objectMapper;
+    private final PodcastMediaStatusTransitionPolicy transitionPolicy;
 
     @Transactional
-    public void markFileUploadStarted(UUID podcastId) {
+    public void markFileUploadStarted(UUID podcastId, OffsetDateTime eventTimestamp) {
         PodcastEntity podcast = findForUpdate(podcastId);
-        if (FILE_START_TERMINAL_STATUSES.contains(podcast.getStatus())) {
-            log.info(
-                    "Podcast file start_upload ignored because current status is terminal for upload start, podcastId={}, status={}",
-                    podcastId,
-                    podcast.getStatus()
-            );
-            return;
-        }
-
-        podcast.setStatus(Status.PROCESSING);
-        podcastRepository.saveAndFlush(podcast);
-        log.info("Podcast file upload started, podcastId={}, status={}", podcastId, Status.PROCESSING);
+        applyStatusTransition(podcast, Status.UPLOADING, eventTimestamp, "media upload started");
     }
 
     @Transactional
-    public void markFileUploaded(UUID podcastId, String audioUrlFile, Long audioSizeFile) {
+    public void markFileUploaded(UUID podcastId, String audioUrlFile, Long audioSizeFile, OffsetDateTime eventTimestamp) {
         PodcastEntity podcast = findForUpdate(podcastId);
-        String normalizedAudioUrlFile = normalizeMediaPath(audioUrlFile, "audio_url_file");
-        Long normalizedAudioSizeFile = normalizeAudioSize(audioSizeFile);
-
-        podcast.setAudioUrlFile(normalizedAudioUrlFile);
-        podcast.setAudioUrl(normalizedAudioUrlFile);
-        podcast.setAudioSizeFile(normalizedAudioSizeFile);
-
-        if (podcast.getStatus() != Status.PUBLISHED && podcast.getStatus() != Status.ARCHIVED) {
-            podcast.setStatus(Status.READY_TO_PUBLISH);
-        }
-
-        podcastRepository.saveAndFlush(podcast);
-        log.info(
-                "Podcast file uploaded, podcastId={}, status={}, audioSizeFile={}",
-                podcastId,
-                podcast.getStatus(),
-                normalizedAudioSizeFile
-        );
+        podcast.setAudioUrlFile(normalizeMediaPath(audioUrlFile, "audio_url_file"));
+        podcast.setAudioSizeFile(normalizeAudioSize(audioSizeFile));
+        applyStatusTransition(podcast, Status.UPLOADED, eventTimestamp, "media uploaded");
     }
 
     @Transactional
-    public void markFileUploadError(UUID podcastId, String errorMessage) {
+    public void markProcessingStarted(UUID podcastId, OffsetDateTime eventTimestamp) {
         PodcastEntity podcast = findForUpdate(podcastId);
-        if (FILE_ERROR_TERMINAL_STATUSES.contains(podcast.getStatus())) {
+        applyStatusTransition(podcast, Status.PROCESSING, eventTimestamp, "media processing started");
+    }
+
+    @Transactional
+    public void markProcessed(UUID podcastId, String audioUrl, OffsetDateTime eventTimestamp) {
+        PodcastEntity podcast = findForUpdate(podcastId);
+        podcast.setAudioUrl(normalizeMediaPath(audioUrl, "audio_url"));
+        applyStatusTransition(podcast, Status.PROCESSED, eventTimestamp, "media processed");
+    }
+
+    @Transactional
+    public void markFailed(UUID podcastId, String errorMessage, OffsetDateTime eventTimestamp, String source) {
+        PodcastEntity podcast = findForUpdate(podcastId);
+        if (podcast.getStatus() == Status.PUBLISHED || podcast.getStatus() == Status.ARCHIVED) {
             log.warn(
-                    "Podcast file upload error ignored because current status is terminal for upload error, podcastId={}, status={}, errorMessage={}",
-                    podcastId,
-                    podcast.getStatus(),
-                    safeError(errorMessage)
+                    "Media error ignored for terminal podcast, podcastId={}, currentStatus={}, source={}, error={}",
+                    podcastId, podcast.getStatus(), source, safeError(errorMessage)
             );
             return;
         }
-
-        podcast.setStatus(Status.UPLOAD_ERROR);
+        podcast.setStatus(Status.FAILED);
         podcastRepository.saveAndFlush(podcast);
-        log.warn("Podcast file upload failed, podcastId={}, status={}, errorMessage={}",
-                podcastId, Status.UPLOAD_ERROR, safeError(errorMessage));
+        log.warn("Podcast media failed, podcastId={}, status={}, source={}, eventTimestamp={}, error={}",
+                podcastId, Status.FAILED, source, eventTimestamp, safeError(errorMessage));
     }
 
     @Transactional
-    public void updateCoverFromMediaEvent(UUID podcastId, String coverImageUrl) {
+    public void updateCoverFromMediaEvent(UUID podcastId, String coverImageUrl, OffsetDateTime eventTimestamp) {
         PodcastEntity podcast = findForUpdate(podcastId);
         podcast.setCoverImageUrl(normalizeMediaPath(coverImageUrl, "podcast cover"));
         podcastRepository.saveAndFlush(podcast);
-        log.info("Podcast cover updated from Kafka media event, podcastId={}", podcastId);
+        log.info("Podcast cover updated from Kafka media event, podcastId={}, eventTimestamp={}", podcastId, eventTimestamp);
     }
 
-    public void logCoverUploadError(UUID podcastId, String errorMessage) {
-        if (podcastId == null) {
-            throw new InvalidKafkaMessageException("Received null podcast cover object_id in Kafka");
+    @Transactional
+    public void saveSubtitleContent(UUID podcastId, String vttObjectKey, String srtObjectKey, OffsetDateTime readyAt) {
+        PodcastEntity podcast = findForUpdate(podcastId);
+        PodcastTranscriptEntity transcript = findTranscriptOrNew(podcast);
+        String vtt = normalizeMediaPath(vttObjectKey, "vtt_object_key");
+        String srt = normalizeMediaPath(srtObjectKey, "srt_object_key");
+        transcript.setContent(serializeSubtitleContent(vtt, srt, readyAt));
+        podcastTranscriptRepository.saveAndFlush(transcript);
+        log.info("Podcast subtitle content saved, podcastId={}, readyAt={}", podcastId, readyAt);
+    }
+
+    @Transactional
+    public void saveTtsContent(UUID podcastId, String content, OffsetDateTime timestamp) {
+        PodcastEntity podcast = findForUpdate(podcastId);
+        PodcastTranscriptEntity transcript = findTranscriptOrNew(podcast);
+        transcript.setContent(normalizeMediaPath(content, "tts content"));
+        podcastTranscriptRepository.saveAndFlush(transcript);
+        log.info("Podcast TTS content saved, podcastId={}, timestamp={}", podcastId, timestamp);
+    }
+
+    private void applyStatusTransition(
+            PodcastEntity podcast,
+            Status target,
+            OffsetDateTime eventTimestamp,
+            String reason
+    ) {
+        UUID podcastId = podcast.getId();
+        if (!transitionPolicy.canMoveTo(podcast.getStatus(), target)) {
+            log.warn(
+                    "Invalid media status transition ignored, podcastId={}, currentStatus={}, targetStatus={}, reason={}, eventTimestamp={}",
+                    podcastId, podcast.getStatus(), target, reason, eventTimestamp
+            );
+            return;
         }
-        log.warn("Podcast cover upload failed, podcastId={}, errorMessage={}", podcastId, safeError(errorMessage));
+
+        Status previous = podcast.getStatus();
+        podcast.setStatus(target);
+        podcastRepository.saveAndFlush(podcast);
+        log.info("Podcast media status changed, podcastId={}, from={}, to={}, reason={}, eventTimestamp={}",
+                podcastId, previous, target, reason, eventTimestamp);
     }
 
     private PodcastEntity findForUpdate(UUID podcastId) {
         if (podcastId == null) {
-            throw new InvalidKafkaMessageException("Received null podcast object_id in Kafka");
+            throw new InvalidKafkaMessageException("Received null podcast id in Kafka event");
         }
 
         return podcastRepository.findDetailedByIdForUpdate(podcastId)
                 .orElseThrow(() -> new KafkaRetryableProcessingException(
-                        "Podcast not found for media event, podcastId=" + podcastId,
+                        "Podcast not found for Kafka media event, podcastId=" + podcastId,
                         null
                 ));
     }
 
+    private PodcastTranscriptEntity findTranscriptOrNew(PodcastEntity podcast) {
+        return podcastTranscriptRepository
+                .findByIdPodcastIdAndIdLanguage(podcast.getId(), DEFAULT_LANGUAGE)
+                .orElseGet(() -> {
+                    PodcastTranscriptEntity transcript = new PodcastTranscriptEntity();
+                    transcript.setId(new PodcastTranscriptId(podcast.getId(), DEFAULT_LANGUAGE));
+                    transcript.setPodcast(podcast);
+                    return transcript;
+                });
+    }
+
     private String normalizeMediaPath(String value, String fieldName) {
         if (value == null || value.isBlank()) {
-            throw new InvalidKafkaMessageException("Received blank " + fieldName + " in Kafka");
+            throw new InvalidKafkaMessageException("Received blank " + fieldName + " in Kafka event");
         }
         return value.trim();
     }
@@ -130,7 +159,7 @@ public class PodcastMediaMetadataService {
             return null;
         }
         if (value < 0) {
-            throw new InvalidKafkaMessageException("Received negative audio_size_file in Kafka");
+            throw new InvalidKafkaMessageException("Received negative audio_file_size in Kafka event");
         }
         return value;
     }
@@ -140,5 +169,23 @@ public class PodcastMediaMetadataService {
             return null;
         }
         return errorMessage.length() > 500 ? errorMessage.substring(0, 500) : errorMessage;
+    }
+
+    private String serializeSubtitleContent(String vttObjectKey, String srtObjectKey, OffsetDateTime readyAt) {
+        try {
+            return objectMapper.writeValueAsString(new SubtitleContent(vttObjectKey, srtObjectKey, readyAt));
+        } catch (JsonProcessingException exception) {
+            throw new InvalidKafkaMessageException("Failed to serialize subtitle content", exception);
+        }
+    }
+
+    private record SubtitleContent(
+            @JsonProperty("vtt_object_key")
+            String vttObjectKey,
+            @JsonProperty("srt_object_key")
+            String srtObjectKey,
+            @JsonProperty("ready_at")
+            OffsetDateTime readyAt
+    ) {
     }
 }

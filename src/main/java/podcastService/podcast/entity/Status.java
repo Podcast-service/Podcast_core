@@ -2,10 +2,11 @@ package podcastService.podcast.entity;
 
 public enum Status {
     DRAFT,
+    UPLOADING,
+    UPLOADED,
     PROCESSING,
-    READY_TO_PUBLISH,
+    PROCESSED,
     PUBLISHED,
     FAILED,
-    UPLOAD_ERROR,
     ARCHIVED
 }

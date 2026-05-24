@@ -139,7 +139,7 @@ components:
 
     PodcastStatus:
       type: string
-      enum: [DRAFT, PROCESSING, READY_TO_PUBLISH, PUBLISHED, FAILED, UPLOAD_ERROR, ARCHIVED]
+      enum: [DRAFT, UPLOADING, UPLOADED, PROCESSING, PROCESSED, PUBLISHED, FAILED, ARCHIVED]
 
     SortPodcasts:
       type: string

@@ -39,7 +39,7 @@
 |---|---|
 | `title` | непустая строка |
 | `duration_seconds` | `NULL` или значение `>= 0` |
-| `status` | `DRAFT`, `PROCESSING`, `READY_TO_PUBLISH`, `PUBLISHED`, `FAILED`, `UPLOAD_ERROR`, `ARCHIVED` |
+| `status` | `DRAFT`, `UPLOADING`, `UPLOADED`, `PROCESSING`, `PROCESSED`, `PUBLISHED`, `FAILED`, `ARCHIVED` |
 | `views_count`, `likes_count`, `dislikes_count` | значения `>= 0` |
 | `audio_url_file` | `NULL` или непустая строка |
 | `audio_size_file` | `NULL` или значение `>= 0` |
@@ -49,14 +49,19 @@
 
 Для поиска используются `tsvector` и trigram indexes. Индексы есть у профилей пользователей, авторов, подкастов и плейлистов. Полнотекстовый поиск реализован в `SearchRepository`.
 
+## Данные транскриптов
+
+`podcast_transcripts.content` является основным полем хранения текстового содержимого транскрипта. Kafka-события `media.subtitle` и `tts.start` также пишут результат в это поле: subtitle сохраняется как JSON-содержимое `content`, TTS сохраняется как текстовая строка. Отдельные колонки для subtitle/TTS payload в схеме не используются.
+
 ## Статусы подкастов
 
 | Статус | Значение |
 |---|---|
 | `DRAFT` | черновик |
-| `PROCESSING` | загрузка аудиофайла или публикационный процесс |
-| `READY_TO_PUBLISH` | аудиофайл загружен, выпуск готов к публикационному flow |
+| `UPLOADING` | исходный аудиофайл загружается |
+| `UPLOADED` | исходный аудиофайл загружен |
+| `PROCESSING` | аудиофайл обрабатывается media worker |
+| `PROCESSED` | обработанный аудиопоток готов к публикации |
 | `PUBLISHED` | доступен публично |
-| `FAILED` | ошибка обработки |
-| `UPLOAD_ERROR` | ошибка загрузки аудиофайла |
+| `FAILED` | ошибка загрузки или обработки |
 | `ARCHIVED` | архивирован |

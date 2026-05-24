@@ -3,28 +3,29 @@ package podcastService.media.messaging.handler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import podcastService.infrastructure.messaging.kafka.KafkaRecordContext;
-import podcastService.media.messaging.MediaEvent;
-import podcastService.media.messaging.MediaEventHandler;
-import podcastService.media.messaging.MediaEventKey;
+import podcastService.media.messaging.MediaHandlerKey;
+import podcastService.media.messaging.MediaUploadEventHandler;
+import podcastService.media.messaging.contract.MediaObjectType;
+import podcastService.media.messaging.contract.MediaUploadEventDto;
+import podcastService.media.messaging.contract.MediaUploadEventType;
 import podcastService.playlist.service.PlaylistMediaService;
 
 @Component
 @RequiredArgsConstructor
-public class PlaylistUploadedHandler implements MediaEventHandler {
+public class PlaylistUploadedHandler implements MediaUploadEventHandler {
 
-    private static final MediaEventKey KEY = new MediaEventKey("playlists", "uploaded");
+    private static final MediaHandlerKey<MediaUploadEventType> KEY =
+            new MediaHandlerKey<>(MediaObjectType.PLAYLIST, MediaUploadEventType.UPLOADED);
 
-    private final PlaylistMediaService playlistMediaService;
+    private final PlaylistMediaService service;
 
     @Override
-    public MediaEventKey key() {
+    public MediaHandlerKey<MediaUploadEventType> key() {
         return KEY;
     }
 
     @Override
-    public void handle(MediaEvent event, KafkaRecordContext context) {
-        playlistMediaService.updateCoverFromMediaEvent(
-                event.objectId(),
-                event.requiredAnyText("cover_url", "cover_image_url", "image_url", "file_url", "url", "audio_url_file"));
+    public void handle(MediaUploadEventDto event, KafkaRecordContext context) {
+        service.updateCoverFromMediaEvent(event.objectId(), event.audioUrlFile());
     }
 }

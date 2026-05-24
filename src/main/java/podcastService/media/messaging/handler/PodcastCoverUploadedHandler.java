@@ -3,28 +3,29 @@ package podcastService.media.messaging.handler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import podcastService.infrastructure.messaging.kafka.KafkaRecordContext;
-import podcastService.media.messaging.MediaEvent;
-import podcastService.media.messaging.MediaEventHandler;
-import podcastService.media.messaging.MediaEventKey;
+import podcastService.media.messaging.MediaHandlerKey;
+import podcastService.media.messaging.MediaUploadEventHandler;
+import podcastService.media.messaging.contract.MediaObjectType;
+import podcastService.media.messaging.contract.MediaUploadEventDto;
+import podcastService.media.messaging.contract.MediaUploadEventType;
 import podcastService.podcast.service.PodcastMediaMetadataService;
 
 @Component
 @RequiredArgsConstructor
-public class PodcastCoverUploadedHandler implements MediaEventHandler {
+public class PodcastCoverUploadedHandler implements MediaUploadEventHandler {
 
-    private static final MediaEventKey KEY = new MediaEventKey("podcast_cover", "uploaded");
+    private static final MediaHandlerKey<MediaUploadEventType> KEY =
+            new MediaHandlerKey<>(MediaObjectType.PODCAST_COVER_URL, MediaUploadEventType.UPLOADED);
 
-    private final PodcastMediaMetadataService podcastMediaMetadataService;
+    private final PodcastMediaMetadataService service;
 
     @Override
-    public MediaEventKey key() {
+    public MediaHandlerKey<MediaUploadEventType> key() {
         return KEY;
     }
 
     @Override
-    public void handle(MediaEvent event, KafkaRecordContext context) {
-        podcastMediaMetadataService.updateCoverFromMediaEvent(
-                event.objectId(),
-                event.requiredAnyText("cover_url", "cover_image_url", "image_url", "file_url", "url", "audio_url_file"));
+    public void handle(MediaUploadEventDto event, KafkaRecordContext context) {
+        service.updateCoverFromMediaEvent(event.objectId(), event.audioUrlFile(), event.timestamp());
     }
 }

@@ -15,7 +15,7 @@ Kafka error handler настроен через `DefaultErrorHandler`.
 |---|---|
 | `InvalidKafkaMessageException` | payload не соответствует контракту или бизнес-валидации |
 | `KafkaDeserializationException` | raw payload не является валидным JSON |
-| `KafkaMessageValidationException` | отсутствуют обязательные поля или неизвестный `type/event` |
+| `KafkaMessageValidationException` | отсутствуют обязательные поля или неизвестный `object_type`/`event` |
 | `IllegalArgumentException` | некорректный аргумент |
 
 ## Retryable ошибки
@@ -29,7 +29,10 @@ DLT topic вычисляется как `<sourceTopic><PODCAST_KAFKA_DLT_SUFFIX>
 | Source topic | DLT topic |
 |---|---|
 | `podcast.user.register` | `podcast.user.register.DLT` |
-| `media` | `media.DLT` |
+| `media.upload` | `media.upload.DLT` |
+| `media.worker` | `media.worker.DLT` |
+| `media.subtitle` | `media.subtitle.DLT` |
+| `tts.start` | `tts.start.DLT` |
 
 Сообщение отправляется в partition исходного record. После успешной отправки в DLT offset исходного сообщения считается обработанным.
 

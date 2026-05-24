@@ -1,12 +1,12 @@
 package podcastService.user.messaging;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
-import podcastService.infrastructure.messaging.kafka.KafkaJsonMessageParser;
+import podcastService.infrastructure.messaging.error.KafkaMessageValidationException;
+import podcastService.infrastructure.messaging.kafka.KafkaMessageReader;
 import podcastService.infrastructure.messaging.kafka.KafkaRecordContext;
 import podcastService.user.service.UserProfileService;
 
@@ -15,8 +15,7 @@ import podcastService.user.service.UserProfileService;
 @RequiredArgsConstructor
 public class UserRegistrationConsumer {
 
-    private final KafkaJsonMessageParser messageParser;
-    private final UserRegisteredEventParser eventParser;
+    private final KafkaMessageReader messageReader;
     private final UserProfileService userProfileService;
 
     @KafkaListener(
@@ -25,8 +24,8 @@ public class UserRegistrationConsumer {
     )
     public void onMessage(ConsumerRecord<String, String> record) {
         KafkaRecordContext context = KafkaRecordContext.from(record);
-        JsonNode payload = messageParser.parse(record.value(), context);
-        UserRegisteredEvent event = eventParser.parse(payload);
+        UserRegisteredEvent event = messageReader.read(record.value(), UserRegisteredEvent.class, context);
+        validate(event);
 
         log.info(
                 "Kafka user registration event received: topic={}, partition={}, offset={}, key={}, userId={}, correlationId={}, messageId={}",
@@ -48,5 +47,14 @@ public class UserRegistrationConsumer {
                 context.offset(),
                 event.userId()
         );
+    }
+
+    private void validate(UserRegisteredEvent event) {
+        if (event.userId() == null) {
+            throw new KafkaMessageValidationException("podcast.user.register event has missing user_id");
+        }
+        if (event.username() == null || event.username().isBlank()) {
+            throw new KafkaMessageValidationException("podcast.user.register event has missing username");
+        }
     }
 }

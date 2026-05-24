@@ -57,6 +57,7 @@ public class PodcastService {
     private final PodcastVoteRepository podcastVoteRepository;
     private final PodcastTranscriptRepository podcastTranscriptRepository;
     private final PodcastSummaryRepository podcastSummaryRepository;
+    private final PodcastMediaStatusTransitionPolicy mediaStatusTransitionPolicy;
 
     @Transactional(readOnly = true)
     public PageResponse<PodcastCard> list(PodcastFilter filter, UUID currentUserId) {
@@ -199,8 +200,8 @@ public class PodcastService {
         UUID currentAuthorId = requireCurrentAuthorId(currentUserId);
         ensureOwner(podcast, currentAuthorId);
 
-        if (podcast.getStatus() == Status.PROCESSING) {
-            throw new BusinessRuleException("Cannot update a podcast in PROCESSING status");
+        if (podcast.getStatus() == Status.UPLOADING || podcast.getStatus() == Status.PROCESSING) {
+            throw new BusinessRuleException("Cannot update a podcast while media pipeline is active");
         }
 
         if (podcast.getStatus() == Status.ARCHIVED) {
@@ -283,10 +284,6 @@ public class PodcastService {
         UUID currentAuthorId = requireCurrentAuthorId(currentUserId);
         ensureOwner(podcast, currentAuthorId);
 
-        if (podcast.getStatus() == Status.PROCESSING) {
-            throw new BusinessRuleException("Cannot publish a podcast in PROCESSING status");
-        }
-
         if (podcast.getStatus() == Status.PUBLISHED) {
             throw new BusinessRuleException("Cannot publish a podcast in PUBLISHED status");
         }
@@ -295,15 +292,19 @@ public class PodcastService {
             throw new BusinessRuleException("Cannot publish an archived podcast");
         }
 
-        if (podcast.getStatus() == Status.UPLOAD_ERROR) {
-            throw new BusinessRuleException("Cannot publish a podcast with upload error");
+        if (podcast.getStatus() == Status.FAILED) {
+            throw new BusinessRuleException("Cannot publish a podcast with media processing error");
+        }
+
+        if (!mediaStatusTransitionPolicy.allowsPublication(podcast.getStatus())) {
+            throw new BusinessRuleException("Cannot publish a podcast before media is processed");
         }
 
         if (isBlank(podcast.getAudioUrl())) {
-            throw new BusinessRuleException("Cannot publish a podcast without uploaded audio");
+            throw new BusinessRuleException("Cannot publish a podcast without processed audio_url");
         }
 
-        podcast.setStatus(Status.PROCESSING);
+        podcast.setStatus(Status.PUBLISHED);
 
         PodcastEntity saved = podcastRepository.saveAndFlush(podcast);
         UUID currentUserProfileId = resolveUserProfileId(currentUserId);
@@ -392,7 +393,7 @@ public class PodcastService {
     }
 
     private boolean hasTranscript(UUID podcastId) {
-        return podcastTranscriptRepository.existsByIdPodcastId(podcastId);
+        return podcastTranscriptRepository.existsByIdPodcastIdAndContentIsNotNull(podcastId);
     }
 
     private boolean hasSummary(UUID podcastId) {

@@ -17,5 +17,5 @@
 | Каталог | пагинация, фильтры, сортировки |
 | Владение | чужой подкаст или плейлист возвращает `403` |
 | Плейлисты | private/public доступ, reorder |
-| Kafka | валидный `podcast.user.register`, media-события, невалидный payload, DLT |
+| Kafka | `podcast.user.register`, `media.upload`, `media.worker`, `media.subtitle`, `tts.start`, невалидный payload, DLT |
 | Seed | повторный запуск не ломает данные |
