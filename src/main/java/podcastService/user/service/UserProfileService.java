@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import podcastService.common.exception.BadRequestException;
 import podcastService.common.exception.NotFoundException;
 import podcastService.infrastructure.messaging.error.InvalidKafkaMessageException;
+import podcastService.infrastructure.messaging.error.KafkaRetryableProcessingException;
 import podcastService.user.dto.CreateUserRequest;
 import podcastService.user.dto.UpdateUserProfileRequest;
 import podcastService.user.dto.UpdateUserSettingsRequest;
@@ -133,19 +134,59 @@ public class UserProfileService {
 
     @Transactional
     public void createNewUser(CreateUserRequest request) {
-        String normalizedUsername = request.username().trim();
+        upsertFromKafkaRegistration(request.userId(), request.username());
+    }
+
+    @Transactional
+    public void upsertFromKafkaRegistration(UUID userId, String username) {
+        if (userId == null) {
+            throw new InvalidKafkaMessageException("Received null user_id in Kafka");
+        }
+
+        if (username == null) {
+            throw new InvalidKafkaMessageException("Received null username in Kafka");
+        }
+
+        String normalizedUsername = username.trim();
 
         if (normalizedUsername.isBlank()) {
             throw new InvalidKafkaMessageException("Received blank username in Kafka");
         }
 
         try {
-            userRepository.insertUserProfile(request.userId(), normalizedUsername);
-            log.info("User profile created successfully from Kafka event, userId={}", request.userId());
+            userRepository.upsertUserProfile(userId, normalizedUsername);
+            log.info("User profile upserted from Kafka event, userId={}", userId);
         } catch (DataIntegrityViolationException exception) {
-            log.warn("User profile creation failed due to integrity violation, userId={}", request.userId());
-            throw new InvalidKafkaMessageException("Cannot create user profile due to duplicate or invalid data");
+            log.warn("User profile upsert failed due to integrity violation, userId={}", userId);
+            throw new InvalidKafkaMessageException("Cannot upsert user profile due to duplicate or invalid data", exception);
         }
+    }
+
+    @Transactional
+    public void updateAvatarFromMediaEvent(UUID objectId, String avatarUrl) {
+        if (objectId == null) {
+            throw new InvalidKafkaMessageException("Received null avatar object_id in Kafka");
+        }
+
+        String normalizedAvatarUrl = normalizeMediaPath(avatarUrl, "avatar_url");
+
+        int updated = userRepository.updateAvatarByProfileIdOrUserId(objectId, normalizedAvatarUrl);
+        if (updated == 0) {
+            throw new KafkaRetryableProcessingException(
+                    "User profile not found for avatar media event, objectId=" + objectId,
+                    null
+            );
+        }
+
+        log.info("User avatar updated from Kafka media event, objectId={}", objectId);
+    }
+
+    private String normalizeMediaPath(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new InvalidKafkaMessageException("Received blank " + fieldName + " in Kafka");
+        }
+
+        return value.trim();
     }
 
     private BadRequestException validationError(String message) {

@@ -1,6 +1,7 @@
 package podcastService.playlist.repository;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -30,4 +31,8 @@ public interface PlaylistRepository extends
     @EntityGraph(attributePaths = "owner")
     @Query("select p from PlaylistEntity p where p.id = :id")
     Optional<PlaylistEntity> findWithOwnerByIdForUpdate(UUID id);
+
+    @Modifying
+    @Query("update PlaylistEntity p set p.coverImageUrl = :coverImageUrl where p.id = :id")
+    int updateCoverImageUrl(@Param("id") UUID id, @Param("coverImageUrl") String coverImageUrl);
 }

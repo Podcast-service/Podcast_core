@@ -12,4 +12,6 @@ public interface PodcastTranscriptRepository extends JpaRepository<PodcastTransc
     Optional<PodcastTranscriptEntity> findByIdPodcastIdAndIdLanguage(UUID podcastId, String language);
 
     boolean existsByIdPodcastId(UUID podcastId);
+
+    boolean existsByIdPodcastIdAndContentIsNotNull(UUID podcastId);
 }

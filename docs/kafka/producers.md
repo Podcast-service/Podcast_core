@@ -1,13 +1,19 @@
 # Kafka-продюсеры
 
-## Внешний продюсер
+## Внешние продюсеры
 
-`auth-service` публикует событие `user.created` в topic `podcasts.users`. Событие содержит envelope и payload пользователя.
+| Producer | Topic | Назначение |
+|---|---|---|
+| `auth-service` | `podcast.user.register` | передаёт регистрацию пользователя для локального `user_profiles` |
+| media upload service | `media.upload` | передаёт метаданные загрузки файлов, обложек и аватаров |
+| media worker | `media.worker` | передаёт статусы обработки аудиофайла |
+| subtitles/STT service | `media.subtitle` | передаёт результат генерации субтитров |
+| TTS service | `tts.start` | передаёт текст TTS-flow |
 
-## Внутренний продюсер
+## Внутренние продюсеры
 
-В коде присутствует `KafkaEventPublisher` и `KafkaDomainEventProducer`, однако текущие доменные операции подкастов не публикуют события в `podcasts.podcasts`.
+Доменные операции микросервиса подкастов не публикуют бизнес-события в Kafka. Единственная исходящая запись выполняется инфраструктурным `DeadLetterPublishingRecoverer` при отправке необработанных сообщений в DLT.
 
 ## Producer DLT
 
-`DeadLetterPublishingRecoverer` публикует сообщения в topic `<sourceTopic>.DLT` после исчерпания политики повторных попыток или при неретрайных ошибках.
+`DeadLetterPublishingRecoverer` публикует сообщения в topic `<sourceTopic><PODCAST_KAFKA_DLT_SUFFIX>` после исчерпания политики повторных попыток или при неретрайных ошибках.

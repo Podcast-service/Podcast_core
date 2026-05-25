@@ -1,44 +1,34 @@
 # Поток Kafka-сообщений
 
-## Входящий поток пользователя
+## Регистрация пользователя
 
-`auth-service` публикует событие `user.created` в topic `podcasts.users`. Микросервис подкастов читает событие consumer group `podcast-service`, валидирует envelope и создаёт локальный `user_profiles`.
+`auth-service` публикует raw JSON в topic `podcast.user.register`. Микросервис подкастов создаёт или обновляет локальный `user_profiles`.
 
-```mermaid
-sequenceDiagram
-    participant Auth as auth-service
-    participant Kafka as Kafka
-    participant Core as podcast-core
-    participant DB as PostgreSQL
-    Auth->>Kafka: user.created
-    Kafka->>Core: EventEnvelope
-    Core->>Core: проверка eventType, occurredAt, payload
-    Core->>DB: insert user_profiles
-```
+## Media lifecycle
 
-## Формат envelope
+Файлы через Kafka не передаются. Kafka содержит только метаданные загрузки, обработки, subtitle и TTS-flow.
 
-```json
-{
-  "eventType": "user.created",
-  "occurredAt": "2026-05-23T10:00:00Z",
-  "payload": {
-    "userId": "00000000-0000-0000-0000-000000000001",
-    "username": "dev-user"
-  }
-}
-```
-
-## Повторные попытки и DLT
-
-Kafka error handler выполняет до трёх повторных попыток с задержкой 1000 мс для ретрайных ошибок. Неретрайные ошибки сразу отправляются в DLT.
-
-| Ошибка | Поведение |
+| Topic | Назначение |
 |---|---|
-| `InvalidKafkaMessageException` | без retry, отправка в DLT |
-| `KafkaDeserializationException` | без retry, отправка в DLT |
-| `KafkaMessageValidationException` | без retry, отправка в DLT |
-| `IllegalArgumentException` | без retry, отправка в DLT |
-| прочие runtime ошибки | retry, затем DLT |
+| `media.upload` | загрузка исходного файла, обложки, аватара или плейлиста |
+| `media.worker` | обработка аудиофайла подкаста |
+| `media.subtitle` | результат генерации субтитров |
+| `tts.start` | текст, из которого TTS генерирует аудио |
 
-DLT topic формируется как `<исходный topic>.DLT`, например `podcasts.users.DLT`.
+## Статусы подкаста
+
+| Событие | Поведение |
+|---|---|
+| `media.upload/start_upload` | `DRAFT` переходит в `UPLOADING` |
+| `media.upload/uploaded` | сохраняются `audio_url_file`, `audio_size_file`, `duration_seconds`; статус `UPLOADED` |
+| `media.worker/start_processing` | статус `PROCESSING` |
+| `media.worker/processed` | сохраняется processed/HLS `audio_url`; статус `PROCESSED` |
+| error event | статус `FAILED` |
+
+`start_upload` после `PROCESSED` не откатывает статус назад. `processed` после `processed` безопасен. Опубликованные и архивные подкасты не переводятся в media lifecycle статусы.
+
+Для `media.upload` контракт разделён по `object_type`: аудио использует `audio_url_file`, `audio_file_size`, `duration_seconds` и обязательный `event`; изображения используют `image_url`, а отсутствие `event` трактуется как успешная загрузка.
+
+## Transcript storage
+
+`media.subtitle` и `tts.start` сохраняют данные в `podcast_transcripts.content`. Для subtitle в `content` сохраняется JSON с ключами `vtt_object_key`, `srt_object_key`, `ready_at`; для TTS сохраняется текст из Kafka payload.

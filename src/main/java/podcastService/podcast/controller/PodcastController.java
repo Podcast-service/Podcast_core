@@ -17,6 +17,7 @@ import podcastService.podcast.dto.CreatePodcastRequest;
 import podcastService.podcast.dto.PodcastDetailResponse;
 import podcastService.podcast.dto.PodcastFilter;
 import podcastService.podcast.dto.PodcastCard;
+import podcastService.podcast.dto.PodcastSpeakersResponse;
 import podcastService.podcast.dto.SortPodcasts;
 import podcastService.podcast.dto.UpdatePodcastRequest;
 import podcastService.podcast.service.PodcastService;
@@ -70,9 +71,10 @@ public class PodcastController {
     ) {
         UUID currentUserId = currentUser.userId();
         log.info(
-                "POST /podcasts, currentUserId={}, categoryId={}, titleLength={}",
+                "POST /podcasts, currentUserId={}, categoryId={}, numSpeakers={}, titleLength={}",
                 currentUserId,
                 request.categoryId(),
+                request.numSpeakers(),
                 request.title() == null ? null : request.title().length()
         );
 
@@ -89,6 +91,17 @@ public class PodcastController {
         UUID currentUserId = userIdOrNull(currentUser);
         log.info("GET /podcasts/{}, currentUserId={}", podcastId, currentUserId);
         return podcastService.getById(podcastId, currentUserId);
+    }
+
+    @GetMapping("/{podcastId}/speakers")
+    @ResponseStatus(HttpStatus.OK)
+    public PodcastSpeakersResponse getPodcastSpeakers(
+            @PathVariable UUID podcastId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser
+    ) {
+        UUID currentUserId = userIdOrNull(currentUser);
+        log.info("GET /podcasts/{}/speakers, currentUserId={}", podcastId, currentUserId);
+        return podcastService.getSpeakersById(podcastId, currentUserId);
     }
 
     @PutMapping("/{podcastId}")

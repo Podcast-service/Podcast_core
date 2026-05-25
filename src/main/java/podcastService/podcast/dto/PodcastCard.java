@@ -1,5 +1,6 @@
 package podcastService.podcast.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import podcastService.author.dto.AuthorCard;
 import podcastService.category.dto.CategoryResponse;
 import podcastService.podcast.entity.Status;
@@ -15,6 +16,8 @@ public record PodcastCard(
         CategoryResponse category,
         String coverImageUrl,
         Integer durationSeconds,
+        @JsonProperty("num_speakers")
+        Integer numSpeakers,
         Status status,
         Long viewsCount,
         Long likesCount,

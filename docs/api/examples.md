@@ -16,8 +16,22 @@ curl -X POST http://localhost:8082/podcast/v1/podcasts \
     "title": "Spring Boot в production",
     "description": "Практический выпуск о сервисах, логах и миграциях",
     "categoryId": "48b67732-5676-36bd-a97f-44d01de91376",
-    "coverImageUrl": "https://cdn.example.local/covers/spring.png"
+    "coverImageUrl": "https://cdn.example.local/covers/spring.png",
+    "num_speakers": 2
   }'
+```
+
+## Получить количество спикеров
+
+```bash
+curl http://localhost:8082/podcast/v1/podcasts/22222222-2222-2222-2222-222222222222/speakers
+```
+
+```json
+{
+  "podcastId": "22222222-2222-2222-2222-222222222222",
+  "num_speakers": 2
+}
 ```
 
 ## Найти подкасты

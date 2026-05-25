@@ -15,8 +15,14 @@
 | `PODCAST_DB_PORT` | `5432` | нет | порт PostgreSQL на host |
 | `PODCAST_KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | да | Kafka bootstrap servers |
 | `PODCAST_KAFKA_CONSUMER_GROUP` | `podcast-service` | да | consumer group |
-| `PODCAST_KAFKA_TOPIC_USERS` | `podcasts.users` | да | topic событий пользователей |
-| `PODCAST_KAFKA_TOPIC_PODCASTS` | `podcasts.podcasts` | нет | зарезервированный topic подкастов |
+| `PODCAST_KAFKA_TOPIC_USER_REGISTER` | `podcast.user.register` | да | topic регистрации пользователей |
+| `PODCAST_KAFKA_TOPIC_MEDIA_UPLOAD` | `media.upload` | да | topic загрузки медиа |
+| `PODCAST_KAFKA_TOPIC_MEDIA_WORKER` | `media.worker` | да | topic обработки медиа |
+| `PODCAST_KAFKA_TOPIC_MEDIA_SUBTITLE` | `media.subtitle` | да | topic результатов субтитров |
+| `PODCAST_KAFKA_TOPIC_TTS_START` | `tts.start` | да | topic старта TTS-flow |
+| `PODCAST_KAFKA_RETRY_BACKOFF_MS` | `1000` | нет | задержка между retry Kafka |
+| `PODCAST_KAFKA_RETRY_MAX_ATTEMPTS` | `3` | нет | количество retry перед DLT для retryable ошибок |
+| `PODCAST_KAFKA_DLT_SUFFIX` | `.DLT` | нет | суффикс DLT topic |
 | `PODCAST_KAFKA_INTERNAL_PORT` | `9092` | нет | local port Kafka internal listener |
 | `PODCAST_KAFKA_EXTERNAL_PORT` | `9094` | нет | local port Kafka external listener |
 | `PODCAST_KAFKA_EXTERNAL_HOST` | `host.docker.internal` | нет | advertised host external listener |

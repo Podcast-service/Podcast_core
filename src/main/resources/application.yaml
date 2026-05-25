@@ -24,20 +24,20 @@ spring:
 
   kafka:
     bootstrap-servers: ${PODCAST_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    listener:
+      ack-mode: record
     consumer:
       group-id: ${PODCAST_KAFKA_CONSUMER_GROUP:podcast-service}
+      enable-auto-commit: false
       auto-offset-reset: earliest
       key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
         spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
-        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
-        spring.json.trusted.packages: "podcastService.infrastructure.messaging.event,podcastService.user.dto"
-        spring.json.use.type.headers: false
-        spring.json.value.default.type: "podcastService.infrastructure.messaging.event.EventEnvelope"
+        spring.deserializer.value.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
 app:
   cors:
@@ -49,10 +49,16 @@ app:
       issuer: ${PODCAST_ACCESS_TOKEN_ISSUER:auth-service}
   kafka:
     topics:
-      users: ${PODCAST_KAFKA_TOPIC_USERS:podcasts.users}
-      podcasts: ${PODCAST_KAFKA_TOPIC_PODCASTS:podcasts.podcasts}
-    routing:
-      user.created: users
+      user-register: ${PODCAST_KAFKA_TOPIC_USER_REGISTER:podcast.user.register}
+      media-upload: ${PODCAST_KAFKA_TOPIC_MEDIA_UPLOAD:media.upload}
+      media-worker: ${PODCAST_KAFKA_TOPIC_MEDIA_WORKER:media.worker}
+      media-subtitle: ${PODCAST_KAFKA_TOPIC_MEDIA_SUBTITLE:media.subtitle}
+      tts-start: ${PODCAST_KAFKA_TOPIC_TTS_START:tts.start}
+    retry:
+      backoff-ms: ${PODCAST_KAFKA_RETRY_BACKOFF_MS:1000}
+      max-attempts: ${PODCAST_KAFKA_RETRY_MAX_ATTEMPTS:3}
+    dlt:
+      suffix: ${PODCAST_KAFKA_DLT_SUFFIX:.DLT}
 
 server:
   port: ${PODCAST_SERVER_PORT:8082}

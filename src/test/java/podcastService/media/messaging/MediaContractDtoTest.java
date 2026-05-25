@@ -1,0 +1,94 @@
+package podcastService.media.messaging;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.junit.jupiter.api.Test;
+import podcastService.infrastructure.messaging.kafka.KafkaMessageReader;
+import podcastService.infrastructure.messaging.kafka.KafkaRecordContext;
+import podcastService.media.messaging.contract.MediaObjectType;
+import podcastService.media.messaging.contract.MediaUploadEventDto;
+import podcastService.media.messaging.contract.MediaUploadEventType;
+import podcastService.media.messaging.contract.MediaWorkerEventDto;
+import podcastService.media.messaging.contract.MediaWorkerEventType;
+
+import java.time.OffsetDateTime;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class MediaContractDtoTest {
+
+    private static final KafkaRecordContext CONTEXT = new KafkaRecordContext(
+            "media.upload", 0, 1L, null, null, null
+    );
+
+    private final KafkaMessageReader reader = new KafkaMessageReader(new ObjectMapper().registerModule(new JavaTimeModule()));
+
+    @Test
+    void readsMediaUploadDtoAndMapsAudioFileSize() {
+        MediaUploadEventDto event = reader.read("""
+                {
+                  "object_type": "podcast_file_url",
+                  "object_id": "00000000-0000-0000-0000-000000000301",
+                  "event": "uploaded",
+                  "audio_url_file": "https://storage.example.local/source.mp3",
+                  "audio_file_size": 123456,
+                  "duration_seconds": 2400,
+                  "timestamp": "2026-03-22T12:35:56Z",
+                  "extra": "ignored"
+                }
+                """, MediaUploadEventDto.class, CONTEXT);
+
+        assertThat(event.objectType()).isEqualTo(MediaObjectType.PODCAST_FILE_URL);
+        assertThat(event.event()).isEqualTo(MediaUploadEventType.UPLOADED);
+        assertThat(event.objectId()).isEqualTo(UUID.fromString("00000000-0000-0000-0000-000000000301"));
+        assertThat(event.audioFileSize()).isEqualTo(123456L);
+        assertThat(event.durationSeconds()).isEqualTo(2400L);
+        assertThat(event.timestamp()).isEqualTo(OffsetDateTime.parse("2026-03-22T12:35:56Z"));
+    }
+
+    @Test
+    void imageUploadDefaultsMissingEventToUploadedAndUsesImageUrl() {
+        MediaUploadEventDto event = reader.read("""
+                {
+                  "object_type": "podcast_cover_url",
+                  "object_id": "00000000-0000-0000-0000-000000000301",
+                  "image_url": "https://storage.example.local/covers/podcast.jpg",
+                  "timestamp": "2026-03-22T12:35:56Z"
+                }
+                """, MediaUploadEventDto.class, CONTEXT);
+
+        assertThat(event.normalizedObjectType()).isEqualTo(MediaObjectType.PODCAST_COVER_URL);
+        assertThat(event.normalizedEvent()).isEqualTo(MediaUploadEventType.UPLOADED);
+        assertThat(event.uploadedImageUrl()).isEqualTo("https://storage.example.local/covers/podcast.jpg");
+    }
+
+    @Test
+    void normalizesUploadErrorWithoutObjectTypeAndEvent() {
+        MediaUploadEventDto event = reader.read("""
+                {
+                  "podcast_id": "00000000-0000-0000-0000-000000000301",
+                  "error": "upload failed",
+                  "timestamp": "2026-03-22T12:35:56Z"
+                }
+                """, MediaUploadEventDto.class, CONTEXT);
+
+        assertThat(event.normalizedObjectType()).isEqualTo(MediaObjectType.PODCAST_FILE_URL);
+        assertThat(event.normalizedEvent()).isEqualTo(MediaUploadEventType.UPLOAD_FAILED);
+        assertThat(event.targetPodcastId()).isEqualTo(UUID.fromString("00000000-0000-0000-0000-000000000301"));
+    }
+
+    @Test
+    void normalizesWorkerErrorWithoutObjectTypeAndEvent() {
+        MediaWorkerEventDto event = reader.read("""
+                {
+                  "podcast_id": "00000000-0000-0000-0000-000000000301",
+                  "error": "processing failed",
+                  "timestamp": "2026-03-22T12:35:56Z"
+                }
+                """, MediaWorkerEventDto.class, CONTEXT);
+
+        assertThat(event.normalizedObjectType()).isEqualTo(MediaObjectType.PODCAST_FILE_URL);
+        assertThat(event.normalizedEvent()).isEqualTo(MediaWorkerEventType.PROCESSING_FAILED);
+    }
+}

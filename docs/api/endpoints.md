@@ -35,6 +35,7 @@
 | `GET` | `/podcasts` | публичный, токен опционален | нет | `PageOfPodcastCard` |
 | `POST` | `/podcasts` | роль `author` | `CreatePodcastRequest` | `PodcastDetailResponse` |
 | `GET` | `/podcasts/{podcastId}` | публичный, токен опционален | нет | `PodcastDetailResponse` |
+| `GET` | `/podcasts/{podcastId}/speakers` | публичный, токен опционален | нет | `PodcastSpeakersResponse` |
 | `PUT` | `/podcasts/{podcastId}` | роль `author`, владелец | `UpdatePodcastRequest` | `PodcastDetailResponse` |
 | `DELETE` | `/podcasts/{podcastId}` | роль `author`, владелец | нет | `204` |
 | `POST` | `/podcasts/{podcastId}/publish` | роль `author`, владелец | нет | `PodcastDetailResponse` |
@@ -212,15 +213,78 @@ curl "http://localhost:8082/podcast/v1/podcasts?q=Kafka&sort=DATE_DESC&page=1&si
   "title": "Kafka в production",
   "description": "Разбор topic, consumer group и DLT",
   "categoryId": "48b67732-5676-36bd-a97f-44d01de91376",
-  "coverImageUrl": "https://cdn.example.local/covers/kafka.png"
+  "coverImageUrl": "https://cdn.example.local/covers/kafka.png",
+  "num_speakers": 2
 }
 ```
+
+`num_speakers` является обязательным целым числом в диапазоне от `1` до `32`. Значения `0`, отрицательные значения, пропущенное поле и нечисловой тип возвращают `400 VALIDATION_ERROR`.
 
 Коды: `201`, `400`, `401`, `403`, `404`, `409`.
 
 ### `GET /podcasts/{podcastId}`
 
-Возвращает детали выпуска. Неопубликованный выпуск доступен владельцу с JWT. Коды: `200`, `403`, `404`.
+Возвращает детали выпуска. Неопубликованный выпуск доступен владельцу с JWT. Ответ содержит `num_speakers`, а также файловые поля `audio_url_file` и `audio_size_file`, если они заполнены на стороне медиа-обработки или seed data.
+
+```bash
+curl http://localhost:8082/podcast/v1/podcasts/22222222-2222-2222-2222-222222222222
+```
+
+```json
+{
+  "id": "22222222-2222-2222-2222-222222222222",
+  "title": "Kafka в production",
+  "author": {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "authorName": "Backend Kitchen",
+    "avatarUrl": "https://cdn.example.local/authors/backend.png",
+    "subscribersCount": 1280,
+    "isSubscribed": null
+  },
+  "category": {
+    "id": "48b67732-5676-36bd-a97f-44d01de91376",
+    "name": "Technology",
+    "position": 10
+  },
+  "coverImageUrl": "https://cdn.example.local/covers/kafka.png",
+  "durationSeconds": 2580,
+  "num_speakers": 2,
+  "status": "PUBLISHED",
+  "viewsCount": 4200,
+  "likesCount": 340,
+  "dislikesCount": 4,
+  "publishedAt": "2026-05-20T10:00:00Z",
+  "createdAt": "2026-05-19T10:00:00Z",
+  "currentUserVote": null,
+  "progressSeconds": null,
+  "progressPercent": null,
+  "description": "Разбор topic, consumer group и DLT",
+  "audioUrl": "https://cdn.example.local/audio/kafka.mp3",
+  "audio_url_file": "/dev/audio/podcast-1.mp3",
+  "audio_size_file": 78000000,
+  "hasTranscript": true,
+  "hasSummary": true
+}
+```
+
+Коды: `200`, `403`, `404`.
+
+### `GET /podcasts/{podcastId}/speakers`
+
+Возвращает количество спикеров подкаста. Опубликованный подкаст доступен публично; неопубликованный подкаст доступен только автору-владельцу с JWT.
+
+```bash
+curl http://localhost:8082/podcast/v1/podcasts/22222222-2222-2222-2222-222222222222/speakers
+```
+
+```json
+{
+  "podcastId": "22222222-2222-2222-2222-222222222222",
+  "num_speakers": 2
+}
+```
+
+Коды: `200`, `404`.
 
 ### `PUT /podcasts/{podcastId}`
 
@@ -232,7 +296,7 @@ curl "http://localhost:8082/podcast/v1/podcasts?q=Kafka&sort=DATE_DESC&page=1&si
 
 ### `POST /podcasts/{podcastId}/publish`
 
-Переводит выпуск в публикационный flow. Требуется роль `author` и владение. Коды: `202`, `401`, `403`, `404`, `422`.
+Переводит выпуск в публикационный flow. Требуется роль `author` и владение. Публикация доступна только для подкаста в статусе `PROCESSED`, с непустым `audioUrl` и положительным `durationSeconds`. Коды: `202`, `401`, `403`, `404`, `422`.
 
 ### `GET /podcasts/{podcastId}/transcript`
 

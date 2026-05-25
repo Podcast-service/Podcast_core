@@ -1,17 +1,24 @@
 # Kafka-топики
 
-| Topic | Направление | Статус | Назначение |
-|---|---|---|---|
-| `podcasts.users` | входящий | используется | события пользователей от `auth-service` |
-| `podcasts.users.DLT` | исходящий от error handler | используется при ошибках | сообщения, не обработанные consumer |
-| `podcasts.podcasts` | зарезервирован конфигурацией | продюсер в коде не используется | будущие события подкастов |
+| Topic | Направление | Назначение |
+|---|---|---|
+| `podcast.user.register` | входящий | создание или обновление локального `user_profiles` |
+| `media.upload` | входящий | начало загрузки, успешная загрузка и ошибки загрузки |
+| `media.worker` | входящий | начало обработки, завершение обработки и ошибки обработки |
+| `media.subtitle` | входящий | сохранение subtitle `content` в `podcast_transcripts.content` |
+| `tts.start` | входящий | сохранение TTS `content` в `podcast_transcripts.content` |
+| `<source>.DLT` | исходящий | сообщения, не обработанные основным consumer |
 
-## Partitions
+## Рекомендуемые ключи сообщений
 
-Количество partitions задаётся инфраструктурой Kafka. В локальном Docker Compose auto-create topics включён через `PODCAST_KAFKA_AUTO_CREATE_TOPICS_ENABLE=true`.
-
-> Требует уточнения: production количество partitions и replication factor для каждого topic.
-
-## Consumer group
+| Topic | Kafka key |
+|---|---|
+| `podcast.user.register` | `user_id` |
+| `media.upload` | `object_id` |
+| `media.worker` | `object_id` |
+| `media.subtitle` | `podcast_id` |
+| `tts.start` | `podcast_id` |
 
 `podcast-core` использует group id из `PODCAST_KAFKA_CONSUMER_GROUP`, по умолчанию `podcast-service`.
+
+> Требует уточнения: production количество partitions, replication factor и retention для каждого topic.

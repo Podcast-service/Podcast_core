@@ -20,6 +20,7 @@ import podcastService.podcast.dto.CreatePodcastRequest;
 import podcastService.podcast.dto.PodcastCard;
 import podcastService.podcast.dto.PodcastDetailResponse;
 import podcastService.podcast.dto.PodcastFilter;
+import podcastService.podcast.dto.PodcastSpeakersResponse;
 import podcastService.podcast.dto.SortPodcasts;
 import podcastService.podcast.dto.UpdatePodcastRequest;
 import podcastService.podcast.entity.PodcastEntity;
@@ -56,6 +57,7 @@ public class PodcastService {
     private final PodcastVoteRepository podcastVoteRepository;
     private final PodcastTranscriptRepository podcastTranscriptRepository;
     private final PodcastSummaryRepository podcastSummaryRepository;
+    private final PodcastMediaStatusTransitionPolicy mediaStatusTransitionPolicy;
 
     @Transactional(readOnly = true)
     public PageResponse<PodcastCard> list(PodcastFilter filter, UUID currentUserId) {
@@ -144,6 +146,7 @@ public class PodcastService {
         entity.setTitle(normalizeRequiredText(request.title(), "title"));
         entity.setDescription(normalizeNullableText(request.description()));
         entity.setCoverImageUrl(normalizeNullableText(request.coverImageUrl()));
+        entity.setNumSpeakers(validateNumSpeakers(request.numSpeakers()));
         entity.setStatus(Status.DRAFT);
 
         PodcastEntity saved = podcastRepository.saveAndFlush(entity);
@@ -168,35 +171,23 @@ public class PodcastService {
 
     @Transactional(readOnly = true)
     public PodcastDetailResponse getById(UUID podcastId, UUID currentUserId) {
-        PodcastEntity podcast = podcastRepository.findDetailedById(podcastId)
-                .orElseThrow(() -> new NotFoundException("Podcast not found"));
-
-        UUID currentAuthorId = resolveAuthorIdByUserId(currentUserId);
-        UUID currentUserProfileId = resolveUserProfileId(currentUserId);
-
-        boolean visible = podcast.getStatus() == Status.PUBLISHED
-                || (currentAuthorId != null && currentAuthorId.equals(podcast.getAuthor().getId()));
-
-        if (!visible) {
-            log.warn(
-                    "Access denied to podcast details: podcastId={}, status={}, currentUserId={}, currentAuthorId={}, ownerAuthorId={}",
-                    podcastId,
-                    podcast.getStatus(),
-                    currentUserId,
-                    currentAuthorId,
-                    podcast.getAuthor().getId()
-            );
-            throw new NotFoundException("Podcast not found");
-        }
+        VisiblePodcast visiblePodcast = findVisiblePodcast(podcastId, currentUserId, "details");
+        PodcastEntity podcast = visiblePodcast.podcast();
 
         return podcastMapper.toDetail(
                 podcast,
-                currentAuthorId,
-                resolveSubscribedAuthorIds(Set.of(podcast.getAuthor().getId()), currentUserProfileId),
-                resolveCurrentUserVote(podcast.getId(), currentUserProfileId),
+                visiblePodcast.currentAuthorId(),
+                resolveSubscribedAuthorIds(Set.of(podcast.getAuthor().getId()), visiblePodcast.currentUserProfileId()),
+                resolveCurrentUserVote(podcast.getId(), visiblePodcast.currentUserProfileId()),
                 hasTranscript(podcast.getId()),
                 hasSummary(podcast.getId())
         );
+    }
+
+    @Transactional(readOnly = true)
+    public PodcastSpeakersResponse getSpeakersById(UUID podcastId, UUID currentUserId) {
+        PodcastEntity podcast = findVisiblePodcast(podcastId, currentUserId, "speakers").podcast();
+        return new PodcastSpeakersResponse(podcast.getId(), podcast.getNumSpeakers());
     }
 
     @Transactional
@@ -209,8 +200,8 @@ public class PodcastService {
         UUID currentAuthorId = requireCurrentAuthorId(currentUserId);
         ensureOwner(podcast, currentAuthorId);
 
-        if (podcast.getStatus() == Status.PROCESSING) {
-            throw new BusinessRuleException("Cannot update a podcast in PROCESSING status");
+        if (podcast.getStatus() == Status.UPLOADING || podcast.getStatus() == Status.PROCESSING) {
+            throw new BusinessRuleException("Cannot update a podcast while media pipeline is active");
         }
 
         if (podcast.getStatus() == Status.ARCHIVED) {
@@ -293,10 +284,6 @@ public class PodcastService {
         UUID currentAuthorId = requireCurrentAuthorId(currentUserId);
         ensureOwner(podcast, currentAuthorId);
 
-        if (podcast.getStatus() == Status.PROCESSING) {
-            throw new BusinessRuleException("Cannot publish a podcast in PROCESSING status");
-        }
-
         if (podcast.getStatus() == Status.PUBLISHED) {
             throw new BusinessRuleException("Cannot publish a podcast in PUBLISHED status");
         }
@@ -305,11 +292,23 @@ public class PodcastService {
             throw new BusinessRuleException("Cannot publish an archived podcast");
         }
 
-        if (isBlank(podcast.getAudioUrl())) {
-            throw new BusinessRuleException("Cannot publish a podcast without uploaded audio");
+        if (podcast.getStatus() == Status.FAILED) {
+            throw new BusinessRuleException("Cannot publish a podcast with media processing error");
         }
 
-        podcast.setStatus(Status.PROCESSING);
+        if (!mediaStatusTransitionPolicy.allowsPublication(podcast.getStatus())) {
+            throw new BusinessRuleException("Cannot publish a podcast before media is processed");
+        }
+
+        if (isBlank(podcast.getAudioUrl())) {
+            throw new BusinessRuleException("Cannot publish a podcast without processed audio_url");
+        }
+
+        if (podcast.getDurationSeconds() == null || podcast.getDurationSeconds() <= 0) {
+            throw new BusinessRuleException("Cannot publish a podcast without positive duration_seconds");
+        }
+
+        podcast.setStatus(Status.PUBLISHED);
 
         PodcastEntity saved = podcastRepository.saveAndFlush(podcast);
         UUID currentUserProfileId = resolveUserProfileId(currentUserId);
@@ -398,7 +397,7 @@ public class PodcastService {
     }
 
     private boolean hasTranscript(UUID podcastId) {
-        return podcastTranscriptRepository.existsByIdPodcastId(podcastId);
+        return podcastTranscriptRepository.existsByIdPodcastIdAndContentIsNotNull(podcastId);
     }
 
     private boolean hasSummary(UUID podcastId) {
@@ -469,7 +468,50 @@ public class PodcastService {
         return normalized.isEmpty() ? null : normalized;
     }
 
+    private int validateNumSpeakers(Integer value) {
+        if (value == null) {
+            throw new BadRequestException("num_speakers must not be null");
+        }
+        if (value < 1 || value > 32) {
+            throw new BadRequestException("num_speakers must be between 1 and 32");
+        }
+        return value;
+    }
+
+    private VisiblePodcast findVisiblePodcast(UUID podcastId, UUID currentUserId, String resource) {
+        PodcastEntity podcast = podcastRepository.findDetailedById(podcastId)
+                .orElseThrow(() -> new NotFoundException("Podcast not found"));
+
+        UUID currentAuthorId = resolveAuthorIdByUserId(currentUserId);
+        UUID currentUserProfileId = resolveUserProfileId(currentUserId);
+
+        boolean visible = podcast.getStatus() == Status.PUBLISHED
+                || (currentAuthorId != null && currentAuthorId.equals(podcast.getAuthor().getId()));
+
+        if (!visible) {
+            log.warn(
+                    "Access denied to podcast {}: podcastId={}, status={}, currentUserId={}, currentAuthorId={}, ownerAuthorId={}",
+                    resource,
+                    podcastId,
+                    podcast.getStatus(),
+                    currentUserId,
+                    currentAuthorId,
+                    podcast.getAuthor().getId()
+            );
+            throw new NotFoundException("Podcast not found");
+        }
+
+        return new VisiblePodcast(podcast, currentAuthorId, currentUserProfileId);
+    }
+
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private record VisiblePodcast(
+            PodcastEntity podcast,
+            UUID currentAuthorId,
+            UUID currentUserProfileId
+    ) {
     }
 }

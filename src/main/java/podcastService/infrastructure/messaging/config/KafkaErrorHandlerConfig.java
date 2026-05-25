@@ -2,6 +2,7 @@ package podcastService.infrastructure.messaging.config;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaOperations;
@@ -14,14 +15,17 @@ import podcastService.infrastructure.messaging.error.KafkaExceptionLogger;
 import podcastService.infrastructure.messaging.error.KafkaMessageValidationException;
 
 @Configuration
+@RequiredArgsConstructor
 public class KafkaErrorHandlerConfig {
+
+    private final KafkaMessagingProperties kafkaMessagingProperties;
 
     @Bean
     public DefaultErrorHandler kafkaErrorHandler(
             KafkaOperations<Object, Object> kafkaTemplate,
             KafkaExceptionLogger kafkaExceptionLogger
     ) {
-        DefaultErrorHandler errorHandler = getDefaultErrorHandler(kafkaTemplate, kafkaExceptionLogger);
+        DefaultErrorHandler errorHandler = getDefaultErrorHandler(kafkaTemplate, kafkaExceptionLogger, kafkaMessagingProperties);
 
         errorHandler.addNotRetryableExceptions(
                 InvalidKafkaMessageException.class,
@@ -39,11 +43,15 @@ public class KafkaErrorHandlerConfig {
         return errorHandler;
     }
 
-    private static DefaultErrorHandler getDefaultErrorHandler(KafkaOperations<Object, Object> kafkaTemplate, KafkaExceptionLogger kafkaExceptionLogger) {
+    private static DefaultErrorHandler getDefaultErrorHandler(
+            KafkaOperations<Object, Object> kafkaTemplate,
+            KafkaExceptionLogger kafkaExceptionLogger,
+            KafkaMessagingProperties kafkaMessagingProperties
+    ) {
         DeadLetterPublishingRecoverer recover = new DeadLetterPublishingRecoverer(
                 kafkaTemplate,
                 (ConsumerRecord<?, ?> record, Exception exception) -> {
-                    String dltTopic = record.topic() + ".DLT";
+                    String dltTopic = record.topic() + kafkaMessagingProperties.getDlt().getSuffix();
                     kafkaExceptionLogger.logSentToDlt(record, exception, dltTopic);
                     return new TopicPartition(dltTopic, record.partition());
                 }
@@ -51,7 +59,10 @@ public class KafkaErrorHandlerConfig {
 
         return new DefaultErrorHandler(
                 recover,
-                new FixedBackOff(1000L, 3L)
+                new FixedBackOff(
+                        kafkaMessagingProperties.getRetry().getBackoffMs(),
+                        kafkaMessagingProperties.getRetry().getMaxAttempts()
+                )
         );
     }
 }

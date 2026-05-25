@@ -34,7 +34,6 @@ http://localhost:8082/podcast/v1/swagger
 | [Эксплуатация](operations/deployment.md) | развёртывание, healthcheck endpoints, мониторинг, логи и восстановление |
 | [Интеграция frontend/mobile](frontend/integration.md) | auth flow, пагинация, обработка ошибок, примеры |
 | [QA](qa/testing-strategy.md) | стратегия тестирования, тестовые данные, edge cases |
-| [Отчёты](reports/documentation-audit.md) | аудит документации и контрактов |
 
 ## Основные возможности
 

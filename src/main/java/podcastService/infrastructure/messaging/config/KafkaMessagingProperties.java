@@ -17,6 +17,20 @@ public class KafkaMessagingProperties {
     @NotEmpty
     private Map<String, String> topics = new HashMap<>();
 
-    @NotEmpty
-    private Map<String, String> routing = new HashMap<>();
+    private Retry retry = new Retry();
+
+    private Dlt dlt = new Dlt();
+
+    @Getter
+    @Setter
+    public static class Retry {
+        private long backoffMs = 1000L;
+        private long maxAttempts = 3L;
+    }
+
+    @Getter
+    @Setter
+    public static class Dlt {
+        private String suffix = ".DLT";
+    }
 }

@@ -1,14 +1,18 @@
 # Kafka
 
-Kafka используется для асинхронной синхронизации данных пользователя из сервиса аутентификации. Основной поддерживаемый входящий event type: `user.created`.
+Kafka используется для входящих событий от внешних сервисов. Микросервис подкастов читает raw JSON, десериализует его в typed DTO, валидирует контракт и передаёт событие в handler registry или topic-specific service.
 
 ## Роли сервисов
 
 | Сервис | Роль |
 |---|---|
-| `auth-service` | producer события `user.created` |
-| `podcast-core` | consumer topic `podcasts.users` |
-| `podcast-core` error handler | producer в DLT topic |
+| `auth-service` | producer topic `podcast.user.register` |
+| media upload service | producer topic `media.upload` |
+| media worker | producer topic `media.worker` |
+| subtitles/STT service | producer topic `media.subtitle` |
+| TTS service | producer topic `tts.start` |
+| `podcast-core` | consumer всех входящих topics |
+| `podcast-core` error handler | producer в DLT topics |
 
 ## Runtime настройки
 
@@ -16,15 +20,23 @@ Kafka используется для асинхронной синхрониз�
 |---|---|
 | Bootstrap servers | `PODCAST_KAFKA_BOOTSTRAP_SERVERS=localhost:9092` |
 | Consumer group | `PODCAST_KAFKA_CONSUMER_GROUP=podcast-service` |
-| Users topic | `PODCAST_KAFKA_TOPIC_USERS=podcasts.users` |
-| Reserved podcasts topic | `PODCAST_KAFKA_TOPIC_PODCASTS=podcasts.podcasts` |
+| User register topic | `PODCAST_KAFKA_TOPIC_USER_REGISTER=podcast.user.register` |
+| Media upload topic | `PODCAST_KAFKA_TOPIC_MEDIA_UPLOAD=media.upload` |
+| Media worker topic | `PODCAST_KAFKA_TOPIC_MEDIA_WORKER=media.worker` |
+| Subtitle topic | `PODCAST_KAFKA_TOPIC_MEDIA_SUBTITLE=media.subtitle` |
+| TTS topic | `PODCAST_KAFKA_TOPIC_TTS_START=tts.start` |
+| Retry backoff | `PODCAST_KAFKA_RETRY_BACKOFF_MS=1000` |
+| Retry attempts | `PODCAST_KAFKA_RETRY_MAX_ATTEMPTS=3` |
+| DLT suffix | `PODCAST_KAFKA_DLT_SUFFIX=.DLT` |
 
 ## Consumer flow
 
-1. Kafka listener получает `EventEnvelope`.
-2. Handler проверяет `eventType`, `occurredAt` и `payload`.
-3. Payload преобразуется в `CreateUserRequest`.
-4. `UserProfileService` создаёт локальный профиль.
-5. Ошибки обрабатываются `DefaultErrorHandler`.
+1. Kafka listener получает raw JSON.
+2. `KafkaMessageReader` десериализует payload в DTO конкретного topic.
+3. DTO содержит enum-поля для `object_type` и `event`.
+4. `media.upload` и `media.worker` маршрутизируются по ключу `(object_type,event)`.
+5. Handler вызывает доменный service.
+6. Service обновляет PostgreSQL внутри транзакции.
+7. Offset коммитится после успешного завершения listener.
 
-Подробности по форматам: [message-format.md](message-format.md).
+Подробности форматов: [message-format.md](message-format.md).

@@ -170,14 +170,22 @@ public class DevDataSeeder implements ApplicationRunner {
             for (int episode = 1; episode <= 9; episode++) {
                 String status = statusFor(authorIndex, episode);
                 boolean publishedLike = status.equals("PUBLISHED") || status.equals("ARCHIVED");
+                boolean hasSourceAudio = publishedLike
+                        || status.equals("UPLOADED")
+                        || status.equals("PROCESSING")
+                        || status.equals("PROCESSED");
+                boolean hasProcessedAudio = publishedLike || status.equals("PROCESSED");
                 int topicIndex = (authorIndex * 3 + episode) % TOPICS.length;
                 UUID podcastId = uuid("podcast", index);
                 UUID categoryId = categoryIds.get((authorIndex + episode) % categoryIds.size());
-                int duration = publishedLike ? 480 + ((authorIndex + 1) * 137 + episode * 211) % 7200 : 0;
+                int duration = hasProcessedAudio ? 480 + ((authorIndex + 1) * 137 + episode * 211) % 7200 : 0;
                 String title = buildPodcastTitle(author.name(), TOPICS[topicIndex], episode, status);
                 String description = buildPodcastDescription(author.name(), TOPICS[topicIndex], episode, status);
                 String cover = episode % 7 == 0 ? null : "https://cdn.example.com/dev/covers/podcast-" + index + ".jpg";
-                String audio = publishedLike ? "https://cdn.example.com/dev/audio/podcast-" + index + ".mp3" : null;
+                String audio = hasProcessedAudio ? "https://cdn.example.com/dev/audio/podcast-" + index + ".m3u8" : null;
+                String audioFile = hasSourceAudio ? "/dev/audio/source-podcast-" + index + ".mp3" : null;
+                long audioSizeFile = hasSourceAudio ? 5_000_000L + (long) Math.max(duration, 1200) * 220L : 0L;
+                int numSpeakers = 1 + ((authorIndex + episode) % 5);
                 long views = publishedLike ? 25L + (long) authorIndex * 43L + episode * 17L : 0L;
                 long likes = publishedLike ? 3L + (authorIndex + episode) % 31 : 0L;
                 long dislikes = publishedLike ? (authorIndex + episode) % 5 : 0L;
@@ -185,6 +193,7 @@ public class DevDataSeeder implements ApplicationRunner {
 
                 PodcastSeed podcast = new PodcastSeed(
                         podcastId, author.id(), categoryId, title, description, cover, audio,
+                        audioFile, publishedLike ? audioSizeFile : null, numSpeakers,
                         duration == 0 ? null : duration, status, views, likes, dislikes, daysAgo
                 );
                 result.add(podcast);
@@ -379,9 +388,10 @@ public class DevDataSeeder implements ApplicationRunner {
         jdbcTemplate.update("""
                 insert into podcasts (
                     id, author_id, category_id, title, description, cover_image_url, audio_url,
+                    audio_url_file, audio_size_file, num_speakers,
                     duration_seconds, status, views_count, likes_count, dislikes_count, published_at, created_at
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                         case when ? in ('PUBLISHED', 'ARCHIVED') then now() - (? * interval '1 day') else null end,
                         now() - (? * interval '1 day'))
                 on conflict (id) do update
@@ -391,6 +401,9 @@ public class DevDataSeeder implements ApplicationRunner {
                        description = excluded.description,
                        cover_image_url = excluded.cover_image_url,
                        audio_url = excluded.audio_url,
+                       audio_url_file = excluded.audio_url_file,
+                       audio_size_file = excluded.audio_size_file,
+                       num_speakers = excluded.num_speakers,
                        duration_seconds = excluded.duration_seconds,
                        status = excluded.status,
                        views_count = excluded.views_count,
@@ -398,7 +411,8 @@ public class DevDataSeeder implements ApplicationRunner {
                        dislikes_count = excluded.dislikes_count,
                        published_at = excluded.published_at
                 """, podcast.id(), podcast.authorId(), podcast.categoryId(), podcast.title(), podcast.description(),
-                podcast.coverImageUrl(), podcast.audioUrl(), podcast.durationSeconds(), podcast.status(),
+                podcast.coverImageUrl(), podcast.audioUrl(), podcast.audioUrlFile(), podcast.audioSizeFile(),
+                podcast.numSpeakers(), podcast.durationSeconds(), podcast.status(),
                 podcast.viewsCount(), podcast.likesCount(), podcast.dislikesCount(), podcast.status(),
                 podcast.daysAgo(), podcast.daysAgo() + 3);
     }
@@ -517,7 +531,12 @@ public class DevDataSeeder implements ApplicationRunner {
             return authorIndex % 2 == 0 ? "DRAFT" : "ARCHIVED";
         }
         if (episode == 8) {
-            return authorIndex % 3 == 0 ? "PROCESSING" : "PUBLISHED";
+            return switch (authorIndex % 4) {
+                case 0 -> "UPLOADING";
+                case 1 -> "UPLOADED";
+                case 2 -> "PROCESSING";
+                default -> "PROCESSED";
+            };
         }
         return authorIndex % 4 == 0 ? "FAILED" : "PUBLISHED";
     }
@@ -525,7 +544,10 @@ public class DevDataSeeder implements ApplicationRunner {
     private static String buildPodcastTitle(String authorName, String topic, int episode, String status) {
         String suffix = switch (status) {
             case "DRAFT" -> "черновик";
+            case "UPLOADING" -> "uploading";
+            case "UPLOADED" -> "uploaded";
             case "PROCESSING" -> "processing";
+            case "PROCESSED" -> "processed";
             case "FAILED" -> "failed";
             case "ARCHIVED" -> "архив";
             default -> "episode";
@@ -565,6 +587,9 @@ public class DevDataSeeder implements ApplicationRunner {
             String description,
             String coverImageUrl,
             String audioUrl,
+            String audioUrlFile,
+            Long audioSizeFile,
+            int numSpeakers,
             Integer durationSeconds,
             String status,
             long viewsCount,

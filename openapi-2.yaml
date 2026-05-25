@@ -172,11 +172,14 @@ components:
 
     PodcastStatus:
       type: string
-      enum: [DRAFT, PROCESSING, PUBLISHED, FAILED, ARCHIVED]
+      enum: [DRAFT, UPLOADING, UPLOADED, PROCESSING, PROCESSED, PUBLISHED, FAILED, ARCHIVED]
       description: |
         Статус подкаста:
         - `DRAFT` — черновик, не опубликован
-        - `PROCESSING` — отправлен на обработку в media-worker / tts-stt
+        - `UPLOADING` — исходный аудиофайл загружается
+        - `UPLOADED` — исходный аудиофайл загружен
+        - `PROCESSING` — аудиофайл обрабатывается media worker
+        - `PROCESSED` — обработанный аудиопоток готов к публикации
         - `PUBLISHED` — доступен публично
         - `FAILED` — ошибка обработки, можно повторить
         - `ARCHIVED` — скрыт из лент, доступен по прямой ссылке
@@ -390,7 +393,7 @@ components:
     PodcastCard:
       type: object
       description: Компактная карточка подкаста — для листингов, поиска, плейлистов
-      required: [id, title, author, status, likesCount, dislikesCount, viewsCount, createdAt]
+      required: [id, title, author, status, num_speakers, likesCount, dislikesCount, viewsCount, createdAt]
       properties:
         id:
           type: string
@@ -412,6 +415,12 @@ components:
           nullable: true
           example: 3600
           description: null пока media-worker не обработал
+        num_speakers:
+          type: integer
+          minimum: 1
+          maximum: 32
+          example: 2
+          description: Количество спикеров в выпуске
         status:
           $ref: '#/components/schemas/PodcastStatus'
         viewsCount:
@@ -458,6 +467,18 @@ components:
               format: uri
               nullable: true
               description: null пока media-worker не обработал
+            audio_url_file:
+              type: string
+              nullable: true
+              description: URL или путь к аудиофайлу подкаста
+              example: /media/podcasts/episode-001.mp3
+            audio_size_file:
+              type: integer
+              format: int64
+              nullable: true
+              minimum: 0
+              description: Размер аудиофайла в байтах
+              example: 52428800
             hasTranscript:
               type: boolean
               description: Существует ли транскрипт
@@ -465,9 +486,25 @@ components:
               type: boolean
               description: Существует ли summary
 
+    PodcastSpeakersResponse:
+      type: object
+      required: [podcastId, num_speakers]
+      description: Количество спикеров в подкасте
+      properties:
+        podcastId:
+          type: string
+          format: uuid
+          example: 22222222-2222-2222-2222-222222222222
+        num_speakers:
+          type: integer
+          minimum: 1
+          maximum: 32
+          example: 2
+          description: Количество спикеров в выпуске
+
     CreatePodcastRequest:
       type: object
-      required: [title]
+      required: [title, num_speakers]
       description: Создание подкаста. Аудиофайл загружается отдельно через media-api.
       properties:
         title:
@@ -488,6 +525,12 @@ components:
           format: uri
           nullable: true
           description: URL обложки (загрузка через media-api)
+        num_speakers:
+          type: integer
+          minimum: 1
+          maximum: 32
+          example: 2
+          description: Количество спикеров в выпуске
 
     UpdatePodcastRequest:
       type: object
@@ -1222,7 +1265,9 @@ paths:
         а для авторизованного пользователя — флаг `isSubscribed`.
         Не требует авторизации.
       operationId: getAuthorProfile
-      security: []
+      security:
+        - {}
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/PathAuthorId'
       responses:
@@ -1244,7 +1289,9 @@ paths:
         Поддерживает поиск по названию (q) и сортировку.
         Не требует авторизации.
       operationId: getAuthorPodcasts
-      security: []
+      security:
+        - {}
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/PathAuthorId'
         - name: q
@@ -1450,6 +1497,7 @@ paths:
               title: "Как работает Kafka"
               description: "Разбираем брокеры сообщений с нуля"
               categoryId: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+              num_speakers: 2
       responses:
         '201':
           description: Подкаст создан (статус DRAFT)
@@ -1538,6 +1586,31 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /podcasts/{podcastId}/speakers:
+    get:
+      tags: [Podcasts]
+      summary: Количество спикеров подкаста
+      description: |
+        Возвращает количество спикеров подкаста.
+        Анонимные пользователи получают данные только для PUBLISHED подкастов.
+        Автор-владелец получает данные для своих подкастов в любом статусе.
+      operationId: getPodcastSpeakers
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PathPodcastId'
+      responses:
+        '200':
+          description: Количество спикеров
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastSpeakersResponse'
+              example:
+                podcastId: "22222222-2222-2222-2222-222222222222"
+                num_speakers: 2
         '404':
           $ref: '#/components/responses/NotFound'
 
