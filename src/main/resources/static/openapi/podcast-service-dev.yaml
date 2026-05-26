@@ -1394,10 +1394,8 @@ paths:
     get:
       tags: [Podcasts]
       summary: Количество спикеров подкаста
-      description: Публично доступен только для `PUBLISHED`; автор-владелец может получить данные своего неопубликованного подкаста с Bearer token.
-      security:
-        - {}
-        - bearerAuth: []
+      description: Публичный service-to-service endpoint. Возвращает количество спикеров для подкаста в любом статусе.
+      security: []
       parameters:
         - $ref: '#/components/parameters/PathPodcastId'
       responses:

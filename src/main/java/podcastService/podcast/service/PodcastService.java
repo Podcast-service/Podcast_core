@@ -186,7 +186,8 @@ public class PodcastService {
 
     @Transactional(readOnly = true)
     public PodcastSpeakersResponse getSpeakersById(UUID podcastId, UUID currentUserId) {
-        PodcastEntity podcast = findVisiblePodcast(podcastId, currentUserId, "speakers").podcast();
+        PodcastEntity podcast = podcastRepository.findDetailedById(podcastId)
+                .orElseThrow(() -> new NotFoundException("Podcast not found"));
         return new PodcastSpeakersResponse(podcast.getId(), podcast.getNumSpeakers());
     }
 
