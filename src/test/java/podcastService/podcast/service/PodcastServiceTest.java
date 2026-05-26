@@ -138,14 +138,16 @@ class PodcastServiceTest {
     }
 
     @Test
-    void getSpeakersByIdHidesDraftFromAnonymousUser() {
+    void getSpeakersByIdReturnsNumSpeakersForDraftPodcastWithoutUser() {
         PodcastEntity podcast = podcast(Status.DRAFT);
+        podcast.setNumSpeakers(3);
 
         when(podcastRepository.findDetailedById(PODCAST_ID)).thenReturn(Optional.of(podcast));
 
-        assertThatThrownBy(() -> service.getSpeakersById(PODCAST_ID, null))
-                .isInstanceOf(NotFoundException.class)
-                .hasMessage("Podcast not found");
+        PodcastSpeakersResponse response = service.getSpeakersById(PODCAST_ID, null);
+
+        assertThat(response.podcastId()).isEqualTo(PODCAST_ID);
+        assertThat(response.numSpeakers()).isEqualTo(3);
     }
 
     @Test
