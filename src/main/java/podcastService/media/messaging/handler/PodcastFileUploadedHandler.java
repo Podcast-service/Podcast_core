@@ -29,7 +29,6 @@ public class PodcastFileUploadedHandler implements MediaUploadEventHandler {
         service.markFileUploaded(
                 event.targetPodcastId(),
                 event.audioUrlFile(),
-                event.audioFileSize(),
                 event.durationSeconds(),
                 event.timestamp()
         );

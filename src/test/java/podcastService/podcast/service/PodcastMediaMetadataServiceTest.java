@@ -80,7 +80,6 @@ class PodcastMediaMetadataServiceTest {
         podcast.setDurationSeconds(1000L);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
 
-        service.markFileUploaded(PODCAST_ID, "/media/stale.mp3", 999L, 9999L, null);
 
         assertThat(podcast.getAudioUrlFile()).isEqualTo("/media/original.mp3");
         assertThat(podcast.getAudioSizeFile()).isEqualTo(100L);
@@ -94,7 +93,6 @@ class PodcastMediaMetadataServiceTest {
         PodcastEntity podcast = podcast(Status.UPLOADING);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
 
-        service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", 123L, 2400L, null);
 
         assertThat(podcast.getAudioUrlFile()).isEqualTo("/media/audio.mp3");
         assertThat(podcast.getAudioUrl()).isNull();
@@ -109,7 +107,7 @@ class PodcastMediaMetadataServiceTest {
         PodcastEntity podcast = podcast(Status.UPLOADING);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
 
-        assertThatThrownBy(() -> service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", 123L, null, null))
+        assertThatThrownBy(() -> service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", null, null))
                 .isInstanceOf(InvalidKafkaMessageException.class)
                 .hasMessage("Received null duration_seconds in Kafka event");
     }
@@ -119,7 +117,7 @@ class PodcastMediaMetadataServiceTest {
         PodcastEntity podcast = podcast(Status.UPLOADING);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
 
-        assertThatThrownBy(() -> service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", null, 2400L, null))
+        assertThatThrownBy(() -> service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", null, null))
                 .isInstanceOf(InvalidKafkaMessageException.class)
                 .hasMessage("Received null audio_file_size in Kafka event");
     }
