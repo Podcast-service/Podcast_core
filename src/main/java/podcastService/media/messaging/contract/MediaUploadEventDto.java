@@ -19,8 +19,6 @@ public record MediaUploadEventDto(
         String audioUrlFile,
         @JsonProperty("image_url")
         String imageUrl,
-        @JsonProperty("audio_file_size")
-        Long audioFileSize,
         @JsonProperty("duration_seconds")
         Long durationSeconds,
         String error,

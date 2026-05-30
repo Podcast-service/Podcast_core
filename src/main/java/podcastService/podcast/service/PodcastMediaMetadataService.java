@@ -45,14 +45,12 @@ public class PodcastMediaMetadataService {
     public void markFileUploaded(
             UUID podcastId,
             String audioUrlFile,
-            Long audioSizeFile,
             Long durationSeconds,
             OffsetDateTime eventTimestamp
     ) {
         PodcastEntity podcast = findForUpdate(podcastId);
         persistMediaState(podcast, Status.UPLOADED, eventTimestamp, "media uploaded", entity -> {
             entity.setAudioUrlFile(normalizeMediaPath(audioUrlFile, "audio_url_file"));
-            entity.setAudioSizeFile(normalizeAudioSize(audioSizeFile));
             entity.setDurationSeconds(normalizeDurationSeconds(durationSeconds));
         });
     }
@@ -182,16 +180,6 @@ public class PodcastMediaMetadataService {
             throw new InvalidKafkaMessageException("Received too long " + fieldName + " in Kafka event");
         }
         return normalized;
-    }
-
-    private Long normalizeAudioSize(Long value) {
-        if (value == null) {
-            throw new InvalidKafkaMessageException("Received null audio_file_size in Kafka event");
-        }
-        if (value < 0) {
-            throw new InvalidKafkaMessageException("Received negative audio_file_size in Kafka event");
-        }
-        return value;
     }
 
     private Long normalizeDurationSeconds(Long value) {
