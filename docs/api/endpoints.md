@@ -26,7 +26,7 @@
 | `GET` | `/users/me/history` | JWT | нет | `PageOfListenHistory` |
 | `POST` | `/authors/me` | JWT | `CreateAuthorProfileRequest` | `BecomeAuthorResponse` |
 | `GET` | `/authors` | публичный, токен опционален | нет | `PageOfAuthorCard` |
-| `GET` | `/authors/me` | роль `author` | нет | `AuthorProfileResponse` |
+| `GET` | `/authors/me` | JWT | нет | `AuthorProfileResponse` |
 | `PUT` | `/authors/me` | роль `author` | `UpdateAuthorProfileRequest` | `AuthorProfileResponse` |
 | `GET` | `/authors/me/podcasts` | роль `author` | нет | `PageOfPodcastDetailResponse` |
 | `GET` | `/authors/{authorId}` | публичный, токен опционален | нет | `AuthorProfileResponse` |
@@ -199,7 +199,7 @@ Podcast-service передаёт текущий `Authorization: Bearer <access_t
 
 ### `GET /authors/me`
 
-Возвращает авторский профиль текущего пользователя. Требуется роль `author`. Коды: `200`, `401`, `403`, `404`.
+Возвращает авторский профиль текущего пользователя. Требуется валидный JWT. Если локальный профиль автора ещё не создан, возвращается `404`. Коды: `200`, `401`, `404`.
 
 ### `PUT /authors/me`
 

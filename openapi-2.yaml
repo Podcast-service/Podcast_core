@@ -1360,7 +1360,10 @@ paths:
     get:
       tags: [Author Profile]
       summary: Свой профиль автора
-      description: Профиль автора с полными данными (только для владельца).
+      description: |
+        Профиль автора текущего пользователя.
+        Доступен любому авторизованному пользователю; если локальный author profile ещё не создан,
+        возвращается `404 RESOURCE_NOT_FOUND`.
       operationId: getMyAuthorProfile
       responses:
         '200':
@@ -1371,8 +1374,6 @@ paths:
                 $ref: '#/components/schemas/AuthorProfileResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
         '404':
           description: Профиль автора ещё не создан — нужно POST /authors/me
           $ref: '#/components/responses/NotFound'

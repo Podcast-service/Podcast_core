@@ -92,6 +92,6 @@ springdoc:
   swagger-ui:
     enabled: ${PODCAST_SWAGGER_ENABLED:false}
     path: /swagger
-    url: ${PODCAST_SWAGGER_OPENAPI_URL:/openapi/podcast-service-dev.yaml}
+    url: ${PODCAST_SWAGGER_OPENAPI_URL:openapi/podcast-service-dev.yaml}
     disable-swagger-default-url: true
     tryItOutEnabled: true
