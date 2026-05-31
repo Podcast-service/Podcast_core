@@ -22,9 +22,6 @@ public record MediaUploadEventDto(
         @JsonAlias({"imageUrl", "cover_url", "avatar_url"})
         @JsonProperty("image_url")
         String imageUrl,
-        @JsonAlias({"durationSeconds", "duration", "audio_duration_seconds"})
-        @JsonProperty("duration_seconds")
-        Long durationSeconds,
         String error,
         OffsetDateTime timestamp
 ) {

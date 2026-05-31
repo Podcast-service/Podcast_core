@@ -20,14 +20,14 @@
 | Событие | Поведение |
 |---|---|
 | `media.upload/start_upload` | `DRAFT` переходит в `UPLOADING` |
-| `media.upload/uploaded` | сохраняются `audio_url_file`, `duration_seconds`; статус `UPLOADED` |
+| `media.upload/uploaded` | сохраняется `audio_url_file`; статус `UPLOADED` |
 | `media.worker/start_processing` | статус `PROCESSING` |
 | `media.worker/processed` | сохраняется processed/HLS `audio_url`; статус `PROCESSED` |
 | error event | статус `FAILED` |
 
 `start_upload` после `PROCESSED` не откатывает статус назад. `processed` после `processed` безопасен. Опубликованные и архивные подкасты не переводятся в media lifecycle статусы.
 
-Для `media.upload` контракт разделён по `object_type`: аудио использует `audio_url_file`, `duration_seconds` и обязательный `event`; изображения используют `image_url`, а отсутствие `event` трактуется как успешная загрузка.
+Для `media.upload` контракт разделён по `object_type`: аудио использует `audio_url_file` и обязательный `event`; изображения используют `image_url`, а отсутствие `event` трактуется как успешная загрузка. Длительность и размер аудиофайла приходят после обработки в `media.worker/processed`.
 
 ## Transcript storage
 

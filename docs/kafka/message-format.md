@@ -21,7 +21,6 @@
   "object_id": "550e8400-e29b-41d4-a716-446655440000",
   "event": "uploaded",
   "audio_url_file": "https://storage.example.local/media/podcasts/source-file.mp3",
-  "duration_seconds": 2580,
   "timestamp": "2026-03-22T12:35:56Z"
 }
 ```
@@ -29,7 +28,6 @@
 | Поле | Обязательность | Назначение |
 |---|---:|---|
 | `audio_url_file` | да | путь или URL исходного аудиофайла |
-| `duration_seconds` | да | длительность аудиофайла в секундах; сохраняется в `podcasts.duration_seconds` |
 
 ### Загрузка изображения
 
@@ -54,7 +52,6 @@ Consumer принимает каноничные значения контрак
 | `event=start_upload` | `upload_started`, `uploading` |
 | `event=uploaded` | `upload_complete`, `upload_completed` |
 | `audio_url_file` | `audio_file_url`, `audioUrlFile` |
-| `duration_seconds` | `durationSeconds`, `duration`, `audio_duration_seconds` |
 
 Для ошибок поддерживается базовый контракт:
 
@@ -74,9 +71,17 @@ Consumer принимает каноничные значения контрак
   "object_id": "550e8400-e29b-41d4-a716-446655440000",
   "event": "processed",
   "audio_url": "https://cdn.example.local/hls/podcast-id/master.m3u8",
+  "duration_seconds": "2580",
+  "audio_file_size": "11232332",
   "timestamp": "2026-03-22T12:35:56Z"
 }
 ```
+
+| Поле | Обязательность | Назначение |
+|---|---:|---|
+| `audio_url` | да | HLS/processed URL, сохраняется в `podcasts.audio_url` |
+| `duration_seconds` | да | длительность обработанного аудио в секундах, сохраняется в `podcasts.duration_seconds` |
+| `audio_file_size` | да | размер обработанного аудиофайла в байтах, сохраняется в `podcasts.audio_size_file` |
 
 Для `media.worker` поддерживаются совместимые алиасы:
 
@@ -87,6 +92,8 @@ Consumer принимает каноничные значения контрак
 | `event=processed` | `processing_done`, `processing_completed`, `completed`, `done` |
 | `event=processing_failed` | `failed` |
 | `audio_url` | `audioUrl`, `hls_url`, `hlsUrl` |
+| `duration_seconds` | `durationSeconds`, `duration`, `audio_duration_seconds` |
+| `audio_file_size` | `audioFileSize`, `audio_size_file`, `audioSizeFile` |
 
 ## `media.subtitle`
 
@@ -123,4 +130,4 @@ Consumer принимает каноничные значения контрак
 | `podcast_id` | uuid | идентификатор подкаста для subtitle/TTS/error contracts |
 | `timestamp` | datetime | время события producer-а |
 
-`duration_seconds` из Kafka-контракта сохраняется в поле `podcasts.duration_seconds`.
+`duration_seconds` и `audio_file_size` приходят из `media.worker` после обработки файла и сохраняются в `podcasts.duration_seconds` и `podcasts.audio_size_file`.
