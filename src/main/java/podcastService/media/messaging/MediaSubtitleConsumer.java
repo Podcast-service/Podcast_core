@@ -23,16 +23,17 @@ public class MediaSubtitleConsumer {
     public void onMessage(ConsumerRecord<String, String> record) {
         KafkaRecordContext context = KafkaRecordContext.from(record);
         MediaSubtitleEventDto event = messageReader.read(record.value(), MediaSubtitleEventDto.class, context);
-        validate(event);
+        validate(event, context);
+        var podcastId = event.targetPodcastId(context.keyAsUuidOrNull());
         log.info("Kafka media.subtitle event received: topic={}, partition={}, offset={}, podcastId={}, correlationId={}, messageId={}",
-                context.topic(), context.partition(), context.offset(), event.podcastId(), context.correlationId(), context.messageId());
-        podcastMediaMetadataService.saveTranscriptContent(event.podcastId(), event.content(), event.readyAt(), "media.subtitle");
+                context.topic(), context.partition(), context.offset(), podcastId, context.correlationId(), context.messageId());
+        podcastMediaMetadataService.saveTranscriptContent(podcastId, event.content(), event.readyAt(), "media.subtitle");
         log.info("Kafka media.subtitle event processed: topic={}, partition={}, offset={}, podcastId={}",
-                context.topic(), context.partition(), context.offset(), event.podcastId());
+                context.topic(), context.partition(), context.offset(), podcastId);
     }
 
-    private void validate(MediaSubtitleEventDto event) {
-        if (event.podcastId() == null) {
+    private void validate(MediaSubtitleEventDto event, KafkaRecordContext context) {
+        if (event.targetPodcastId(context.keyAsUuidOrNull()) == null) {
             throw new KafkaMessageValidationException("media.subtitle event has missing podcast_id");
         }
         if (event.content() == null) {

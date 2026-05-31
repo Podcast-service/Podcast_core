@@ -27,7 +27,7 @@ public class PodcastProcessedHandler implements MediaWorkerEventHandler {
     @Override
     public void handle(MediaWorkerEventDto event, KafkaRecordContext context) {
         service.markProcessed(
-                event.targetPodcastId(),
+                event.targetPodcastId(context.keyAsUuidOrNull()),
                 event.audioUrl(),
                 event.durationSeconds(),
                 event.audioFileSize(),
