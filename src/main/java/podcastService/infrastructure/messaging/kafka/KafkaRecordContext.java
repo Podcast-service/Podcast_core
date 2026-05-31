@@ -5,7 +5,6 @@ import org.apache.kafka.common.header.Header;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
-import java.util.UUID;
 
 public record KafkaRecordContext(
         String topic,
@@ -39,14 +38,4 @@ public record KafkaRecordContext(
         return Optional.of(new String(header.value(), StandardCharsets.UTF_8));
     }
 
-    public UUID keyAsUuidOrNull() {
-        if (key == null || key.isBlank()) {
-            return null;
-        }
-        try {
-            return UUID.fromString(key);
-        } catch (IllegalArgumentException exception) {
-            return null;
-        }
-    }
 }

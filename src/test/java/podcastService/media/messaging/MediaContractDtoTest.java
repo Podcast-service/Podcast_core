@@ -24,9 +24,6 @@ class MediaContractDtoTest {
     private static final KafkaRecordContext CONTEXT = new KafkaRecordContext(
             "media.upload", 0, 1L, null, null, null
     );
-    private static final KafkaRecordContext CONTEXT_WITH_UUID_KEY = new KafkaRecordContext(
-            "media.worker", 0, 1L, "00000000-0000-0000-0000-000000000301", null, null
-    );
 
     private final KafkaMessageReader reader = new KafkaMessageReader(new ObjectMapper().registerModule(new JavaTimeModule()));
 
@@ -51,8 +48,8 @@ class MediaContractDtoTest {
     }
 
     @Test
-    void readsUploadAliasesFromAdjacentMediaService() {
-        MediaUploadEventDto event = reader.read("""
+    void rejectsUploadAliasesOutsideContract() {
+        assertThatThrownBy(() -> reader.read("""
                 {
                   "object_type": "podcast_file",
                   "object_id": "00000000-0000-0000-0000-000000000301",
@@ -60,11 +57,9 @@ class MediaContractDtoTest {
                   "audio_file_url": "https://storage.example.local/source.mp3",
                   "timestamp": "2026-03-22T12:35:56Z"
                 }
-                """, MediaUploadEventDto.class, CONTEXT);
-
-        assertThat(event.normalizedObjectType()).isEqualTo(MediaObjectType.PODCAST_FILE_URL);
-        assertThat(event.normalizedEvent()).isEqualTo(MediaUploadEventType.UPLOADED);
-        assertThat(event.audioUrlFile()).isEqualTo("https://storage.example.local/source.mp3");
+                """, MediaUploadEventDto.class, CONTEXT))
+                .isInstanceOf(KafkaDeserializationException.class)
+                .hasMessageContaining("Failed to deserialize Kafka payload");
     }
 
     @Test
@@ -127,24 +122,20 @@ class MediaContractDtoTest {
     }
 
     @Test
-    void readsConvertedWorkerEventAsIgnoredEvent() {
-        MediaWorkerEventDto event = reader.read("""
+    void rejectsConvertedWorkerEventOutsideContract() {
+        assertThatThrownBy(() -> reader.read("""
                 {
-                  "object_type": "podcast_file",
+                  "object_type": "podcast_file_url",
                   "object_id": "00000000-0000-0000-0000-000000000301",
                   "event": "converted",
-                  "hls_url": "https://cdn.example.local/hls/master.m3u8",
-                  "durationSeconds": "30.040816",
-                  "audioFileSize": "11232332",
+                  "audio_url": "https://cdn.example.local/hls/master.m3u8",
+                  "duration_seconds": "2580",
+                  "audio_file_size": "11232332",
                   "timestamp": "2026-03-22T12:35:56Z"
                 }
-                """, MediaWorkerEventDto.class, CONTEXT);
-
-        assertThat(event.normalizedObjectType()).isEqualTo(MediaObjectType.PODCAST_FILE_URL);
-        assertThat(event.normalizedEvent()).isEqualTo(MediaWorkerEventType.CONVERTED);
-        assertThat(event.audioUrl()).isEqualTo("https://cdn.example.local/hls/master.m3u8");
-        assertThat(event.durationSeconds()).isEqualTo(31L);
-        assertThat(event.audioFileSize()).isEqualTo(11232332L);
+                """, MediaWorkerEventDto.class, CONTEXT))
+                .isInstanceOf(KafkaDeserializationException.class)
+                .hasMessageContaining("Failed to deserialize Kafka payload");
     }
 
     @Test
@@ -169,20 +160,36 @@ class MediaContractDtoTest {
     }
 
     @Test
-    void workerEventInfersProcessedPodcastFileFromAudioUrlAndKafkaKey() {
+    void workerEventDoesNotInferProcessedFromAudioUrlOnly() {
         MediaWorkerEventDto event = reader.read("""
                 {
+                  "audio_url": "https://cdn.example.local/hls/master.m3u8",
+                  "duration_seconds": "2580",
+                  "audio_file_size": "11232332",
+                  "timestamp": "2026-03-22T12:35:56Z"
+                }
+                """, MediaWorkerEventDto.class, CONTEXT);
+
+        assertThat(event.normalizedObjectType()).isNull();
+        assertThat(event.normalizedEvent()).isNull();
+        assertThat(event.targetPodcastId()).isNull();
+    }
+
+    @Test
+    void workerEventRejectsDecimalDurationOutsideContract() {
+        assertThatThrownBy(() -> reader.read("""
+                {
+                  "object_type": "podcast_file_url",
+                  "object_id": "00000000-0000-0000-0000-000000000301",
+                  "event": "processed",
                   "audio_url": "https://cdn.example.local/hls/master.m3u8",
                   "duration_seconds": "30.040816",
                   "audio_file_size": "11232332",
                   "timestamp": "2026-03-22T12:35:56Z"
                 }
-                """, MediaWorkerEventDto.class, CONTEXT_WITH_UUID_KEY);
-
-        assertThat(event.normalizedObjectType()).isEqualTo(MediaObjectType.PODCAST_FILE_URL);
-        assertThat(event.normalizedEvent()).isEqualTo(MediaWorkerEventType.PROCESSED);
-        assertThat(event.targetPodcastId(CONTEXT_WITH_UUID_KEY.keyAsUuidOrNull()))
-                .isEqualTo(UUID.fromString("00000000-0000-0000-0000-000000000301"));
+                """, MediaWorkerEventDto.class, CONTEXT))
+                .isInstanceOf(KafkaDeserializationException.class)
+                .hasMessageContaining("Failed to deserialize Kafka payload");
     }
 
     @Test
@@ -207,7 +214,7 @@ class MediaContractDtoTest {
                 """, MediaSubtitleEventDto.class, CONTEXT);
 
         assertThat(textEvent.content().isTextual()).isTrue();
-        assertThat(textEvent.targetPodcastId(CONTEXT_WITH_UUID_KEY.keyAsUuidOrNull()))
+        assertThat(textEvent.podcastId())
                 .isEqualTo(UUID.fromString("00000000-0000-0000-0000-000000000301"));
         assertThat(objectEvent.content().isObject()).isTrue();
         assertThat(objectEvent.content().get("vtt_object_key").asText())

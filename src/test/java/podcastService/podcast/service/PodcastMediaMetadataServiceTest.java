@@ -105,6 +105,34 @@ class PodcastMediaMetadataServiceTest {
     }
 
     @Test
+    void processingStartedDoesNotJumpFromDraft() {
+        PodcastEntity podcast = podcast(Status.DRAFT);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+
+        service.markProcessingStarted(PODCAST_ID, null);
+
+        assertThat(podcast.getStatus()).isEqualTo(Status.DRAFT);
+        verify(podcastRepository, never()).saveAndFlush(any(PodcastEntity.class));
+    }
+
+    @Test
+    void processedDoesNotJumpFromUploaded() {
+        PodcastEntity podcast = podcast(Status.UPLOADED);
+        podcast.setAudioUrl("/media/existing.m3u8");
+        podcast.setAudioSizeFile(100L);
+        podcast.setDurationSeconds(1000L);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+
+        service.markProcessed(PODCAST_ID, "https://cdn.example.local/master.m3u8", 2400L, 11232332L, null);
+
+        assertThat(podcast.getStatus()).isEqualTo(Status.UPLOADED);
+        assertThat(podcast.getAudioUrl()).isEqualTo("/media/existing.m3u8");
+        assertThat(podcast.getDurationSeconds()).isEqualTo(1000L);
+        assertThat(podcast.getAudioSizeFile()).isEqualTo(100L);
+        verify(podcastRepository, never()).saveAndFlush(any(PodcastEntity.class));
+    }
+
+    @Test
     void processedStoresHlsAudioUrlDurationAndFileSizeThenMarksProcessed() {
         PodcastEntity podcast = podcast(Status.PROCESSING);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
@@ -159,6 +187,17 @@ class PodcastMediaMetadataServiceTest {
 
         assertThat(podcast.getStatus()).isEqualTo(Status.FAILED);
         verify(podcastRepository).saveAndFlush(podcast);
+    }
+
+    @Test
+    void errorDoesNotDowngradeProcessedPodcast() {
+        PodcastEntity podcast = podcast(Status.PROCESSED);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+
+        service.markFailed(PODCAST_ID, "late processing error", null, "media.worker");
+
+        assertThat(podcast.getStatus()).isEqualTo(Status.PROCESSED);
+        verify(podcastRepository, never()).saveAndFlush(any(PodcastEntity.class));
     }
 
     @Test

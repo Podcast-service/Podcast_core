@@ -24,7 +24,7 @@ public class MediaSubtitleConsumer {
         KafkaRecordContext context = KafkaRecordContext.from(record);
         MediaSubtitleEventDto event = messageReader.read(record.value(), MediaSubtitleEventDto.class, context);
         validate(event, context);
-        var podcastId = event.targetPodcastId(context.keyAsUuidOrNull());
+        var podcastId = event.podcastId();
         log.info("Kafka media.subtitle event received: topic={}, partition={}, offset={}, podcastId={}, correlationId={}, messageId={}",
                 context.topic(), context.partition(), context.offset(), podcastId, context.correlationId(), context.messageId());
         podcastMediaMetadataService.saveTranscriptContent(podcastId, event.content(), event.readyAt(), "media.subtitle");
@@ -33,7 +33,7 @@ public class MediaSubtitleConsumer {
     }
 
     private void validate(MediaSubtitleEventDto event, KafkaRecordContext context) {
-        if (event.targetPodcastId(context.keyAsUuidOrNull()) == null) {
+        if (event.podcastId() == null) {
             throw new KafkaMessageValidationException("media.subtitle event has missing podcast_id");
         }
         if (event.content() == null) {

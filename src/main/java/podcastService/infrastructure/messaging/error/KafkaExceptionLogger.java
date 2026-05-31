@@ -12,6 +12,9 @@ public class KafkaExceptionLogger {
 
     public void logRetryAttempt(ConsumerRecord<?, ?> record, Exception exception, int deliveryAttempt) {
         Throwable cause = rootCause(exception);
+        if (isInvalidContractException(cause)) {
+            return;
+        }
         log.warn(
                 "Kafka processing failed, will retry. topic={}, partition={}, offset={}, key={}, deliveryAttempt={}, exception={}, message={}, rootCause={}, rootMessage={}",
                 record.topic(),
@@ -64,5 +67,11 @@ public class KafkaExceptionLogger {
             current = current.getCause();
         }
         return current;
+    }
+
+    private boolean isInvalidContractException(Throwable exception) {
+        return exception instanceof InvalidKafkaMessageException
+                || exception instanceof KafkaDeserializationException
+                || exception instanceof KafkaMessageValidationException;
     }
 }

@@ -5,8 +5,8 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import podcastService.infrastructure.messaging.error.InvalidKafkaMessageException;
 
-import java.util.Locale;
 import java.util.Arrays;
+import java.util.Locale;
 
 public enum MediaObjectType {
     PLAYLIST("playlist"),
@@ -31,17 +31,6 @@ public enum MediaObjectType {
             throw new InvalidKafkaMessageException("Unsupported object type: " + value);
         }
         String normalized = value.trim().toLowerCase(Locale.ROOT);
-        MediaObjectType alias = switch (normalized) {
-            case "playlist", "playlists" -> PLAYLIST;
-            case "podcast_file_url", "podcast_file", "podcast_audio", "audio" -> PODCAST_FILE_URL;
-            case "podcast_cover_url", "podcast_cover", "cover" -> PODCAST_COVER_URL;
-            case "avatar", "avatar_url" -> AVATAR;
-            default -> null;
-        };
-        if (alias != null) {
-            return alias;
-        }
-
         return Arrays.stream(values())
                 .filter(type -> type.value.equals(normalized))
                 .findFirst()

@@ -26,6 +26,6 @@ public class PodcastProcessingStartedHandler implements MediaWorkerEventHandler 
 
     @Override
     public void handle(MediaWorkerEventDto event, KafkaRecordContext context) {
-        service.markProcessingStarted(event.targetPodcastId(context.keyAsUuidOrNull()), event.timestamp());
+        service.markProcessingStarted(event.targetPodcastId(), event.timestamp());
     }
 }

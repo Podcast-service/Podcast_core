@@ -26,6 +26,6 @@ public class PodcastProcessingErrorAliasHandler implements MediaWorkerEventHandl
 
     @Override
     public void handle(MediaWorkerEventDto event, KafkaRecordContext context) {
-        service.markFailed(event.targetPodcastId(context.keyAsUuidOrNull()), event.error(), event.timestamp(), "media.worker");
+        service.markFailed(event.targetPodcastId(), event.error(), event.timestamp(), "media.worker");
     }
 }

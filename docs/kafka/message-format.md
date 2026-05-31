@@ -42,16 +42,7 @@
 
 Для `podcast_cover_url`, `avatar` и `playlist` поле `image_url` используется как путь к загруженному изображению. Поле `event` для успешной загрузки изображения опционально: если оно отсутствует, событие трактуется как `uploaded`. Аудио-поля `audio_url_file` и `duration_seconds` для этих `object_type` не требуются.
 
-Consumer принимает каноничные значения контракта и совместимые алиасы от соседних media-сервисов:
-
-| Каноничное поле или значение | Совместимые алиасы |
-|---|---|
-| `object_type=podcast_file_url` | `podcast_file`, `podcast_audio`, `audio` |
-| `object_type=podcast_cover_url` | `podcast_cover`, `cover` |
-| `object_type=playlist` | `playlists` |
-| `event=start_upload` | `upload_started`, `uploading` |
-| `event=uploaded` | `upload_complete`, `upload_completed` |
-| `audio_url_file` | `audio_file_url`, `audioUrlFile` |
+Consumer принимает только каноничные значения контракта. Неконтрактные `object_type`, `event` и имена полей считаются невалидным сообщением, логируются и не изменяют состояние БД.
 
 Для ошибок поддерживается базовый контракт:
 
@@ -83,24 +74,11 @@ Consumer принимает каноничные значения контрак
 | `duration_seconds` | да | длительность обработанного аудио в секундах, сохраняется в `podcasts.duration_seconds` |
 | `audio_file_size` | да | размер обработанного аудиофайла в байтах, сохраняется в `podcasts.audio_size_file` |
 
-Для `media.worker` поддерживаются совместимые алиасы:
+Для `media.worker` поддерживаются только события `start_processing`, `processed`, `processing_failed` и `error`. События вне этого набора, включая промежуточные события стороннего worker-а, не обрабатываются и не меняют статус подкаста.
 
-| Каноничное поле или значение | Совместимые алиасы |
-|---|---|
-| `object_type=podcast_file_url` | `podcast_file`, `podcast_audio`, `audio` |
-| `event=start_processing` | `processing_started`, `processing` |
-| `event=converted` | принимается и коммитится без изменения состояния подкаста |
-| `event=processed` | `processing_done`, `processing_completed`, `completed`, `done` |
-| `event=processing_failed` | `failed` |
-| `audio_url` | `audioUrl`, `hls_url`, `hlsUrl` |
-| `duration_seconds` | `durationSeconds`, `duration`, `audio_duration_seconds` |
-| `audio_file_size` | `audioFileSize`, `audio_size_file`, `audioSizeFile` |
+`duration_seconds` и `audio_file_size` принимаются как JSON number или строка с целым числом. Дробные значения не входят в контракт и отклоняются как невалидное сообщение.
 
-`duration_seconds` принимается как JSON number или строка. Дробное значение округляется вверх до целого количества секунд перед сохранением в `podcasts.duration_seconds`.
-
-Если `media.worker` producer не передаёт `object_type`, но передаёт `audio_url`, событие трактуется как `podcast_file_url/processed`. Если `object_id` и `podcast_id` отсутствуют, consumer использует UUID из Kafka key как идентификатор подкаста.
-
-Событие `converted` отражает промежуточную стадию media worker. Podcast-service не использует его для записи `audio_url`, `duration_seconds` или `audio_file_size`; эти поля сохраняются только из события `processed`.
+Consumer не выводит `object_type`, `event` или идентификатор подкаста из других полей и не использует Kafka key как замену обязательным полям payload.
 
 ## `media.subtitle`
 
@@ -117,7 +95,7 @@ Consumer принимает каноничные значения контрак
 
 Поле `content` сохраняется в `podcast_transcripts.content` в исходном виде. Если producer присылает строку, сохраняется строка. Если producer присылает JSON-объект или массив, сохраняется компактная JSON-строка.
 
-Если `podcast_id` отсутствует, consumer использует UUID из Kafka key как идентификатор подкаста.
+Если `podcast_id` отсутствует, сообщение считается невалидным и не изменяет данные.
 
 ## `tts.start`
 

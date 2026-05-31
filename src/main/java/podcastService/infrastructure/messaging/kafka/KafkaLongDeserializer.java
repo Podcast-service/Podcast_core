@@ -6,10 +6,10 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import podcastService.infrastructure.messaging.error.InvalidKafkaMessageException;
 
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 
 public class KafkaLongDeserializer extends JsonDeserializer<Long> {
+
+    private static final String INTEGER_PATTERN = "-?\\d+";
 
     @Override
     public Long deserialize(JsonParser parser, DeserializationContext context) throws IOException {
@@ -18,11 +18,15 @@ public class KafkaLongDeserializer extends JsonDeserializer<Long> {
             return null;
         }
 
+        String normalized = value.trim();
+        if (!normalized.matches(INTEGER_PATTERN)) {
+            throw new InvalidKafkaMessageException("Kafka numeric field has invalid integer value: " + value);
+        }
+
         try {
-            BigDecimal decimal = new BigDecimal(value.trim());
-            return decimal.setScale(0, RoundingMode.CEILING).longValueExact();
-        } catch (ArithmeticException | NumberFormatException exception) {
-            throw new InvalidKafkaMessageException("Kafka numeric field has invalid long value: " + value, exception);
+            return Long.parseLong(normalized);
+        } catch (NumberFormatException exception) {
+            throw new InvalidKafkaMessageException("Kafka numeric field is out of long range: " + value, exception);
         }
     }
 }

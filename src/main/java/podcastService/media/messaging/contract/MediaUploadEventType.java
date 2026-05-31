@@ -30,17 +30,6 @@ public enum MediaUploadEventType {
             throw new InvalidKafkaMessageException("Unsupported media.upload event: " + value);
         }
         String normalized = value.trim().toLowerCase(Locale.ROOT);
-        MediaUploadEventType alias = switch (normalized) {
-            case "start_upload", "upload_started", "uploading" -> START_UPLOAD;
-            case "uploaded", "upload_complete", "upload_completed" -> UPLOADED;
-            case "upload_failed", "failed" -> UPLOAD_FAILED;
-            case "error" -> ERROR;
-            default -> null;
-        };
-        if (alias != null) {
-            return alias;
-        }
-
         return Arrays.stream(values())
                 .filter(type -> type.value.equals(normalized))
                 .findFirst()

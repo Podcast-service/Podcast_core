@@ -81,7 +81,9 @@ public class PodcastMediaMetadataService {
     @Transactional
     public void markFailed(UUID podcastId, String errorMessage, OffsetDateTime eventTimestamp, String source) {
         PodcastEntity podcast = findForUpdate(podcastId);
-        if (podcast.getStatus() == Status.PUBLISHED || podcast.getStatus() == Status.ARCHIVED) {
+        if (podcast.getStatus() == Status.PROCESSED
+                || podcast.getStatus() == Status.PUBLISHED
+                || podcast.getStatus() == Status.ARCHIVED) {
             log.warn(
                     "Media error ignored for terminal podcast, podcastId={}, currentStatus={}, source={}, error={}",
                     podcastId, podcast.getStatus(), source, safeError(errorMessage)

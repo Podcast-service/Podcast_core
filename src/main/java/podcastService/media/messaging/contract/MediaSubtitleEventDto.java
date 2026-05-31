@@ -15,7 +15,4 @@ public record MediaSubtitleEventDto(
         @JsonProperty("ready_at")
         OffsetDateTime readyAt
 ) {
-    public UUID targetPodcastId(UUID fallbackPodcastId) {
-        return podcastId != null ? podcastId : fallbackPodcastId;
-    }
 }

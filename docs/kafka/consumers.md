@@ -44,6 +44,8 @@
 | `podcast_file_url` | `processed` | сохраняются HLS/processed `audio_url`, `duration_seconds`, `audio_file_size`; статус `PROCESSED` |
 | `podcast_file_url` | `processing_failed`, `error` | `podcasts.status = FAILED` |
 
+`processed` применяется только после статуса `PROCESSING`. Поздние error-события после `PROCESSED` не откатывают подкаст в `FAILED`. Сообщения с отсутствующим `object_type`, `event`, `object_id`/`podcast_id` или с неконтрактными значениями не меняют БД.
+
 ## `MediaSubtitleConsumer`
 
 Читает `media.subtitle`, валидирует `podcast_id` и `content`, после чего сохраняет содержимое `content` в `podcast_transcripts.content`. Для текущего контракта subtitle это JSON с `vtt_object_key`, `srt_object_key` и `ready_at`.
