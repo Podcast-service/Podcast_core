@@ -68,7 +68,7 @@ public class AuthorProfileController {
     }
 
     @GetMapping("/me")
-    @PreAuthorize("hasRole('AUTHOR')")
+    @PreAuthorize("isAuthenticated()")
     @ResponseStatus(HttpStatus.OK)
     public AuthorProfileResponse getMyAuthorProfile(
             @AuthenticationPrincipal AuthenticatedUser currentUser
