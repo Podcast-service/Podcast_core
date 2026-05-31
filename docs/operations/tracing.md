@@ -1,6 +1,10 @@
 # Трейсинг
 
-Distributed tracing exporter в текущей конфигурации отсутствует.
+Distributed tracing включён через OpenTelemetry Java-агент (`-javaagent` в
+[Dockerfile](../../Dockerfile)). Агент авто-инструментирует HTTP, JPA и Kafka и
+экспортирует трейсы, метрики и логи в OTEL-коллектор по OTLP/gRPC. Настройка —
+через переменные `OTEL_*` в [docker-compose.yml](../../docker-compose.yml):
+endpoint по умолчанию `http://otel-collector:4317`, сервис `podcast_core`.
 
 ## Текущие идентификаторы
 
