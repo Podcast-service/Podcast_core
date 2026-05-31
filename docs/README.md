@@ -40,9 +40,9 @@ http://localhost:8082/podcast/v1/swagger
 | Возможность | API область |
 |---|---|
 | Профиль пользователя и настройки | `/users/me/profile`, `/users/me/settings` |
-| Авторский профиль | `/authors/me`, `/authors/{authorId}` |
+| Авторский профиль | `/authors`, `/authors/me`, `/authors/me/podcasts`, `/authors/{authorId}` |
 | Каталог подкастов | `/podcasts`, `/podcasts/{podcastId}` |
-| Плейлисты | `/playlists`, `/users/me/playlists`, `/authors/{authorId}/playlists` |
+| Плейлисты | `/playlists`, `/playlists/{playlistId}/save`, `/users/me/playlists`, `/users/me/library/playlists`, `/authors/{authorId}/playlists` |
 | Голоса | `/podcasts/{podcastId}/vote`, `/playlists/{playlistId}/vote` |
 | Подписки | `/authors/{authorId}/subscribe`, `/users/me/subscriptions` |
 | История прослушивания | `/users/me/history`, `/podcasts/{podcastId}/progress` |

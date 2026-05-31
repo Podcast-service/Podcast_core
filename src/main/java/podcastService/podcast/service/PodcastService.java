@@ -3,6 +3,9 @@ package podcastService.podcast.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,11 +15,13 @@ import podcastService.category.entity.CategoryEntity;
 import podcastService.category.repository.CategoryRepository;
 import podcastService.common.dto.PageMeta;
 import podcastService.common.dto.PageResponse;
+import podcastService.common.exception.AuthorProfileNotFoundException;
 import podcastService.common.exception.BadRequestException;
 import podcastService.common.exception.BusinessRuleException;
 import podcastService.common.exception.ForbiddenOperationException;
 import podcastService.common.exception.NotFoundException;
 import podcastService.podcast.dto.CreatePodcastRequest;
+import podcastService.podcast.dto.LikedPodcastsSort;
 import podcastService.podcast.dto.PodcastCard;
 import podcastService.podcast.dto.PodcastDetailResponse;
 import podcastService.podcast.dto.PodcastFilter;
@@ -131,6 +136,106 @@ public class PodcastService {
         );
 
         return list(filter, currentUserId);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<PodcastDetailResponse> listMineAsAuthor(
+            UUID currentUserId,
+            Status status,
+            String query,
+            SortPodcasts sort,
+            int page,
+            int size
+    ) {
+        AuthorEntity author = authorRepository.findByUserProfileUserId(currentUserId)
+                .orElseThrow(() -> new AuthorProfileNotFoundException("Author profile not found"));
+
+        Specification<PodcastEntity> specification = Specification
+                .where(PodcastSpecifications.fetchRelations())
+                .and(PodcastSpecifications.withAuthorId(author.getId()))
+                .and(PodcastSpecifications.withStatus(status))
+                .and(PodcastSpecifications.searchByText(query));
+
+        int normalizedPage = Math.max(page, 1);
+        Page<PodcastEntity> podcastPage = podcastRepository.findAll(
+                specification,
+                ownerPodcastPageable(page, size, sort)
+        );
+
+        log.debug(
+                "Current author podcasts listed: currentUserId={}, authorId={}, status={}, page={}, size={}, totalElements={}",
+                currentUserId,
+                author.getId(),
+                status,
+                normalizedPage,
+                podcastPage.getSize(),
+                podcastPage.getTotalElements()
+        );
+
+        return mapDetailPage(
+                podcastPage,
+                normalizedPage,
+                author.getId(),
+                author.getUserProfile().getId()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<PodcastCard> listLikedByCurrentUser(
+            UUID currentUserId,
+            LikedPodcastsSort sort,
+            int page,
+            int size
+    ) {
+        UserProfileEntity currentUserProfile = userProfileRepository.findByUserId(currentUserId)
+                .orElseThrow(() -> new NotFoundException("User profile not found: " + currentUserId));
+
+        int normalizedPage = Math.max(page, 1);
+        int normalizedSize = Math.min(Math.max(size, 1), 50);
+        PageRequest pageable = PageRequest.of(normalizedPage - 1, normalizedSize);
+        LikedPodcastsSort normalizedSort = sort == null ? LikedPodcastsSort.DATE_DESC : sort;
+
+        Page<PodcastEntity> podcastPage = normalizedSort == LikedPodcastsSort.DATE_ASC
+                ? podcastVoteRepository.findVotedPodcastsByVoteDateAsc(
+                        currentUserProfile.getId(),
+                        VoteType.LIKE,
+                        Status.PUBLISHED,
+                        pageable
+                )
+                : podcastVoteRepository.findVotedPodcastsByVoteDateDesc(
+                        currentUserProfile.getId(),
+                        VoteType.LIKE,
+                        Status.PUBLISHED,
+                        pageable
+                );
+
+        UUID currentAuthorId = resolveAuthorIdByUserId(currentUserId);
+        Set<UUID> subscribedAuthorIds = resolveSubscribedAuthorIds(podcastPage, currentUserProfile.getId());
+        Map<UUID, VoteType> currentUserVotes = resolveCurrentUserVotes(podcastPage, currentUserProfile.getId());
+        Page<PodcastCard> mapped = podcastPage.map(entity -> podcastMapper.toCard(
+                entity,
+                currentAuthorId,
+                subscribedAuthorIds,
+                currentUserVotes
+        ));
+
+        log.debug(
+                "Liked podcasts listed: currentUserId={}, page={}, size={}, totalElements={}",
+                currentUserId,
+                normalizedPage,
+                mapped.getSize(),
+                mapped.getTotalElements()
+        );
+
+        return new PageResponse<>(
+                mapped.getContent(),
+                new PageMeta(
+                        normalizedPage,
+                        mapped.getSize(),
+                        mapped.getTotalElements(),
+                        mapped.getTotalPages()
+                )
+        );
     }
 
     @Transactional
@@ -342,6 +447,76 @@ public class PodcastService {
                 .collect(Collectors.toSet());
 
         return resolveSubscribedAuthorIds(authorIds, currentUserProfileId);
+    }
+
+    private PageResponse<PodcastDetailResponse> mapDetailPage(
+            Page<PodcastEntity> podcastPage,
+            int requestedPage,
+            UUID currentAuthorId,
+            UUID currentUserProfileId
+    ) {
+        Set<UUID> subscribedAuthorIds = resolveSubscribedAuthorIds(podcastPage, currentUserProfileId);
+        Map<UUID, VoteType> currentUserVotes = resolveCurrentUserVotes(podcastPage, currentUserProfileId);
+        Set<UUID> podcastIds = podcastPage.getContent().stream()
+                .map(PodcastEntity::getId)
+                .collect(Collectors.toSet());
+        Set<UUID> podcastIdsWithTranscripts = podcastIds.isEmpty()
+                ? Set.of()
+                : podcastTranscriptRepository.findPodcastIdsWithContent(podcastIds);
+        Set<UUID> podcastIdsWithSummaries = podcastIds.isEmpty()
+                ? Set.of()
+                : podcastSummaryRepository.findPodcastIdsWithSummary(podcastIds);
+
+        Page<PodcastDetailResponse> mapped = podcastPage.map(entity -> podcastMapper.toDetail(
+                entity,
+                currentAuthorId,
+                subscribedAuthorIds,
+                currentUserVotes == null ? null : currentUserVotes.get(entity.getId()),
+                podcastIdsWithTranscripts.contains(entity.getId()),
+                podcastIdsWithSummaries.contains(entity.getId())
+        ));
+
+        return new PageResponse<>(
+                mapped.getContent(),
+                new PageMeta(
+                        requestedPage,
+                        mapped.getSize(),
+                        mapped.getTotalElements(),
+                        mapped.getTotalPages()
+                )
+        );
+    }
+
+    private Pageable ownerPodcastPageable(int page, int size, SortPodcasts sort) {
+        int normalizedPage = Math.max(page, 1);
+        int normalizedSize = Math.min(Math.max(size, 1), 50);
+        SortPodcasts normalizedSort = sort == null ? SortPodcasts.DATE_DESC : sort;
+
+        Sort mappedSort = switch (normalizedSort) {
+            case DATE_ASC -> Sort.by(
+                    Sort.Order.asc("createdAt"),
+                    Sort.Order.asc("id")
+            );
+            case RATING -> Sort.by(
+                    Sort.Order.desc("likesCount"),
+                    Sort.Order.asc("dislikesCount"),
+                    Sort.Order.desc("viewsCount"),
+                    Sort.Order.desc("createdAt"),
+                    Sort.Order.desc("id")
+            );
+            case VIEWS -> Sort.by(
+                    Sort.Order.desc("viewsCount"),
+                    Sort.Order.desc("likesCount"),
+                    Sort.Order.desc("createdAt"),
+                    Sort.Order.desc("id")
+            );
+            case DATE_DESC -> Sort.by(
+                    Sort.Order.desc("createdAt"),
+                    Sort.Order.desc("id")
+            );
+        };
+
+        return PageRequest.of(normalizedPage - 1, normalizedSize, mappedSort);
     }
 
     private Set<UUID> resolveSubscribedAuthorIds(Set<UUID> authorIds, UUID currentUserProfileId) {

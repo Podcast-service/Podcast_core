@@ -3,14 +3,18 @@ package podcastService.author.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import podcastService.author.dto.AuthorProfileResponse;
-import podcastService.author.dto.CreateAuthorProfileRequest;
-import podcastService.author.dto.UpdateAuthorProfileRequest;
+import podcastService.author.dto.*;
 import podcastService.author.entity.AuthorEntity;
 import podcastService.author.mapper.AuthorMapper;
 import podcastService.author.repository.AuthorRepository;
+import podcastService.author.specifications.AuthorSpecifications;
+import podcastService.author.util.AuthorPageableFactory;
+import podcastService.common.dto.PageMeta;
+import podcastService.common.dto.PageResponse;
 import podcastService.common.exception.BadRequestException;
 import podcastService.common.exception.ConflictException;
 import podcastService.common.exception.NotFoundException;
@@ -20,7 +24,9 @@ import podcastService.user.repository.UserProfileRepository;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -62,6 +68,65 @@ public class AuthorProfileService {
             );
             throw new ConflictException("Author profile already exists");
         }
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AuthorCard> getAuthors(AuthorFilter filter, UUID currentUserId) {
+        Specification<AuthorEntity> specification = Specification
+                .where(AuthorSpecifications.fetchUserProfile())
+                .and(AuthorSpecifications.searchByText(filter.q()));
+
+        Page<AuthorEntity> authorPage = authorRepository.findAll(
+                specification,
+                AuthorPageableFactory.create(
+                        filter.normalizedPage(),
+                        filter.normalizedSize(),
+                        filter.normalizedSort()
+                )
+        );
+
+        Set<UUID> subscribedAuthorIds = resolveSubscribedAuthorIds(authorPage, currentUserId);
+        Page<AuthorCard> page = authorPage.map(entity -> authorMapper.toCard(
+                entity,
+                subscribedAuthorIds == null ? null : subscribedAuthorIds.contains(entity.getId())
+        ));
+
+        log.debug(
+                "Authors listed: currentUserId={}, page={}, size={}, totalElements={}",
+                currentUserId,
+                filter.normalizedPage(),
+                filter.normalizedSize(),
+                page.getTotalElements()
+        );
+
+        return new PageResponse<>(
+                page.getContent(),
+                new PageMeta(
+                        filter.normalizedPage(),
+                        page.getSize(),
+                        page.getTotalElements(),
+                        page.getTotalPages()
+                )
+        );
+
+    }
+
+    private Set<UUID> resolveSubscribedAuthorIds(Page<AuthorEntity> authorPage, UUID currentUserId) {
+        if (currentUserId == null) {
+            return null;
+        }
+
+        return userProfileRepository.findByUserId(currentUserId)
+                .map(userProfile -> {
+                    Set<UUID> authorIds = authorPage.getContent().stream()
+                            .map(AuthorEntity::getId)
+                            .collect(Collectors.toSet());
+                    if (authorIds.isEmpty()) {
+                        return Set.<UUID>of();
+                    }
+                    return subscriptionRepository.findSubscribedAuthorIds(userProfile.getId(), authorIds);
+                })
+                .orElse(Set.of());
     }
 
     @Transactional

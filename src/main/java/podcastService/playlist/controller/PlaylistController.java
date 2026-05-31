@@ -27,6 +27,7 @@ import podcastService.playlist.dto.CreatePlaylistRequest;
 import podcastService.playlist.dto.PlaylistCard;
 import podcastService.playlist.dto.PlaylistDetailResponse;
 import podcastService.playlist.dto.PlaylistFilter;
+import podcastService.playlist.dto.PlaylistSaveResponse;
 import podcastService.playlist.dto.ReorderPlaylistRequest;
 import podcastService.playlist.dto.SortPlaylists;
 import podcastService.playlist.dto.UpdatePlaylistRequest;
@@ -84,6 +85,30 @@ public class PlaylistController {
         UUID currentUserId = userIdOrNull(currentUser);
         log.info("GET /playlists/{}, currentUserId={}", playlistId, currentUserId);
         return playlistService.get(playlistId, currentUserId);
+    }
+
+    @PostMapping("/{playlistId}/save")
+    @PreAuthorize("isAuthenticated()")
+    @ResponseStatus(HttpStatus.OK)
+    public PlaylistSaveResponse savePlaylist(
+            @PathVariable UUID playlistId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser
+    ) {
+        UUID currentUserId = currentUser.userId();
+        log.info("POST /playlists/{}/save, currentUserId={}", playlistId, currentUserId);
+        return playlistService.saveToLibrary(playlistId, currentUserId);
+    }
+
+    @DeleteMapping("/{playlistId}/save")
+    @PreAuthorize("isAuthenticated()")
+    @ResponseStatus(HttpStatus.OK)
+    public PlaylistSaveResponse removeSavedPlaylist(
+            @PathVariable UUID playlistId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser
+    ) {
+        UUID currentUserId = currentUser.userId();
+        log.info("DELETE /playlists/{}/save, currentUserId={}", playlistId, currentUserId);
+        return playlistService.removeFromLibrary(playlistId, currentUserId);
     }
 
     @PutMapping("/{playlistId}")

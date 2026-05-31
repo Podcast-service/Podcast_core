@@ -80,6 +80,7 @@ Enums: `Theme` = `DARK`, `LIGHT`; `Language` = `RU`, `EN`.
 | `PlaylistDetailResponse` | поля карточки, `description`, `updatedAt`, `podcasts` |
 | `PlaylistOwnerResponse` | `id`, `username`, `avatarUrl` |
 | `PlaylistPodcastItem` | `podcast`, `position`, `addedAt` |
+| `PlaylistSaveResponse` | `playlistId`, `isSaved` |
 | `CreatePlaylistRequest` | `title`, `description`, `coverImageUrl`, `isPublic` |
 | `UpdatePlaylistRequest` | `title`, `description`, `coverImageUrl`, `isPublic` |
 | `AddPodcastToPlaylistRequest` | `podcastId` |
@@ -97,6 +98,13 @@ Enums: `Theme` = `DARK`, `LIGHT`; `Language` = `RU`, `EN`.
 | `SaveProgressRequest` | `progressSeconds` |
 
 `VoteType`: `LIKE`, `DISLIKE`.
+
+Списковые сортировки:
+
+| Enum | Значения |
+|---|---|
+| `AuthorSort` | `POPULAR`, `SUBSCRIBERS`, `DATE_DESC` |
+| `LikedPodcastsSort` | `DATE_DESC`, `DATE_ASC` |
 
 ## Поиск
 

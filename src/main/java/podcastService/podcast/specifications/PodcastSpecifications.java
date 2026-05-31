@@ -42,6 +42,14 @@ public final class PodcastSpecifications {
         return (root, query, cb) -> cb.equal(root.get("category").get("id"), categoryId);
     }
 
+    public static Specification<PodcastEntity> withStatus(Status status) {
+        if (status == null) {
+            return noOp();
+        }
+
+        return (root, query, cb) -> cb.equal(root.get("status"), status);
+    }
+
     public static Specification<PodcastEntity> searchByText(String queryText) {
         if (queryText == null || queryText.trim().isEmpty()) {
             return noOp();
