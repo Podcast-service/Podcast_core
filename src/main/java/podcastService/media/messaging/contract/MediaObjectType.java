@@ -3,12 +3,10 @@ package podcastService.media.messaging.contract;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import lombok.extern.slf4j.Slf4j;
 import podcastService.infrastructure.messaging.error.InvalidKafkaMessageException;
 
 import java.util.Arrays;
 
-@Slf4j
 public enum MediaObjectType {
     PLAYLIST("playlist"),
     PODCAST_FILE_URL("podcast_file_url"),

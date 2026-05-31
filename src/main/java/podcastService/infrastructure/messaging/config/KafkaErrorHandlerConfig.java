@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaOperations;
+import org.springframework.kafka.listener.ConsumerRecordRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.util.backoff.FixedBackOff;
@@ -30,8 +31,7 @@ public class KafkaErrorHandlerConfig {
         errorHandler.addNotRetryableExceptions(
                 InvalidKafkaMessageException.class,
                 KafkaDeserializationException.class,
-                KafkaMessageValidationException.class,
-                IllegalArgumentException.class
+                KafkaMessageValidationException.class
         );
 
         errorHandler.setRetryListeners((record, ex, deliveryAttempt) -> {
@@ -48,7 +48,7 @@ public class KafkaErrorHandlerConfig {
             KafkaExceptionLogger kafkaExceptionLogger,
             KafkaMessagingProperties kafkaMessagingProperties
     ) {
-        DeadLetterPublishingRecoverer recover = new DeadLetterPublishingRecoverer(
+        DeadLetterPublishingRecoverer deadLetterRecoverer = new DeadLetterPublishingRecoverer(
                 kafkaTemplate,
                 (ConsumerRecord<?, ?> record, Exception exception) -> {
                     String dltTopic = record.topic() + kafkaMessagingProperties.getDlt().getSuffix();
@@ -57,6 +57,14 @@ public class KafkaErrorHandlerConfig {
                 }
         );
 
+        ConsumerRecordRecoverer recover = (record, exception) -> {
+            if (isInvalidContractException(exception)) {
+                kafkaExceptionLogger.logSkippedInvalidMessage(record, exception);
+                return;
+            }
+            deadLetterRecoverer.accept(record, exception);
+        };
+
         return new DefaultErrorHandler(
                 recover,
                 new FixedBackOff(
@@ -64,5 +72,18 @@ public class KafkaErrorHandlerConfig {
                         kafkaMessagingProperties.getRetry().getMaxAttempts()
                 )
         );
+    }
+
+    private static boolean isInvalidContractException(Throwable exception) {
+        Throwable current = exception;
+        while (current != null) {
+            if (current instanceof InvalidKafkaMessageException
+                    || current instanceof KafkaDeserializationException
+                    || current instanceof KafkaMessageValidationException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

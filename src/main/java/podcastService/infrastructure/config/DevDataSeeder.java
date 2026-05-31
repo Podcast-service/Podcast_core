@@ -5,20 +5,24 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@Slf4j
 @Component
-@Profile("dev")
+@ConditionalOnProperty(
+        prefix = "app.dev-seed",
+        name = "enabled",
+        havingValue = "true"
+)
 @RequiredArgsConstructor
+@Slf4j
 public class DevDataSeeder implements ApplicationRunner {
 
     private static final UUID DEV_PROFILE_ID = UUID.fromString("00000000-0000-0000-0000-000000000101");
