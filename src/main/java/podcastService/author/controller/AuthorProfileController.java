@@ -21,17 +21,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import podcastService.author.dto.AuthorProfileResponse;
-import podcastService.author.dto.BecomeAuthorResponse;
-import podcastService.author.dto.CreateAuthorProfileRequest;
-import podcastService.author.dto.UpdateAuthorProfileRequest;
+
+import podcastService.author.dto.*;
 import podcastService.author.service.AuthorProfileService;
 import podcastService.author.service.BecomeAuthorResult;
 import podcastService.author.service.BecomeAuthorService;
 import podcastService.common.dto.PageResponse;
 import podcastService.infrastructure.security.AuthenticatedUser;
 import podcastService.podcast.dto.PodcastCard;
+import podcastService.podcast.dto.PodcastDetailResponse;
 import podcastService.podcast.dto.SortPodcasts;
+import podcastService.podcast.entity.Status;
 import podcastService.podcast.service.PodcastService;
 
 import java.util.UUID;
@@ -95,6 +95,30 @@ public class AuthorProfileController {
         return authorProfileService.updateMine(currentUserId, request);
     }
 
+    @GetMapping("/me/podcasts")
+    @PreAuthorize("hasRole('AUTHOR')")
+    @ResponseStatus(HttpStatus.OK)
+    public PageResponse<PodcastDetailResponse> getMyAuthorPodcasts(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @RequestParam(required = false) Status status,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) SortPodcasts sort,
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size
+    ) {
+        UUID currentUserId = currentUser.userId();
+        log.info(
+                "GET /authors/me/podcasts, currentUserId={}, status={}, q='{}', sort={}, page={}, size={}",
+                currentUserId,
+                status,
+                q,
+                sort,
+                page,
+                size
+        );
+        return podcastService.listMineAsAuthor(currentUserId, status, q, sort, page, size);
+    }
+
     @GetMapping("/{authorId}")
     @ResponseStatus(HttpStatus.OK)
     public AuthorProfileResponse getAuthorProfile(
@@ -127,6 +151,21 @@ public class AuthorProfileController {
                 size
         );
         return podcastService.listByAuthor(authorId, q, sort, page, size, currentUserId);
+    }
+
+    @GetMapping
+    @ResponseStatus(HttpStatus.OK)
+    public PageResponse<AuthorCard> getAuthors(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) AuthorSort sort,
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size,
+            @AuthenticationPrincipal AuthenticatedUser currentUser
+    ) {
+        UUID currentUserId = userIdOrNull(currentUser);
+        log.info("GET /authors, q='{}', sort={}, page={}, size={}, currentUserId={}",
+                q, sort, page, size, currentUserId);
+        return authorProfileService.getAuthors(new AuthorFilter(q, sort, page, size), currentUserId);
     }
 
     private UUID userIdOrNull(AuthenticatedUser currentUser) {

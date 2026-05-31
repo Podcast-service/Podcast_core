@@ -19,12 +19,16 @@
 | `GET` | `/users/me/settings` | JWT | нет | `UserSettingsResponse` |
 | `PUT` | `/users/me/settings` | JWT | `UpdateSettingsRequest` | `UserSettingsResponse` |
 | `GET` | `/users/me/playlists` | JWT | нет | `PageOfPlaylistCard` |
+| `GET` | `/users/me/liked-podcasts` | JWT | нет | `PageOfPodcastCard` |
+| `GET` | `/users/me/library/playlists` | JWT | нет | `PageOfPlaylistCard` |
 | `GET` | `/users/me/subscriptions` | JWT | нет | `PageOfSubscription` |
 | `GET` | `/users/me/subscriptions/feed` | JWT | нет | `PageOfPodcastCard` |
 | `GET` | `/users/me/history` | JWT | нет | `PageOfListenHistory` |
 | `POST` | `/authors/me` | JWT | `CreateAuthorProfileRequest` | `BecomeAuthorResponse` |
+| `GET` | `/authors` | публичный, токен опционален | нет | `PageOfAuthorCard` |
 | `GET` | `/authors/me` | роль `author` | нет | `AuthorProfileResponse` |
 | `PUT` | `/authors/me` | роль `author` | `UpdateAuthorProfileRequest` | `AuthorProfileResponse` |
+| `GET` | `/authors/me/podcasts` | роль `author` | нет | `PageOfPodcastDetailResponse` |
 | `GET` | `/authors/{authorId}` | публичный, токен опционален | нет | `AuthorProfileResponse` |
 | `GET` | `/authors/{authorId}/podcasts` | публичный, токен опционален | нет | `PageOfPodcastCard` |
 | `GET` | `/authors/{authorId}/playlists` | публичный, токен опционален | нет | `PageOfPlaylistCard` |
@@ -49,6 +53,8 @@
 | `GET` | `/playlists/{playlistId}` | публичный или владелец | нет | `PlaylistDetailResponse` |
 | `PUT` | `/playlists/{playlistId}` | владелец | `UpdatePlaylistRequest` | `PlaylistDetailResponse` |
 | `DELETE` | `/playlists/{playlistId}` | владелец | нет | `204` |
+| `POST` | `/playlists/{playlistId}/save` | JWT | нет | `PlaylistSaveResponse` |
+| `DELETE` | `/playlists/{playlistId}/save` | JWT | нет | `PlaylistSaveResponse` |
 | `POST` | `/playlists/{playlistId}/podcasts` | владелец | `AddPodcastToPlaylistRequest` | `PlaylistDetailResponse` |
 | `DELETE` | `/playlists/{playlistId}/podcasts/{podcastId}` | владелец | нет | `204` |
 | `PUT` | `/playlists/{playlistId}/podcasts/reorder` | владелец | `ReorderPlaylistRequest` | `PlaylistDetailResponse` |
@@ -64,9 +70,13 @@
 | Endpoint | Query параметры |
 |---|---|
 | `GET /podcasts` | `q`, `categoryId`, `authorId`, `sort`, `page`, `size` |
+| `GET /authors` | `q`, `sort`, `page`, `size` |
+| `GET /authors/me/podcasts` | `status`, `q`, `sort`, `page`, `size` |
 | `GET /authors/{authorId}/podcasts` | `q`, `sort`, `page`, `size` |
 | `GET /playlists` | `q`, `sort`, `page`, `size` |
 | `GET /users/me/playlists` | `page`, `size` |
+| `GET /users/me/liked-podcasts` | `sort`, `page`, `size` |
+| `GET /users/me/library/playlists` | `page`, `size` |
 | `GET /authors/{authorId}/playlists` | `page`, `size` |
 | `GET /users/me/subscriptions` | `page`, `size` |
 | `GET /users/me/subscriptions/feed` | `sort`, `page`, `size` |
@@ -115,7 +125,43 @@ curl -H "Authorization: Bearer ${TOKEN}" \
 
 Коды: `200`, `400`, `401`, `404`.
 
+### `GET /users/me/liked-podcasts`
+
+Возвращает опубликованные подкасты, которым текущий пользователь поставил лайк. Сортировка `DATE_DESC` и `DATE_ASC` применяется к дате лайка.
+
+```bash
+curl -H "Authorization: Bearer ${TOKEN}" \
+  "http://localhost:8082/podcast/v1/users/me/liked-podcasts?sort=DATE_DESC&page=1&size=20"
+```
+
+Коды: `200`, `400`, `401`.
+
+### `GET /users/me/library/playlists`
+
+Возвращает чужие публичные плейлисты, сохранённые пользователем в личной библиотеке.
+
+```bash
+curl -H "Authorization: Bearer ${TOKEN}" \
+  "http://localhost:8082/podcast/v1/users/me/library/playlists?page=1&size=20"
+```
+
+Коды: `200`, `401`.
+
 ## Авторы
+
+### `GET /authors`
+
+Публичный список авторов. JWT опционален: при наличии токена `isSubscribed` рассчитывается для текущего пользователя.
+
+Query параметры:
+
+| Параметр | Значения |
+|---|---|
+| `q` | поиск по имени автора и описанию |
+| `sort` | `POPULAR`, `SUBSCRIBERS`, `DATE_DESC` |
+| `page`, `size` | стандартная пагинация |
+
+Коды: `200`, `400`.
 
 ### `POST /authors/me`
 
@@ -167,6 +213,21 @@ Podcast-service передаёт текущий `Authorization: Bearer <access_t
 ```
 
 Коды: `200`, `400`, `401`, `403`, `404`, `409`.
+
+### `GET /authors/me/podcasts`
+
+Возвращает все подкасты текущего автора, включая `DRAFT`, `UPLOADING`, `PROCESSING`, `FAILED`, `PUBLISHED` и `ARCHIVED`.
+
+Query параметры:
+
+| Параметр | Значения |
+|---|---|
+| `status` | значение `PodcastStatus` |
+| `q` | поиск по названию и описанию |
+| `sort` | `DATE_DESC`, `DATE_ASC`, `RATING`, `VIEWS` |
+| `page`, `size` | стандартная пагинация |
+
+Коды: `200`, `400`, `401`, `403`, `404 AUTHOR_PROFILE_NOT_FOUND`.
 
 ### `GET /authors/{authorId}`
 
@@ -371,6 +432,32 @@ curl http://localhost:8082/podcast/v1/podcasts/22222222-2222-2222-2222-222222222
 ### `DELETE /playlists/{playlistId}`
 
 Удаляет плейлист владельца. Коды: `204`, `401`, `403`, `404`.
+
+### `POST /playlists/{playlistId}/save`
+
+Сохраняет чужой публичный плейлист в библиотеку текущего пользователя.
+
+```json
+{
+  "playlistId": "33333333-3333-3333-3333-333333333333",
+  "isSaved": true
+}
+```
+
+Коды: `200`, `401`, `403 CANNOT_SAVE_OWN_PLAYLIST`, `404 PLAYLIST_NOT_FOUND`, `409 ALREADY_SAVED`.
+
+### `DELETE /playlists/{playlistId}/save`
+
+Удаляет плейлист из библиотеки текущего пользователя. Повторный вызов для доступного плейлиста возвращает `isSaved=false`.
+
+```json
+{
+  "playlistId": "33333333-3333-3333-3333-333333333333",
+  "isSaved": false
+}
+```
+
+Коды: `200`, `401`, `404 PLAYLIST_NOT_FOUND`.
 
 ### `POST /playlists/{playlistId}/podcasts`
 

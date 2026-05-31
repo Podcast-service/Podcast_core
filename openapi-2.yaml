@@ -194,6 +194,23 @@ components:
         - `RATING`    — по убыванию (likes - dislikes)
         - `VIEWS`     — по убыванию просмотров
 
+    AuthorSort:
+      type: string
+      enum: [POPULAR, SUBSCRIBERS, DATE_DESC]
+      description: |
+        Сортировка авторов:
+        - `POPULAR` — по популярности автора
+        - `SUBSCRIBERS` — по количеству подписчиков
+        - `DATE_DESC` — сначала новые авторы
+
+    LikedPodcastsSort:
+      type: string
+      enum: [DATE_DESC, DATE_ASC]
+      description: |
+        Сортировка лайкнутых подкастов:
+        - `DATE_DESC` — сначала недавно лайкнутые
+        - `DATE_ASC` — сначала давно лайкнутые
+
     # ── User Profile ────────────────────────────────────────
 
     UserProfileResponse:
@@ -736,6 +753,18 @@ components:
                 type: integer
                 minimum: 1
 
+    PlaylistSaveResponse:
+      type: object
+      required: [playlistId, isSaved]
+      description: Состояние сохранения плейлиста в библиотеке текущего пользователя
+      properties:
+        playlistId:
+          type: string
+          format: uuid
+        isSaved:
+          type: boolean
+          example: true
+
     # ── Votes ────────────────────────────────────────────────
 
     VoteRequest:
@@ -876,6 +905,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PodcastCard'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    PageOfPodcastDetailResponse:
+      type: object
+      required: [items, meta]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PodcastDetailResponse'
         meta:
           $ref: '#/components/schemas/PageMeta'
 
@@ -1128,6 +1168,48 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /users/me/liked-podcasts:
+    get:
+      tags: [User Profile]
+      summary: Лайкнутые подкасты
+      description: Возвращает опубликованные подкасты, которым текущий пользователь поставил лайк.
+      operationId: getMyLikedPodcasts
+      parameters:
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
+        - name: sort
+          in: query
+          schema:
+            $ref: '#/components/schemas/LikedPodcastsSort'
+      responses:
+        '200':
+          description: Лайкнутые подкасты
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfPodcastCard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /users/me/library/playlists:
+    get:
+      tags: [User Profile]
+      summary: Сохранённые плейлисты
+      description: Возвращает публичные чужие плейлисты, сохранённые пользователем в личной библиотеке.
+      operationId: getMyLibraryPlaylists
+      parameters:
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
+      responses:
+        '200':
+          description: Сохранённые плейлисты
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfPlaylistCard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /users/me/subscriptions:
     get:
       tags: [Subscriptions]
@@ -1197,6 +1279,38 @@ paths:
   # ──────────────────────────────────────────────────────────
   # AUTHOR PROFILE
   # ──────────────────────────────────────────────────────────
+
+  /authors:
+    get:
+      tags: [Author Profile]
+      summary: Список авторов
+      description: |
+        Публичный листинг авторов для страниц каталога, блоков популярных авторов и поиска.
+        Авторизация опциональна: при наличии JWT поле `isSubscribed` отражает подписку текущего пользователя.
+      operationId: listAuthors
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Поиск по имени автора и описанию
+        - name: sort
+          in: query
+          schema:
+            $ref: '#/components/schemas/AuthorSort'
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
+      responses:
+        '200':
+          description: Список авторов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfAuthorCard'
+        '400':
+          $ref: '#/components/responses/BadRequest'
 
   /authors/me:
     post:
@@ -1291,6 +1405,45 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+
+  /authors/me/podcasts:
+    get:
+      tags: [Author Profile]
+      summary: Все подкасты текущего автора
+      description: |
+        Возвращает подкасты владельца в любых статусах: черновики, загрузку, обработку,
+        ошибки, опубликованные и архивные записи. Используется авторским кабинетом.
+      operationId: getMyAuthorPodcasts
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/PodcastStatus'
+          description: Фильтр по статусу подкаста
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Поиск по названию и описанию
+        - name: sort
+          in: query
+          schema:
+            $ref: '#/components/schemas/SortPodcast'
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
+      responses:
+        '200':
+          description: Подкасты текущего автора
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfPodcastDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Локальный профиль автора не найден
+          $ref: '#/components/responses/NotFound'
 
   /authors/{authorId}:
     get:
@@ -1942,6 +2095,59 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /playlists/{playlistId}/save:
+    post:
+      tags: [Playlists]
+      summary: Сохранить плейлист в библиотеку
+      description: |
+        Сохраняет чужой публичный плейлист в библиотеку текущего пользователя.
+        Собственный плейлист сохранить нельзя.
+      operationId: savePlaylistToLibrary
+      parameters:
+        - $ref: '#/components/parameters/PathPlaylistId'
+      responses:
+        '200':
+          description: Плейлист сохранён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistSaveResponse'
+              example:
+                playlistId: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                isSaved: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Нельзя сохранить собственный плейлист
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Плейлист уже сохранён
+          $ref: '#/components/responses/Conflict'
+
+    delete:
+      tags: [Playlists]
+      summary: Убрать плейлист из библиотеки
+      description: Удаляет сохранение плейлиста из библиотеки текущего пользователя. Повторный вызов безопасен.
+      operationId: removePlaylistFromLibrary
+      parameters:
+        - $ref: '#/components/parameters/PathPlaylistId'
+      responses:
+        '200':
+          description: Плейлист убран из библиотеки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistSaveResponse'
+              example:
+                playlistId: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                isSaved: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 

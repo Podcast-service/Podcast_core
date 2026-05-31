@@ -1,6 +1,7 @@
 package podcastService.author.repository;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -13,7 +14,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
-public interface AuthorRepository extends JpaRepository<AuthorEntity, UUID> {
+public interface AuthorRepository extends JpaRepository<AuthorEntity, UUID>, JpaSpecificationExecutor<AuthorEntity> {
 
     @EntityGraph(attributePaths = "userProfile")
     @Query("select a from AuthorEntity a where a.id = :id")
@@ -42,4 +43,5 @@ public interface AuthorRepository extends JpaRepository<AuthorEntity, UUID> {
     @EntityGraph(attributePaths = "userProfile")
     @Query("select a from AuthorEntity a where a.userProfile.userId = :userId")
     Optional<AuthorEntity> findByUserProfileUserIdForUpdate(@Param("userId") UUID userId);
+
 }

@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,16 +13,20 @@ import podcastService.author.entity.AuthorEntity;
 import podcastService.author.repository.AuthorRepository;
 import podcastService.common.dto.PageMeta;
 import podcastService.common.dto.PageResponse;
+import podcastService.common.exception.AlreadySavedException;
 import podcastService.common.exception.BadRequestException;
 import podcastService.common.exception.BusinessRuleException;
+import podcastService.common.exception.CannotSaveOwnPlaylistException;
 import podcastService.common.exception.ConflictException;
 import podcastService.common.exception.ForbiddenOperationException;
 import podcastService.common.exception.NotFoundException;
+import podcastService.common.exception.PlaylistNotFoundException;
 import podcastService.playlist.dto.AddPodcastToPlaylistRequest;
 import podcastService.playlist.dto.CreatePlaylistRequest;
 import podcastService.playlist.dto.PlaylistCard;
 import podcastService.playlist.dto.PlaylistDetailResponse;
 import podcastService.playlist.dto.PlaylistFilter;
+import podcastService.playlist.dto.PlaylistSaveResponse;
 import podcastService.playlist.dto.ReorderPlaylistRequest;
 import podcastService.playlist.dto.SortPlaylists;
 import podcastService.playlist.dto.UpdatePlaylistRequest;
@@ -30,10 +35,13 @@ import podcastService.playlist.entity.PlaylistPodcastEntity;
 import podcastService.playlist.entity.PlaylistPodcastId;
 import podcastService.playlist.entity.PlaylistVoteEntity;
 import podcastService.playlist.entity.PlaylistVoteId;
+import podcastService.playlist.entity.SavedPlaylistEntity;
+import podcastService.playlist.entity.SavedPlaylistId;
 import podcastService.playlist.mapper.PlaylistMapper;
 import podcastService.playlist.repository.PlaylistPodcastRepository;
 import podcastService.playlist.repository.PlaylistRepository;
 import podcastService.playlist.repository.PlaylistVoteRepository;
+import podcastService.playlist.repository.SavedPlaylistRepository;
 import podcastService.playlist.specifications.PlaylistSpecifications;
 import podcastService.playlist.util.PlaylistPageableFactory;
 import podcastService.podcast.entity.PodcastEntity;
@@ -67,6 +75,7 @@ public class PlaylistService {
     private final PlaylistRepository playlistRepository;
     private final PlaylistPodcastRepository playlistPodcastRepository;
     private final PlaylistVoteRepository playlistVoteRepository;
+    private final SavedPlaylistRepository savedPlaylistRepository;
     private final PodcastRepository podcastRepository;
     private final UserProfileRepository userProfileRepository;
     private final AuthorRepository authorRepository;
@@ -112,6 +121,105 @@ public class PlaylistService {
                 Math.max(page, 1),
                 currentUserProfileId
         );
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<PlaylistCard> listSaved(UUID currentUserId, int page, int size) {
+        UUID currentUserProfileId = requireUserProfile(currentUserId).getId();
+        int normalizedPage = Math.max(page, 1);
+        int normalizedSize = Math.min(Math.max(size, 1), 50);
+
+        Page<PlaylistCard> mapped = savedPlaylistRepository
+                .findByIdUserProfileIdOrderBySavedAtDesc(
+                        currentUserProfileId,
+                        PageRequest.of(normalizedPage - 1, normalizedSize)
+                )
+                .map(savedPlaylist -> playlistMapper.toCard(savedPlaylist.getPlaylist(), currentUserProfileId));
+
+        log.debug(
+                "Saved playlists listed: userId={}, userProfileId={}, page={}, size={}, totalElements={}",
+                currentUserId,
+                currentUserProfileId,
+                normalizedPage,
+                normalizedSize,
+                mapped.getTotalElements()
+        );
+
+        return new PageResponse<>(
+                mapped.getContent(),
+                new PageMeta(
+                        normalizedPage,
+                        mapped.getSize(),
+                        mapped.getTotalElements(),
+                        mapped.getTotalPages()
+                )
+        );
+    }
+
+    @Transactional
+    public PlaylistSaveResponse saveToLibrary(UUID playlistId, UUID currentUserId) {
+        UserProfileEntity currentUser = requireUserProfile(currentUserId);
+        PlaylistEntity playlist = playlistRepository.findWithOwnerById(playlistId)
+                .orElseThrow(() -> new PlaylistNotFoundException("Playlist not found"));
+
+        if (!playlist.isPublicPlaylist() && !playlist.getOwner().getId().equals(currentUser.getId())) {
+            throw new PlaylistNotFoundException("Playlist not found");
+        }
+
+        if (playlist.getOwner().getId().equals(currentUser.getId())) {
+            throw new CannotSaveOwnPlaylistException("Cannot save own playlist");
+        }
+
+        if (savedPlaylistRepository.existsByIdUserProfileIdAndIdPlaylistId(currentUser.getId(), playlistId)) {
+            throw new AlreadySavedException("Playlist already saved");
+        }
+
+        SavedPlaylistEntity savedPlaylist = new SavedPlaylistEntity();
+        savedPlaylist.setId(new SavedPlaylistId(currentUser.getId(), playlistId));
+        savedPlaylist.setUserProfile(currentUser);
+        savedPlaylist.setPlaylist(playlist);
+
+        try {
+            savedPlaylistRepository.saveAndFlush(savedPlaylist);
+        } catch (DataIntegrityViolationException exception) {
+            log.warn(
+                    "Failed to save playlist due to data conflict: playlistId={}, currentUserId={}, userProfileId={}",
+                    playlistId,
+                    currentUserId,
+                    currentUser.getId()
+            );
+            throw new AlreadySavedException("Playlist already saved");
+        }
+
+        log.info(
+                "Playlist saved to library: playlistId={}, currentUserId={}, userProfileId={}",
+                playlistId,
+                currentUserId,
+                currentUser.getId()
+        );
+        return new PlaylistSaveResponse(playlistId, true);
+    }
+
+    @Transactional
+    public PlaylistSaveResponse removeFromLibrary(UUID playlistId, UUID currentUserId) {
+        UserProfileEntity currentUser = requireUserProfile(currentUserId);
+        PlaylistEntity playlist = playlistRepository.findWithOwnerById(playlistId)
+                .orElseThrow(() -> new PlaylistNotFoundException("Playlist not found"));
+
+        if (!playlist.isPublicPlaylist() && !playlist.getOwner().getId().equals(currentUser.getId())) {
+            throw new PlaylistNotFoundException("Playlist not found");
+        }
+
+        savedPlaylistRepository.deleteByIdUserProfileIdAndIdPlaylistId(currentUser.getId(), playlistId);
+        savedPlaylistRepository.flush();
+
+        log.info(
+                "Playlist removed from library: playlistId={}, currentUserId={}, userProfileId={}",
+                playlistId,
+                currentUserId,
+                currentUser.getId()
+        );
+        return new PlaylistSaveResponse(playlistId, false);
     }
 
     @Transactional(readOnly = true)
