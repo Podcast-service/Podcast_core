@@ -14,6 +14,7 @@
 | `media.worker` | обработка аудиофайла подкаста |
 | `media.subtitle` | результат генерации субтитров |
 | `tts.start` | текст, из которого TTS генерирует аудио |
+| `tts.failed` | ошибка TTS-flow |
 
 ## Статусы подкаста
 
@@ -31,4 +32,4 @@
 
 ## Transcript storage
 
-`media.subtitle` и `tts.start` сохраняют данные в `podcast_transcripts.content`. Для subtitle в `content` сохраняется JSON с ключами `vtt_object_key`, `srt_object_key`, `ready_at`; для TTS сохраняется текст из Kafka payload.
+`media.subtitle` и `tts.start` сохраняют данные в `podcast_transcripts.content`. Для subtitle в `content` сохраняется JSON с ключами `vtt_object_key`, `srt_object_key`, `ready_at`; для TTS сохраняется текст из Kafka payload. `tts.start` также переводит подкаст в `UPLOADING`, а `tts.failed` переводит подкаст в `FAILED` через общий media lifecycle.

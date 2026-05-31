@@ -8,7 +8,8 @@
 | Media upload topic | `PODCAST_KAFKA_TOPIC_MEDIA_UPLOAD` |
 | Media worker topic | `PODCAST_KAFKA_TOPIC_MEDIA_WORKER` |
 | Subtitle topic | `PODCAST_KAFKA_TOPIC_MEDIA_SUBTITLE` |
-| TTS topic | `PODCAST_KAFKA_TOPIC_TTS_START` |
+| TTS start topic | `PODCAST_KAFKA_TOPIC_TTS_START` |
+| TTS failed topic | `PODCAST_KAFKA_TOPIC_TTS_FAILED` |
 | Consumer auto commit | disabled |
 | Listener ack mode | `record` |
 | Deserializer | `ErrorHandlingDeserializer` + `StringDeserializer` |

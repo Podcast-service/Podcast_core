@@ -9,6 +9,7 @@
 | media worker | `media.worker` | передаёт статусы обработки аудиофайла |
 | subtitles/STT service | `media.subtitle` | передаёт результат генерации субтитров |
 | TTS service | `tts.start` | передаёт текст TTS-flow |
+| TTS service | `tts.failed` | передаёт ошибку TTS-flow |
 
 ## Внутренние продюсеры
 

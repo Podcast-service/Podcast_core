@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import podcastService.infrastructure.messaging.error.KafkaDeserializationException;
 import podcastService.infrastructure.messaging.kafka.KafkaMessageReader;
 import podcastService.infrastructure.messaging.kafka.KafkaRecordContext;
+import podcastService.media.messaging.contract.MediaErrorEventDto;
 import podcastService.media.messaging.contract.MediaObjectType;
 import podcastService.media.messaging.contract.MediaSubtitleEventDto;
 import podcastService.media.messaging.contract.MediaUploadEventDto;
@@ -169,5 +170,23 @@ class MediaContractDtoTest {
         assertThat(objectEvent.content().isObject()).isTrue();
         assertThat(objectEvent.content().get("vtt_object_key").asText())
                 .isEqualTo("media/podcast/subtitles.vtt");
+    }
+
+    @Test
+    void readsTtsFailedErrorContract() {
+        MediaErrorEventDto event = reader.read("""
+                {
+                  "object_type": "podcast_file_url",
+                  "object_id": "00000000-0000-0000-0000-000000000301",
+                  "event": "error",
+                  "error": "processing failed",
+                  "timestamp": "2026-03-22T12:35:56Z"
+                }
+                """, MediaErrorEventDto.class, CONTEXT);
+
+        assertThat(event.objectType()).isEqualTo(MediaObjectType.PODCAST_FILE_URL);
+        assertThat(event.objectId()).isEqualTo(UUID.fromString("00000000-0000-0000-0000-000000000301"));
+        assertThat(event.event()).isEqualTo("error");
+        assertThat(event.error()).isEqualTo("processing failed");
     }
 }

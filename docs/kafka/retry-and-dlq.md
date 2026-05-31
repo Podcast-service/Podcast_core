@@ -34,6 +34,7 @@ DLT topic вычисляется как `<sourceTopic><PODCAST_KAFKA_DLT_SUFFIX>
 | `media.worker` | `media.worker.DLT` |
 | `media.subtitle` | `media.subtitle.DLT` |
 | `tts.start` | `tts.start.DLT` |
+| `tts.failed` | `tts.failed.DLT` |
 
 Сообщение отправляется в partition исходного record. После успешной отправки в DLT offset исходного сообщения считается обработанным. DLT используется для ошибок обработки, которые не классифицированы как невалидный контракт.
 

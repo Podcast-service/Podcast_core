@@ -50,4 +50,8 @@
 
 ## `TtsStartConsumer`
 
-Читает `tts.start`, валидирует `podcast_id` и текстовый `content`, после чего сохраняет текст в `podcast_transcripts.content`. Статус подкаста не меняется.
+Читает `tts.start`, валидирует `podcast_id` и текстовый `content`, после чего сохраняет текст в `podcast_transcripts.content` и переводит подкаст в `UPLOADING`.
+
+## `TtsFailedConsumer`
+
+Читает `tts.failed`, валидирует `object_type=podcast_file_url`, `object_id`, `event=error` и `error`, после чего переводит подкаст в `FAILED`. Поздние ошибки после `PROCESSED`, `PUBLISHED` или `ARCHIVED` логируются и не откатывают статус.
