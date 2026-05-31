@@ -22,7 +22,7 @@
 | `GET` | `/users/me/subscriptions` | JWT | нет | `PageOfSubscription` |
 | `GET` | `/users/me/subscriptions/feed` | JWT | нет | `PageOfPodcastCard` |
 | `GET` | `/users/me/history` | JWT | нет | `PageOfListenHistory` |
-| `POST` | `/authors/me` | роль `author` | `CreateAuthorProfileRequest` | `AuthorProfileResponse` |
+| `POST` | `/authors/me` | JWT | `CreateAuthorProfileRequest` | `BecomeAuthorResponse` |
 | `GET` | `/authors/me` | роль `author` | нет | `AuthorProfileResponse` |
 | `PUT` | `/authors/me` | роль `author` | `UpdateAuthorProfileRequest` | `AuthorProfileResponse` |
 | `GET` | `/authors/{authorId}` | публичный, токен опционален | нет | `AuthorProfileResponse` |
@@ -119,7 +119,9 @@ curl -H "Authorization: Bearer ${TOKEN}" \
 
 ### `POST /authors/me`
 
-Создаёт авторский профиль для текущего пользователя. Требуется роль `author`.
+Запускает становление текущего пользователя автором. Требуется обычный JWT пользователя.
+
+Podcast-service передаёт текущий `Authorization: Bearer <access_token>` в auth-service, вызывает `POST /auth/me/update-roles` с ролью `author`, получает новый access token и после успешного ответа создаёт или возвращает локальный author profile. Повторный вызов идемпотентен.
 
 ```json
 {
@@ -128,7 +130,26 @@ curl -H "Authorization: Bearer ${TOKEN}" \
 }
 ```
 
-Коды: `201`, `400`, `401`, `403`, `404`, `409`.
+Ответ:
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expires_in": 1800,
+  "author_profile": {
+    "id": "550e8400-e29b-41d4-a716-446655440002",
+    "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "authorName": "Backend Kitchen",
+    "avatarUrl": null,
+    "description": "Практические выпуски о Java и сервисах",
+    "subscribersCount": 0,
+    "isSubscribed": false,
+    "createdAt": "2026-05-31T10:00:00Z"
+  }
+}
+```
+
+Коды: `200`, `201`, `400`, `401`, `403`, `404`, `502`.
 
 ### `GET /authors/me`
 

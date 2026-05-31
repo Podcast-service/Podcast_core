@@ -26,6 +26,7 @@ Enums: `Theme` = `DARK`, `LIGHT`; `Language` = `RU`, `EN`.
 |---|---|
 | `AuthorCard` | `id`, `authorName`, `avatarUrl`, `subscribersCount`, `isSubscribed` |
 | `AuthorProfileResponse` | `id`, `userId`, `authorName`, `avatarUrl`, `description`, `subscribersCount`, `isSubscribed`, `createdAt` |
+| `BecomeAuthorResponse` | `access_token`, `expires_in`, `author_profile` |
 | `CreateAuthorProfileRequest` | `authorName`, `description` |
 | `UpdateAuthorProfileRequest` | `authorName`, `description` |
 

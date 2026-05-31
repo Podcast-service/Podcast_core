@@ -64,6 +64,23 @@ public class AuthorProfileService {
         }
     }
 
+    @Transactional
+    public AuthorProfileCreationResult createOrGet(UUID currentUserId, CreateAuthorProfileRequest request) {
+        UserProfileEntity userProfile = requireUserProfile(currentUserId);
+
+        return authorRepository.findByUserProfileId(userProfile.getId())
+                .map(existing -> {
+                    log.info(
+                            "Author profile creation skipped because profile already exists, authorId={}, userId={}, userProfileId={}",
+                            existing.getId(),
+                            currentUserId,
+                            userProfile.getId()
+                    );
+                    return new AuthorProfileCreationResult(authorMapper.toProfileResponse(existing, false), false);
+                })
+                .orElseGet(() -> createNewAuthorProfile(currentUserId, request, userProfile));
+    }
+
     @Transactional(readOnly = true)
     public AuthorProfileResponse getMine(UUID currentUserId) {
         AuthorEntity author = authorRepository.findByUserProfileUserId(currentUserId)
@@ -126,6 +143,37 @@ public class AuthorProfileService {
     private UserProfileEntity requireUserProfile(UUID currentUserId) {
         return userProfileRepository.findByUserId(currentUserId)
                 .orElseThrow(() -> new NotFoundException("User profile not found: " + currentUserId));
+    }
+
+    private AuthorProfileCreationResult createNewAuthorProfile(
+            UUID currentUserId,
+            CreateAuthorProfileRequest request,
+            UserProfileEntity userProfile
+    ) {
+        AuthorEntity author = new AuthorEntity();
+        author.setUserProfile(userProfile);
+        author.setAuthorName(normalizeAuthorName(request.authorName()));
+        author.setDescription(normalizeNullableText(request.description()));
+
+        try {
+            AuthorEntity saved = authorRepository.saveAndFlush(author);
+            log.info(
+                    "Author profile created: authorId={}, userId={}, userProfileId={}",
+                    saved.getId(),
+                    currentUserId,
+                    userProfile.getId()
+            );
+            return new AuthorProfileCreationResult(authorMapper.toProfileResponse(saved, false), true);
+        } catch (DataIntegrityViolationException exception) {
+            log.warn(
+                    "Author profile creation raced with another request, userId={}, userProfileId={}",
+                    currentUserId,
+                    userProfile.getId()
+            );
+            AuthorEntity existing = authorRepository.findByUserProfileId(userProfile.getId())
+                    .orElseThrow(() -> exception);
+            return new AuthorProfileCreationResult(authorMapper.toProfileResponse(existing, false), false);
+        }
     }
 
     private Boolean resolveSubscriptionStatus(UUID authorId, UUID currentUserId, UUID authorOwnerProfileId) {

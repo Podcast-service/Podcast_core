@@ -43,6 +43,18 @@ Authorization: Bearer <access_token>
 | `author` | `ROLE_AUTHOR` | авторский профиль и подкасты |
 | `admin` | `ROLE_ADMIN` | управление категориями |
 
+## Получение роли автора
+
+Существующий endpoint `POST /authors/me` доступен пользователю с обычным валидным JWT. Podcast-service передаёт входящий `Authorization` header в auth-service и вызывает `POST /auth/me/update-roles` с телом:
+
+```json
+{
+  "role_name": "author"
+}
+```
+
+После успешного ответа auth-service клиент получает новый `access_token`, `expires_in` и локальный `author_profile`. Новый token используется для последующих author-only операций.
+
 ## Публичные HTTP операции
 
 Публичные GET-операции доступны без токена. Если токен передан, ответ может включать персональные поля: `currentUserVote`, `progressSeconds`, `progressPercent`, `isSubscribed`.

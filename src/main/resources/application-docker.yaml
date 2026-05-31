@@ -4,3 +4,8 @@ spring:
 
   kafka:
     bootstrap-servers: ${PODCAST_KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+
+app:
+  auth:
+    service:
+      base-url: ${PODCAST_AUTH_SERVICE_BASE_URL:http://auth-service:8080}

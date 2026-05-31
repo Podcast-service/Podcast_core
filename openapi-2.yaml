@@ -300,6 +300,21 @@ components:
           type: string
           format: date-time
 
+    BecomeAuthorResponse:
+      type: object
+      description: Ответ существующего API становления пользователем автором.
+      required: [access_token, expires_in, author_profile]
+      properties:
+        access_token:
+          type: string
+          description: Новый access token, полученный от auth-service после выдачи роли author.
+        expires_in:
+          type: integer
+          format: int64
+          example: 1800
+        author_profile:
+          $ref: '#/components/schemas/AuthorProfileResponse'
+
     AuthorCard:
       type: object
       description: Компактная карточка автора (для поиска и листингов)
@@ -973,6 +988,17 @@ components:
               fields:
                 username: "must match pattern [a-zA-Z0-9_]+"
 
+    BadGateway:
+      description: Внешний сервис временно недоступен или вернул некорректный ответ
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: UPSTREAM_SERVICE_ERROR
+            message: "Auth-service is unavailable"
+            timestamp: "2026-05-31T10:00:00Z"
+
 # =============================================================================
 # PATHS
 # =============================================================================
@@ -1175,11 +1201,14 @@ paths:
   /authors/me:
     post:
       tags: [Author Profile]
-      summary: Создать профиль автора
+      summary: Стать автором
       description: |
-        Вызывается **один раз** после того, как пользователю выдана роль `AUTHOR` в auth-service.
-        Если профиль уже существует — вернёт 409.
-        Создаёт пустую запись в `author_profiles`.
+        Существующее API становления пользователем автором.
+        Endpoint доступен любому авторизованному пользователю.
+        Podcast-service передаёт текущий `Authorization: Bearer` token в auth-service,
+        вызывает `POST /auth/me/update-roles` с `role_name=author`, получает новый access token,
+        после успешного ответа создаёт или возвращает локальный `author_profile`.
+        Повторный вызов идемпотентен и не создаёт дубль профиля.
       operationId: createAuthorProfile
       requestBody:
         required: true
@@ -1191,20 +1220,28 @@ paths:
               authorName: "Иван Петров"
               description: "Рассказываю о технологиях доступным языком"
       responses:
-        '201':
-          description: Профиль автора создан
+        '200':
+          description: Роль автора обновлена, существующий профиль автора возвращён
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthorProfileResponse'
+                $ref: '#/components/schemas/BecomeAuthorResponse'
+        '201':
+          description: Роль автора обновлена, профиль автора создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BecomeAuthorResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          description: Пользователь не имеет роли AUTHOR
           $ref: '#/components/responses/Forbidden'
-        '409':
-          description: Профиль автора уже существует
-          $ref: '#/components/responses/Conflict'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
 
     get:
       tags: [Author Profile]

@@ -10,6 +10,7 @@ public enum ErrorCode {
     FORBIDDEN(HttpStatus.FORBIDDEN),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED),
     BUSINESS_RULE_VIOLATION(HttpStatus.UNPROCESSABLE_CONTENT),
+    UPSTREAM_SERVICE_ERROR(HttpStatus.BAD_GATEWAY),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final HttpStatus httpStatus;
