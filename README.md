@@ -40,7 +40,6 @@ http://localhost:8082/podcast/v1/swagger
 ## Основные переменные
 
 Все проектные переменные окружения используют префикс `PODCAST_*`. Полный каталог: [docs/configuration/env-vars.md](docs/configuration/env-vars.md).
-
 Для production profile не используется `dev`, а `PODCAST_SWAGGER_ENABLED` и `PODCAST_DEV_SEED_ENABLED` отключаются, если Swagger и seed data не закрыты отдельным инфраструктурным контуром.
 
 ## Dev JWT
