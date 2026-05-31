@@ -82,6 +82,17 @@ public class AuthorProfileService {
     }
 
     @Transactional(readOnly = true)
+    public void validateCreateRequestForBecomeAuthor(UUID currentUserId, CreateAuthorProfileRequest request) {
+        UserProfileEntity userProfile = requireUserProfile(currentUserId);
+        if (authorRepository.existsByUserProfileId(userProfile.getId())) {
+            return;
+        }
+
+        normalizeAuthorName(request.authorName());
+        normalizeNullableText(request.description());
+    }
+
+    @Transactional(readOnly = true)
     public AuthorProfileResponse getMine(UUID currentUserId) {
         AuthorEntity author = authorRepository.findByUserProfileUserId(currentUserId)
                 .orElseThrow(() -> new NotFoundException("Author profile not found"));

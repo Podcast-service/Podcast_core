@@ -26,6 +26,7 @@ public class BecomeAuthorService {
             CreateAuthorProfileRequest request
     ) {
         log.info("Author onboarding started, userId={}", currentUserId);
+        authorProfileService.validateCreateRequestForBecomeAuthor(currentUserId, request);
         AuthRoleUpdateResponse tokenResponse = authRoleClient.addRole(authorizationHeader, AUTHOR_ROLE);
         AuthorProfileCreationResult profileResult = authorProfileService.createOrGet(currentUserId, request);
 

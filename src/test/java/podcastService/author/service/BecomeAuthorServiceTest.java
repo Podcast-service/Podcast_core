@@ -47,6 +47,7 @@ class BecomeAuthorServiceTest {
         BecomeAuthorResult result = service().becomeAuthor(USER_ID, AUTHORIZATION, request);
 
         InOrder inOrder = inOrder(authRoleClient, authorProfileService);
+        inOrder.verify(authorProfileService).validateCreateRequestForBecomeAuthor(USER_ID, request);
         inOrder.verify(authRoleClient).addRole(AUTHORIZATION, "author");
         inOrder.verify(authorProfileService).createOrGet(USER_ID, request);
 
@@ -67,6 +68,21 @@ class BecomeAuthorServiceTest {
                 .isInstanceOf(UnauthorizedException.class)
                 .hasMessage("Auth-service rejected current access token");
 
+        verify(authorProfileService, never()).createOrGet(USER_ID, request);
+    }
+
+    @Test
+    void becomeAuthorDoesNotCallAuthServiceWhenLocalRequestIsInvalid() {
+        CreateAuthorProfileRequest request = new CreateAuthorProfileRequest(" a ", null);
+        org.mockito.Mockito.doThrow(new podcastService.common.exception.BadRequestException("Request validation failed"))
+                .when(authorProfileService)
+                .validateCreateRequestForBecomeAuthor(USER_ID, request);
+
+        assertThatThrownBy(() -> service().becomeAuthor(USER_ID, AUTHORIZATION, request))
+                .isInstanceOf(podcastService.common.exception.BadRequestException.class)
+                .hasMessage("Request validation failed");
+
+        verify(authRoleClient, never()).addRole(AUTHORIZATION, "author");
         verify(authorProfileService, never()).createOrGet(USER_ID, request);
     }
 

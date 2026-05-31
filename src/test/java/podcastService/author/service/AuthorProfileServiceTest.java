@@ -126,6 +126,29 @@ class AuthorProfileServiceTest {
     }
 
     @Test
+    void validateCreateRequestForBecomeAuthorRejectsTrimmedShortAuthorNameBeforeRoleUpdate() {
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
+        when(authorRepository.existsByUserProfileId(PROFILE_ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.validateCreateRequestForBecomeAuthor(
+                USER_ID,
+                new CreateAuthorProfileRequest(" a ", null)
+        ))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessage("Request validation failed");
+    }
+
+    @Test
+    void validateCreateRequestForBecomeAuthorSkipsBodyValidationWhenProfileAlreadyExists() {
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
+        when(authorRepository.existsByUserProfileId(PROFILE_ID)).thenReturn(true);
+
+        service.validateCreateRequestForBecomeAuthor(USER_ID, new CreateAuthorProfileRequest(" a ", null));
+
+        verify(authorRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
     void createRejectsAuthorNameThatIsTooShortAfterTrim() {
         when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
         when(authorRepository.existsByUserProfileId(PROFILE_ID)).thenReturn(false);

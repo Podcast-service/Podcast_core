@@ -1,5 +1,6 @@
 package podcastService.playlist.service;
 
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -70,6 +71,7 @@ public class PlaylistService {
     private final UserProfileRepository userProfileRepository;
     private final AuthorRepository authorRepository;
     private final PlaylistMapper playlistMapper;
+    private final EntityManager entityManager;
 
     @Transactional(readOnly = true)
     public PageResponse<PlaylistCard> listPublic(PlaylistFilter filter, UUID currentUserId) {
@@ -155,7 +157,7 @@ public class PlaylistService {
                 saved.isPublicPlaylist()
         );
 
-        return playlistMapper.toDetail(saved, List.of(), owner.getId(), resolveAuthorIdByUserId(currentUserId));
+        return detailAfterMutation(saved.getId(), owner.getId(), currentUserId);
     }
 
     @Transactional(readOnly = true)
@@ -199,8 +201,7 @@ public class PlaylistService {
             playlist.setPublicPlaylist(Boolean.TRUE.equals(request.getIsPublic()));
         }
 
-        PlaylistEntity saved = playlistRepository.saveAndFlush(playlist);
-        List<PlaylistPodcastEntity> items = playlistPodcastRepository.findByIdPlaylistIdOrderByPositionAsc(playlistId);
+        playlistRepository.saveAndFlush(playlist);
 
         log.info(
                 "Playlist updated: playlistId={}, userId={}, titleChanged={}, descriptionChanged={}, coverChanged={}, publicChanged={}",
@@ -212,7 +213,7 @@ public class PlaylistService {
                 request.isPublicSet()
         );
 
-        return playlistMapper.toDetail(saved, items, currentUser.getId(), resolveAuthorIdByUserId(currentUserId));
+        return detailAfterMutation(playlistId, currentUser.getId(), currentUserId);
     }
 
     @Transactional
@@ -278,7 +279,7 @@ public class PlaylistService {
                 item.getPosition()
         );
 
-        return detailAfterMutation(playlist, currentUser, currentUserId);
+        return detailAfterMutation(playlistId, currentUser.getId(), currentUserId);
     }
 
     @Transactional
@@ -332,7 +333,7 @@ public class PlaylistService {
 
         log.info("Playlist reordered: playlistId={}, userId={}, items={}", playlistId, currentUserId, items.size());
 
-        return detailAfterMutation(playlist, currentUser, currentUserId);
+        return detailAfterMutation(playlistId, currentUser.getId(), currentUserId);
     }
 
     @Transactional
@@ -422,12 +423,24 @@ public class PlaylistService {
     }
 
     private PlaylistDetailResponse detailAfterMutation(
-            PlaylistEntity playlist,
-            UserProfileEntity currentUser,
+            UUID playlistId,
+            UUID currentUserProfileId,
             UUID currentUserId
     ) {
-        List<PlaylistPodcastEntity> items = playlistPodcastRepository.findByIdPlaylistIdOrderByPositionAsc(playlist.getId());
-        return playlistMapper.toDetail(playlist, items, currentUser.getId(), resolveAuthorIdByUserId(currentUserId));
+        entityManager.flush();
+        entityManager.clear();
+
+        PlaylistEntity freshPlaylist = playlistRepository.findWithOwnerById(playlistId)
+                .orElseThrow(() -> new NotFoundException("Playlist not found"));
+        List<PlaylistPodcastEntity> freshItems =
+                playlistPodcastRepository.findByIdPlaylistIdOrderByPositionAsc(playlistId);
+
+        return playlistMapper.toDetail(
+                freshPlaylist,
+                freshItems,
+                currentUserProfileId,
+                resolveAuthorIdByUserId(currentUserId)
+        );
     }
 
     private void validateReorderRequest(ReorderPlaylistRequest request, List<PlaylistPodcastEntity> existingItems) {
