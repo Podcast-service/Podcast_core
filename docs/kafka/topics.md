@@ -6,7 +6,8 @@
 | `media.upload` | входящий | начало загрузки, успешная загрузка и ошибки загрузки |
 | `media.worker` | входящий | начало обработки, завершение обработки и ошибки обработки |
 | `media.subtitle` | входящий | сохранение subtitle `content` в `podcast_transcripts.content` |
-| `tts.start` | входящий | сохранение TTS `content` в `podcast_transcripts.content` |
+| `tts.start` | входящий | сохранение TTS `content` в `podcast_transcripts.content` и перевод подкаста в `UPLOADING` |
+| `tts.failed` | входящий | фиксация ошибки TTS-flow и перевод подкаста в `FAILED` |
 | `<source>.DLT` | исходящий | сообщения, не обработанные основным consumer |
 
 ## Рекомендуемые ключи сообщений
@@ -18,6 +19,7 @@
 | `media.worker` | `object_id` |
 | `media.subtitle` | `podcast_id` |
 | `tts.start` | `podcast_id` |
+| `tts.failed` | `object_id` |
 
 `podcast-core` использует group id из `PODCAST_KAFKA_CONSUMER_GROUP`, по умолчанию `podcast-service`.
 

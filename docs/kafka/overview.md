@@ -10,7 +10,7 @@ Kafka используется для входящих событий от вн�
 | media upload service | producer topic `media.upload` |
 | media worker | producer topic `media.worker` |
 | subtitles/STT service | producer topic `media.subtitle` |
-| TTS service | producer topic `tts.start` |
+| TTS service | producer topics `tts.start`, `tts.failed` |
 | `podcast-core` | consumer всех входящих topics |
 | `podcast-core` error handler | producer в DLT topics |
 
@@ -24,7 +24,8 @@ Kafka используется для входящих событий от вн�
 | Media upload topic | `PODCAST_KAFKA_TOPIC_MEDIA_UPLOAD=media.upload` |
 | Media worker topic | `PODCAST_KAFKA_TOPIC_MEDIA_WORKER=media.worker` |
 | Subtitle topic | `PODCAST_KAFKA_TOPIC_MEDIA_SUBTITLE=media.subtitle` |
-| TTS topic | `PODCAST_KAFKA_TOPIC_TTS_START=tts.start` |
+| TTS start topic | `PODCAST_KAFKA_TOPIC_TTS_START=tts.start` |
+| TTS failed topic | `PODCAST_KAFKA_TOPIC_TTS_FAILED=tts.failed` |
 | Retry backoff | `PODCAST_KAFKA_RETRY_BACKOFF_MS=1000` |
 | Retry attempts | `PODCAST_KAFKA_RETRY_MAX_ATTEMPTS=3` |
 | DLT suffix | `PODCAST_KAFKA_DLT_SUFFIX=.DLT` |

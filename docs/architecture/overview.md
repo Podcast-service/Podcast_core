@@ -51,7 +51,7 @@
 |---|---|---|
 | PostgreSQL | чтение/запись | доменные таблицы и индексы поиска |
 | Kafka topic `podcast.user.register` | входящий поток | создание и обновление локального user profile |
-| Kafka topics `media.upload`, `media.worker`, `media.subtitle`, `tts.start` | входящие потоки | обновление media lifecycle, transcript/subtitle и TTS данных |
+| Kafka topics `media.upload`, `media.worker`, `media.subtitle`, `tts.start`, `tts.failed` | входящие потоки | обновление media lifecycle, transcript/subtitle и TTS данных |
 | Kafka topics `*.DLT` | исходящая запись от error handler | сообщения, не обработанные основными consumer |
 | `auth-service` | логическая зависимость | issuer JWT и producer события `podcast.user.register` |
 | media-service | логическая зависимость | producer topic `media` |
@@ -67,6 +67,6 @@ HTTP ошибки возвращаются в формате `ApiErrorResponse`.
 | Ресурс | Ограничение |
 |---|---|
 | PostgreSQL | индексы поиска, количество соединений Hikari, стоимость count-запросов |
-| Kafka | количество partition в `podcast.user.register`, `media.upload`, `media.worker`, `media.subtitle`, `tts.start`, consumer group rebalance |
+| Kafka | количество partition в `podcast.user.register`, `media.upload`, `media.worker`, `media.subtitle`, `tts.start`, `tts.failed`, consumer group rebalance |
 | Search | полнотекстовые индексы `tsvector` и trigram indexes |
 | HTTP | размер страниц, сортировки, public endpoints с высокой нагрузкой |

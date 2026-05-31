@@ -199,6 +199,28 @@ class PodcastMediaMetadataServiceTest {
         verify(podcastTranscriptRepository).saveAndFlush(transcript);
     }
 
+    @Test
+    void ttsEventStoresTextAndMarksPodcastUploading() {
+        PodcastEntity podcast = podcast(Status.DRAFT);
+        PodcastTranscriptEntity transcript = new PodcastTranscriptEntity();
+        transcript.setId(new PodcastTranscriptId(PODCAST_ID, "RU"));
+        transcript.setPodcast(podcast);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+        when(podcastTranscriptRepository.findByIdPodcastIdAndIdLanguage(PODCAST_ID, "RU"))
+                .thenReturn(Optional.of(transcript));
+
+        service.saveTtsContentAndMarkUploading(
+                PODCAST_ID,
+                "Текст для генерации аудио",
+                OffsetDateTime.parse("2026-03-22T12:35:56Z")
+        );
+
+        assertThat(transcript.getContent()).isEqualTo("Текст для генерации аудио");
+        assertThat(podcast.getStatus()).isEqualTo(Status.UPLOADING);
+        verify(podcastTranscriptRepository).saveAndFlush(transcript);
+        verify(podcastRepository).saveAndFlush(podcast);
+    }
+
     private PodcastEntity podcast(Status status) {
         PodcastEntity podcast = new PodcastEntity();
         podcast.setId(PODCAST_ID);

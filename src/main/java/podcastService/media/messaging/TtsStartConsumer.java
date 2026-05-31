@@ -26,7 +26,7 @@ public class TtsStartConsumer {
         validate(event);
         log.info("Kafka tts.start event received: topic={}, partition={}, offset={}, podcastId={}, correlationId={}, messageId={}",
                 context.topic(), context.partition(), context.offset(), event.podcastId(), context.correlationId(), context.messageId());
-        podcastMediaMetadataService.saveTtsContent(event.podcastId(), event.content(), event.timestamp());
+        podcastMediaMetadataService.saveTtsContentAndMarkUploading(event.podcastId(), event.content(), event.timestamp());
         log.info("Kafka tts.start event processed: topic={}, partition={}, offset={}, podcastId={}",
                 context.topic(), context.partition(), context.offset(), event.podcastId());
     }
