@@ -12,6 +12,8 @@ public enum MediaWorkerEventType {
     CONVERTED("converted"),
     PROCESSED("processed"),
     PROCESSING_FAILED("processing_failed"),
+    SUBTITLE_READY("subtitle_ready"),
+    DELETED("deleted"),
     ERROR("error");
 
     private final String value;
@@ -36,6 +38,8 @@ public enum MediaWorkerEventType {
             case "converted" -> CONVERTED;
             case "processed", "processing_done", "processing_completed", "completed", "done" -> PROCESSED;
             case "processing_failed", "failed" -> PROCESSING_FAILED;
+            case "subtitle_ready" -> SUBTITLE_READY;
+            case "deleted" -> DELETED;
             case "error" -> ERROR;
             default -> null;
         };

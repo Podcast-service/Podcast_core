@@ -43,10 +43,11 @@
 | `podcast_file_url` | `start_processing` | `podcasts.status = PROCESSING` |
 | `podcast_file_url` | `processed` | сохраняются HLS/processed `audio_url`, `duration_seconds`, `audio_file_size`; статус `PROCESSED` |
 | `podcast_file_url` | `processing_failed`, `error` | `podcasts.status = FAILED` |
+| `podcast_file_url` | `converted`, `subtitle_ready`, `deleted` | принимается без изменения состояния |
 
 ## `MediaSubtitleConsumer`
 
-Читает `media.subtitle`, валидирует `podcast_id` и `content`, после чего сохраняет содержимое `content` в `podcast_transcripts.content`. Для текущего контракта subtitle это JSON с `vtt_object_key`, `srt_object_key` и `ready_at`.
+Читает `media.subtitle`, валидирует `podcast_id` и `content`, после чего сохраняет содержимое `content` в `podcast_transcripts.content`. Для текущего контракта subtitle это JSON с `vtt_object_key` и `srt_object_key`; `ready_at` передаётся отдельным top-level полем.
 
 ## `TtsStartConsumer`
 

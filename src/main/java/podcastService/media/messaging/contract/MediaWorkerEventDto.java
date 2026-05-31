@@ -29,6 +29,7 @@ public record MediaWorkerEventDto(
         @JsonProperty("audio_file_size")
         @JsonDeserialize(using = KafkaLongDeserializer.class)
         Long audioFileSize,
+        @JsonAlias("error_message")
         String error,
         OffsetDateTime timestamp
 ) {

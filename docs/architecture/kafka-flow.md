@@ -31,4 +31,4 @@
 
 ## Transcript storage
 
-`media.subtitle` и `tts.start` сохраняют данные в `podcast_transcripts.content`. Для subtitle в `content` сохраняется JSON с ключами `vtt_object_key`, `srt_object_key`, `ready_at`; для TTS сохраняется текст из Kafka payload.
+`media.subtitle` и `tts.start` сохраняют данные в `podcast_transcripts.content`. Для subtitle в `content` сохраняется JSON с ключами `vtt_object_key` и `srt_object_key`, а `ready_at` передаётся отдельным top-level полем; для TTS сохраняется текст из Kafka payload.

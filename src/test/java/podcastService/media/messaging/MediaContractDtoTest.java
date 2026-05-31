@@ -186,6 +186,56 @@ class MediaContractDtoTest {
     }
 
     @Test
+    void readsWorkerErrorMessageAlias() {
+        MediaWorkerEventDto event = reader.read("""
+                {
+                  "event": "error",
+                  "file_id": "00000000-0000-0000-0000-000000000301",
+                  "stage": "subtitle_request",
+                  "error_message": "subtitle request failed",
+                  "timestamp": "2026-03-22T12:35:56Z"
+                }
+                """, MediaWorkerEventDto.class, CONTEXT_WITH_UUID_KEY);
+
+        assertThat(event.normalizedObjectType()).isEqualTo(MediaObjectType.PODCAST_FILE_URL);
+        assertThat(event.normalizedEvent()).isEqualTo(MediaWorkerEventType.ERROR);
+        assertThat(event.error()).isEqualTo("subtitle request failed");
+    }
+
+    @Test
+    void readsWorkerSubtitleReadyAsIgnoredLifecycleEvent() {
+        MediaWorkerEventDto event = reader.read("""
+                {
+                  "event": "subtitle_ready",
+                  "file_id": "00000000-0000-0000-0000-000000000301",
+                  "hls_path": "/media/id/master.m3u8",
+                  "subtitle_vtt_path": "/media/id/subtitles.vtt",
+                  "subtitle_srt_path": "/media/id/subtitles.srt",
+                  "language": "ru",
+                  "subtitle_ready_at": "2026-03-22T12:35:56Z"
+                }
+                """, MediaWorkerEventDto.class, CONTEXT_WITH_UUID_KEY);
+
+        assertThat(event.normalizedObjectType()).isEqualTo(MediaObjectType.PODCAST_FILE_URL);
+        assertThat(event.normalizedEvent()).isEqualTo(MediaWorkerEventType.SUBTITLE_READY);
+    }
+
+    @Test
+    void readsWorkerDeletedAsIgnoredLifecycleEvent() {
+        MediaWorkerEventDto event = reader.read("""
+                {
+                  "event": "deleted",
+                  "file_id": "00000000-0000-0000-0000-000000000301",
+                  "deleted_objects": 4,
+                  "deleted_at": "2026-03-22T12:35:56Z"
+                }
+                """, MediaWorkerEventDto.class, CONTEXT_WITH_UUID_KEY);
+
+        assertThat(event.normalizedObjectType()).isEqualTo(MediaObjectType.PODCAST_FILE_URL);
+        assertThat(event.normalizedEvent()).isEqualTo(MediaWorkerEventType.DELETED);
+    }
+
+    @Test
     void readsSubtitleContentAsTextOrObject() {
         MediaSubtitleEventDto textEvent = reader.read("""
                 {

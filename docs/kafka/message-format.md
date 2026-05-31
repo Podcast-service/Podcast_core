@@ -90,11 +90,14 @@ Consumer принимает каноничные значения контрак
 | `object_type=podcast_file_url` | `podcast_file`, `podcast_audio`, `audio` |
 | `event=start_processing` | `processing_started`, `processing` |
 | `event=converted` | принимается и коммитится без изменения состояния подкаста |
+| `event=subtitle_ready` | принимается и коммитится без изменения состояния подкаста |
+| `event=deleted` | принимается и коммитится без изменения состояния подкаста |
 | `event=processed` | `processing_done`, `processing_completed`, `completed`, `done` |
 | `event=processing_failed` | `failed` |
 | `audio_url` | `audioUrl`, `hls_url`, `hlsUrl` |
 | `duration_seconds` | `durationSeconds`, `duration`, `audio_duration_seconds` |
 | `audio_file_size` | `audioFileSize`, `audio_size_file`, `audioSizeFile` |
+| `error` | `error_message` |
 
 `duration_seconds` принимается как JSON number или строка. Дробное значение округляется вверх до целого количества секунд перед сохранением в `podcasts.duration_seconds`.
 
