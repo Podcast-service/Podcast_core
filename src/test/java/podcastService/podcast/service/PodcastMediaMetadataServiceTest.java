@@ -80,7 +80,7 @@ class PodcastMediaMetadataServiceTest {
         podcast.setDurationSeconds(1000L);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
 
-        service.markFileUploaded(PODCAST_ID, "/media/stale.mp3", 9999L, null);
+        service.markFileUploaded(PODCAST_ID, "/media/stale.mp3", null);
 
         assertThat(podcast.getAudioUrlFile()).isEqualTo("/media/original.mp3");
         assertThat(podcast.getAudioSizeFile()).isEqualTo(100L);
@@ -94,36 +94,60 @@ class PodcastMediaMetadataServiceTest {
         PodcastEntity podcast = podcast(Status.UPLOADING);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
 
-        service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", 2400L, null);
+        service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", null);
 
         assertThat(podcast.getAudioUrlFile()).isEqualTo("/media/audio.mp3");
         assertThat(podcast.getAudioUrl()).isNull();
         assertThat(podcast.getAudioSizeFile()).isNull();
-        assertThat(podcast.getDurationSeconds()).isEqualTo(2400L);
+        assertThat(podcast.getDurationSeconds()).isNull();
         assertThat(podcast.getStatus()).isEqualTo(Status.UPLOADED);
         verify(podcastRepository).saveAndFlush(podcast);
     }
 
     @Test
-    void uploadedRejectsMissingDurationSeconds() {
-        PodcastEntity podcast = podcast(Status.UPLOADING);
+    void processedStoresHlsAudioUrlDurationAndFileSizeThenMarksProcessed() {
+        PodcastEntity podcast = podcast(Status.PROCESSING);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
 
-        assertThatThrownBy(() -> service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", null, null))
+        service.markProcessed(PODCAST_ID, "https://cdn.example.local/master.m3u8", 2400L, 11232332L, null);
+
+        assertThat(podcast.getAudioUrl()).isEqualTo("https://cdn.example.local/master.m3u8");
+        assertThat(podcast.getDurationSeconds()).isEqualTo(2400L);
+        assertThat(podcast.getAudioSizeFile()).isEqualTo(11232332L);
+        assertThat(podcast.getStatus()).isEqualTo(Status.PROCESSED);
+        verify(podcastRepository).saveAndFlush(podcast);
+    }
+
+    @Test
+    void processedRejectsMissingDurationSeconds() {
+        PodcastEntity podcast = podcast(Status.PROCESSING);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+
+        assertThatThrownBy(() -> service.markProcessed(
+                PODCAST_ID,
+                "https://cdn.example.local/master.m3u8",
+                null,
+                11232332L,
+                null
+        ))
                 .isInstanceOf(InvalidKafkaMessageException.class)
                 .hasMessage("Received null duration_seconds in Kafka event");
     }
 
     @Test
-    void processedStoresHlsAudioUrlAndMarksProcessed() {
+    void processedRejectsMissingAudioFileSize() {
         PodcastEntity podcast = podcast(Status.PROCESSING);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
 
-        service.markProcessed(PODCAST_ID, "https://cdn.example.local/master.m3u8", null);
-
-        assertThat(podcast.getAudioUrl()).isEqualTo("https://cdn.example.local/master.m3u8");
-        assertThat(podcast.getStatus()).isEqualTo(Status.PROCESSED);
-        verify(podcastRepository).saveAndFlush(podcast);
+        assertThatThrownBy(() -> service.markProcessed(
+                PODCAST_ID,
+                "https://cdn.example.local/master.m3u8",
+                2400L,
+                null,
+                null
+        ))
+                .isInstanceOf(InvalidKafkaMessageException.class)
+                .hasMessage("Received null audio_file_size in Kafka event");
     }
 
     @Test

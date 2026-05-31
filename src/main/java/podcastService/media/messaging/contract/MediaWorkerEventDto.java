@@ -1,5 +1,6 @@
 package podcastService.media.messaging.contract;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -15,8 +16,15 @@ public record MediaWorkerEventDto(
         MediaWorkerEventType event,
         @JsonProperty("podcast_id")
         UUID podcastId,
+        @JsonAlias({"audioUrl", "hls_url", "hlsUrl"})
         @JsonProperty("audio_url")
         String audioUrl,
+        @JsonAlias({"durationSeconds", "duration", "audio_duration_seconds"})
+        @JsonProperty("duration_seconds")
+        Long durationSeconds,
+        @JsonAlias({"audioFileSize", "audio_size_file", "audioSizeFile"})
+        @JsonProperty("audio_file_size")
+        Long audioFileSize,
         String error,
         OffsetDateTime timestamp
 ) {

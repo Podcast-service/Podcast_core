@@ -2,6 +2,7 @@ package podcastService.podcast.service;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,13 +46,11 @@ public class PodcastMediaMetadataService {
     public void markFileUploaded(
             UUID podcastId,
             String audioUrlFile,
-            Long durationSeconds,
             OffsetDateTime eventTimestamp
     ) {
         PodcastEntity podcast = findForUpdate(podcastId);
         persistMediaState(podcast, Status.UPLOADED, eventTimestamp, "media uploaded", entity -> {
             entity.setAudioUrlFile(normalizeMediaPath(audioUrlFile, "audio_url_file"));
-            entity.setDurationSeconds(normalizeDurationSeconds(durationSeconds));
         });
     }
 
@@ -63,10 +62,20 @@ public class PodcastMediaMetadataService {
     }
 
     @Transactional
-    public void markProcessed(UUID podcastId, String audioUrl, OffsetDateTime eventTimestamp) {
+    public void markProcessed(
+            UUID podcastId,
+            String audioUrl,
+            Long durationSeconds,
+            Long audioFileSize,
+            OffsetDateTime eventTimestamp
+    ) {
         PodcastEntity podcast = findForUpdate(podcastId);
         persistMediaState(podcast, Status.PROCESSED, eventTimestamp, "media processed",
-                entity -> entity.setAudioUrl(normalizeMediaPath(audioUrl, "audio_url")));
+                entity -> {
+                    entity.setAudioUrl(normalizeMediaPath(audioUrl, "audio_url"));
+                    entity.setDurationSeconds(normalizeDurationSeconds(durationSeconds));
+                    entity.setAudioSizeFile(normalizeAudioFileSize(audioFileSize));
+                });
     }
 
     @Transactional
@@ -102,6 +111,16 @@ public class PodcastMediaMetadataService {
         transcript.setContent(serializeSubtitleContent(vtt, srt, readyAt));
         podcastTranscriptRepository.saveAndFlush(transcript);
         log.info("Podcast subtitle content saved, podcastId={}, readyAt={}", podcastId, readyAt);
+    }
+
+    @Transactional
+    public void saveTranscriptContent(UUID podcastId, JsonNode content, OffsetDateTime timestamp, String source) {
+        PodcastEntity podcast = findForUpdate(podcastId);
+        PodcastTranscriptEntity transcript = findTranscriptOrNew(podcast);
+        transcript.setContent(normalizeTranscriptContent(serializeContentNode(content), source + " content"));
+        podcastTranscriptRepository.saveAndFlush(transcript);
+        log.info("Podcast transcript content saved from Kafka, podcastId={}, source={}, timestamp={}",
+                podcastId, source, timestamp);
     }
 
     @Transactional
@@ -192,6 +211,16 @@ public class PodcastMediaMetadataService {
         return value;
     }
 
+    private Long normalizeAudioFileSize(Long value) {
+        if (value == null) {
+            throw new InvalidKafkaMessageException("Received null audio_file_size in Kafka event");
+        }
+        if (value < 0) {
+            throw new InvalidKafkaMessageException("Received negative audio_file_size in Kafka event");
+        }
+        return value;
+    }
+
     private String safeError(String errorMessage) {
         if (errorMessage == null || errorMessage.isBlank()) {
             return null;
@@ -205,6 +234,19 @@ public class PodcastMediaMetadataService {
         } catch (JsonProcessingException exception) {
             throw new InvalidKafkaMessageException("Failed to serialize subtitle content", exception);
         }
+    }
+
+    private String serializeContentNode(JsonNode content) {
+        if (content == null || content.isNull()) {
+            throw new InvalidKafkaMessageException("Received null content in Kafka event");
+        }
+        if (content.isTextual()) {
+            return content.asText();
+        }
+        if (content.isContainerNode()) {
+            return content.toString();
+        }
+        return content.asText();
     }
 
     private record SubtitleContent(

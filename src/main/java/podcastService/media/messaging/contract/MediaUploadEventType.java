@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import podcastService.infrastructure.messaging.error.InvalidKafkaMessageException;
 
 import java.util.Arrays;
+import java.util.Locale;
 
 public enum MediaUploadEventType {
     START_UPLOAD("start_upload"),
@@ -25,8 +26,23 @@ public enum MediaUploadEventType {
 
     @JsonCreator
     public static MediaUploadEventType fromValue(String value) {
+        if (value == null || value.isBlank()) {
+            throw new InvalidKafkaMessageException("Unsupported media.upload event: " + value);
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        MediaUploadEventType alias = switch (normalized) {
+            case "start_upload", "upload_started", "uploading" -> START_UPLOAD;
+            case "uploaded", "upload_complete", "upload_completed" -> UPLOADED;
+            case "upload_failed", "failed" -> UPLOAD_FAILED;
+            case "error" -> ERROR;
+            default -> null;
+        };
+        if (alias != null) {
+            return alias;
+        }
+
         return Arrays.stream(values())
-                .filter(type -> type.value.equals(value))
+                .filter(type -> type.value.equals(normalized))
                 .findFirst()
                 .orElseThrow(() -> new InvalidKafkaMessageException("Unsupported media.upload event: " + value));
     }

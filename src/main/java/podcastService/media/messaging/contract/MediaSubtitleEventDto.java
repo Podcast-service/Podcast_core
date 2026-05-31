@@ -1,5 +1,6 @@
 package podcastService.media.messaging.contract;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -10,7 +11,7 @@ import java.util.UUID;
 public record MediaSubtitleEventDto(
         @JsonProperty("podcast_id")
         UUID podcastId,
-        SubtitleContentDto content,
+        JsonNode content,
         @JsonProperty("ready_at")
         OffsetDateTime readyAt
 ) {
