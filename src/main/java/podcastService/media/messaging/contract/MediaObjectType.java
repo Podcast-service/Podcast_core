@@ -3,6 +3,8 @@ package podcastService.media.messaging.contract;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
+import podcastService.infrastructure.messaging.error.InvalidKafkaMessageException;
+
 import java.util.Arrays;
 
 public enum MediaObjectType {
@@ -27,6 +29,6 @@ public enum MediaObjectType {
         return Arrays.stream(values())
                 .filter(type -> type.value.equals(value))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unsupported object_type: " + value));
+                .orElseThrow(() -> new InvalidKafkaMessageException("Unsupported object type: " + value));
     }
 }

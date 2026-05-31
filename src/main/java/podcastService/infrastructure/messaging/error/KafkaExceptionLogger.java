@@ -37,16 +37,15 @@ public class KafkaExceptionLogger {
         );
     }
 
-    public void logDiscarded(ConsumerRecord<?, ?> record, Exception exception) {
-        log.error(
-                "Kafka message discarded. topic={}, partition={}, offset={}, key={}, exception={}, message={}",
+    public void logSkippedInvalidMessage(ConsumerRecord<?, ?> record, Exception exception) {
+        log.warn(
+                "Kafka message skipped because it does not match expected contract. topic={}, partition={}, offset={}, key={}, exception={}, message={}",
                 record.topic(),
                 record.partition(),
                 record.offset(),
                 record.key(),
                 exception.getClass().getSimpleName(),
-                exception.getMessage(),
-                exception
+                exception.getMessage()
         );
     }
 }

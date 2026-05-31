@@ -80,6 +80,7 @@ class PodcastMediaMetadataServiceTest {
         podcast.setDurationSeconds(1000L);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
 
+        service.markFileUploaded(PODCAST_ID, "/media/stale.mp3", 9999L, null);
 
         assertThat(podcast.getAudioUrlFile()).isEqualTo("/media/original.mp3");
         assertThat(podcast.getAudioSizeFile()).isEqualTo(100L);
@@ -93,10 +94,11 @@ class PodcastMediaMetadataServiceTest {
         PodcastEntity podcast = podcast(Status.UPLOADING);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
 
+        service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", 2400L, null);
 
         assertThat(podcast.getAudioUrlFile()).isEqualTo("/media/audio.mp3");
         assertThat(podcast.getAudioUrl()).isNull();
-        assertThat(podcast.getAudioSizeFile()).isEqualTo(123L);
+        assertThat(podcast.getAudioSizeFile()).isNull();
         assertThat(podcast.getDurationSeconds()).isEqualTo(2400L);
         assertThat(podcast.getStatus()).isEqualTo(Status.UPLOADED);
         verify(podcastRepository).saveAndFlush(podcast);
@@ -110,16 +112,6 @@ class PodcastMediaMetadataServiceTest {
         assertThatThrownBy(() -> service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", null, null))
                 .isInstanceOf(InvalidKafkaMessageException.class)
                 .hasMessage("Received null duration_seconds in Kafka event");
-    }
-
-    @Test
-    void uploadedRejectsMissingAudioFileSize() {
-        PodcastEntity podcast = podcast(Status.UPLOADING);
-        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
-
-        assertThatThrownBy(() -> service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", null, null))
-                .isInstanceOf(InvalidKafkaMessageException.class)
-                .hasMessage("Received null audio_file_size in Kafka event");
     }
 
     @Test

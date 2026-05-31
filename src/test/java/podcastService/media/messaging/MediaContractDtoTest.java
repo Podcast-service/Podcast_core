@@ -3,6 +3,7 @@ package podcastService.media.messaging;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.Test;
+import podcastService.infrastructure.messaging.error.KafkaDeserializationException;
 import podcastService.infrastructure.messaging.kafka.KafkaMessageReader;
 import podcastService.infrastructure.messaging.kafka.KafkaRecordContext;
 import podcastService.media.messaging.contract.MediaObjectType;
@@ -15,6 +16,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MediaContractDtoTest {
 
@@ -25,14 +27,13 @@ class MediaContractDtoTest {
     private final KafkaMessageReader reader = new KafkaMessageReader(new ObjectMapper().registerModule(new JavaTimeModule()));
 
     @Test
-    void readsMediaUploadDtoAndMapsAudioFileSize() {
+    void readsMediaUploadDtoAndMapsDuration() {
         MediaUploadEventDto event = reader.read("""
                 {
                   "object_type": "podcast_file_url",
                   "object_id": "00000000-0000-0000-0000-000000000301",
                   "event": "uploaded",
                   "audio_url_file": "https://storage.example.local/source.mp3",
-                  "audio_file_size": 123456,
                   "duration_seconds": 2400,
                   "timestamp": "2026-03-22T12:35:56Z",
                   "extra": "ignored"
@@ -42,9 +43,22 @@ class MediaContractDtoTest {
         assertThat(event.objectType()).isEqualTo(MediaObjectType.PODCAST_FILE_URL);
         assertThat(event.event()).isEqualTo(MediaUploadEventType.UPLOADED);
         assertThat(event.objectId()).isEqualTo(UUID.fromString("00000000-0000-0000-0000-000000000301"));
-        assertThat(event.audioFileSize()).isEqualTo(123456L);
         assertThat(event.durationSeconds()).isEqualTo(2400L);
         assertThat(event.timestamp()).isEqualTo(OffsetDateTime.parse("2026-03-22T12:35:56Z"));
+    }
+
+    @Test
+    void unsupportedUploadEventIsRejectedAsDeserializationError() {
+        assertThatThrownBy(() -> reader.read("""
+                {
+                  "object_type": "podcast_file_url",
+                  "object_id": "00000000-0000-0000-0000-000000000301",
+                  "event": "not_our_event",
+                  "timestamp": "2026-03-22T12:35:56Z"
+                }
+                """, MediaUploadEventDto.class, CONTEXT))
+                .isInstanceOf(KafkaDeserializationException.class)
+                .hasMessageContaining("Failed to deserialize Kafka payload");
     }
 
     @Test
