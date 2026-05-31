@@ -26,12 +26,7 @@ public class MediaSubtitleConsumer {
         validate(event);
         log.info("Kafka media.subtitle event received: topic={}, partition={}, offset={}, podcastId={}, correlationId={}, messageId={}",
                 context.topic(), context.partition(), context.offset(), event.podcastId(), context.correlationId(), context.messageId());
-        podcastMediaMetadataService.saveSubtitleContent(
-                event.podcastId(),
-                event.content().vttObjectKey(),
-                event.content().srtObjectKey(),
-                event.readyAt()
-        );
+        podcastMediaMetadataService.saveTranscriptContent(event.podcastId(), event.content(), event.readyAt(), "media.subtitle");
         log.info("Kafka media.subtitle event processed: topic={}, partition={}, offset={}, podcastId={}",
                 context.topic(), context.partition(), context.offset(), event.podcastId());
     }

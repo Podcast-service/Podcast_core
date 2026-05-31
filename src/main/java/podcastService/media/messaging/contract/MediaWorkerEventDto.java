@@ -1,5 +1,6 @@
 package podcastService.media.messaging.contract;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -15,6 +16,7 @@ public record MediaWorkerEventDto(
         MediaWorkerEventType event,
         @JsonProperty("podcast_id")
         UUID podcastId,
+        @JsonAlias({"audioUrl", "hls_url", "hlsUrl"})
         @JsonProperty("audio_url")
         String audioUrl,
         String error,
