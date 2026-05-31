@@ -89,11 +89,18 @@ Consumer принимает каноничные значения контрак
 |---|---|
 | `object_type=podcast_file_url` | `podcast_file`, `podcast_audio`, `audio` |
 | `event=start_processing` | `processing_started`, `processing` |
+| `event=converted` | принимается и коммитится без изменения состояния подкаста |
 | `event=processed` | `processing_done`, `processing_completed`, `completed`, `done` |
 | `event=processing_failed` | `failed` |
 | `audio_url` | `audioUrl`, `hls_url`, `hlsUrl` |
 | `duration_seconds` | `durationSeconds`, `duration`, `audio_duration_seconds` |
 | `audio_file_size` | `audioFileSize`, `audio_size_file`, `audioSizeFile` |
+
+`duration_seconds` принимается как JSON number или строка. Дробное значение округляется вверх до целого количества секунд перед сохранением в `podcasts.duration_seconds`.
+
+Если `media.worker` producer не передаёт `object_type`, но передаёт `audio_url`, событие трактуется как `podcast_file_url/processed`. Если `object_id` и `podcast_id` отсутствуют, consumer использует UUID из Kafka key как идентификатор подкаста.
+
+Событие `converted` отражает промежуточную стадию media worker. Podcast-service не использует его для записи `audio_url`, `duration_seconds` или `audio_file_size`; эти поля сохраняются только из события `processed`.
 
 ## `media.subtitle`
 
@@ -109,6 +116,8 @@ Consumer принимает каноничные значения контрак
 ```
 
 Поле `content` сохраняется в `podcast_transcripts.content` в исходном виде. Если producer присылает строку, сохраняется строка. Если producer присылает JSON-объект или массив, сохраняется компактная JSON-строка.
+
+Если `podcast_id` отсутствует, consumer использует UUID из Kafka key как идентификатор подкаста.
 
 ## `tts.start`
 

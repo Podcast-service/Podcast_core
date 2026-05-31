@@ -24,6 +24,9 @@ class MediaContractDtoTest {
     private static final KafkaRecordContext CONTEXT = new KafkaRecordContext(
             "media.upload", 0, 1L, null, null, null
     );
+    private static final KafkaRecordContext CONTEXT_WITH_UUID_KEY = new KafkaRecordContext(
+            "media.worker", 0, 1L, "00000000-0000-0000-0000-000000000301", null, null
+    );
 
     private final KafkaMessageReader reader = new KafkaMessageReader(new ObjectMapper().registerModule(new JavaTimeModule()));
 
@@ -124,15 +127,36 @@ class MediaContractDtoTest {
     }
 
     @Test
-    void readsWorkerAliasesFromAdjacentMediaService() {
+    void readsConvertedWorkerEventAsIgnoredEvent() {
         MediaWorkerEventDto event = reader.read("""
                 {
                   "object_type": "podcast_file",
                   "object_id": "00000000-0000-0000-0000-000000000301",
-                  "event": "processing_completed",
+                  "event": "converted",
                   "hls_url": "https://cdn.example.local/hls/master.m3u8",
-                  "durationSeconds": "2400",
+                  "durationSeconds": "30.040816",
                   "audioFileSize": "11232332",
+                  "timestamp": "2026-03-22T12:35:56Z"
+                }
+                """, MediaWorkerEventDto.class, CONTEXT);
+
+        assertThat(event.normalizedObjectType()).isEqualTo(MediaObjectType.PODCAST_FILE_URL);
+        assertThat(event.normalizedEvent()).isEqualTo(MediaWorkerEventType.CONVERTED);
+        assertThat(event.audioUrl()).isEqualTo("https://cdn.example.local/hls/master.m3u8");
+        assertThat(event.durationSeconds()).isEqualTo(31L);
+        assertThat(event.audioFileSize()).isEqualTo(11232332L);
+    }
+
+    @Test
+    void readsProcessedWorkerEventWithProcessingMetadata() {
+        MediaWorkerEventDto event = reader.read("""
+                {
+                  "object_type": "podcast_file_url",
+                  "object_id": "00000000-0000-0000-0000-000000000301",
+                  "event": "processed",
+                  "audio_url": "https://cdn.example.local/hls/master.m3u8",
+                  "duration_seconds": "2580",
+                  "audio_file_size": "11232332",
                   "timestamp": "2026-03-22T12:35:56Z"
                 }
                 """, MediaWorkerEventDto.class, CONTEXT);
@@ -140,8 +164,25 @@ class MediaContractDtoTest {
         assertThat(event.normalizedObjectType()).isEqualTo(MediaObjectType.PODCAST_FILE_URL);
         assertThat(event.normalizedEvent()).isEqualTo(MediaWorkerEventType.PROCESSED);
         assertThat(event.audioUrl()).isEqualTo("https://cdn.example.local/hls/master.m3u8");
-        assertThat(event.durationSeconds()).isEqualTo(2400L);
+        assertThat(event.durationSeconds()).isEqualTo(2580L);
         assertThat(event.audioFileSize()).isEqualTo(11232332L);
+    }
+
+    @Test
+    void workerEventInfersProcessedPodcastFileFromAudioUrlAndKafkaKey() {
+        MediaWorkerEventDto event = reader.read("""
+                {
+                  "audio_url": "https://cdn.example.local/hls/master.m3u8",
+                  "duration_seconds": "30.040816",
+                  "audio_file_size": "11232332",
+                  "timestamp": "2026-03-22T12:35:56Z"
+                }
+                """, MediaWorkerEventDto.class, CONTEXT_WITH_UUID_KEY);
+
+        assertThat(event.normalizedObjectType()).isEqualTo(MediaObjectType.PODCAST_FILE_URL);
+        assertThat(event.normalizedEvent()).isEqualTo(MediaWorkerEventType.PROCESSED);
+        assertThat(event.targetPodcastId(CONTEXT_WITH_UUID_KEY.keyAsUuidOrNull()))
+                .isEqualTo(UUID.fromString("00000000-0000-0000-0000-000000000301"));
     }
 
     @Test
@@ -166,6 +207,8 @@ class MediaContractDtoTest {
                 """, MediaSubtitleEventDto.class, CONTEXT);
 
         assertThat(textEvent.content().isTextual()).isTrue();
+        assertThat(textEvent.targetPodcastId(CONTEXT_WITH_UUID_KEY.keyAsUuidOrNull()))
+                .isEqualTo(UUID.fromString("00000000-0000-0000-0000-000000000301"));
         assertThat(objectEvent.content().isObject()).isTrue();
         assertThat(objectEvent.content().get("vtt_object_key").asText())
                 .isEqualTo("media/podcast/subtitles.vtt");

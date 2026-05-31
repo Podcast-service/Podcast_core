@@ -9,6 +9,7 @@ import java.util.Locale;
 
 public enum MediaWorkerEventType {
     START_PROCESSING("start_processing"),
+    CONVERTED("converted"),
     PROCESSED("processed"),
     PROCESSING_FAILED("processing_failed"),
     ERROR("error");
@@ -32,6 +33,7 @@ public enum MediaWorkerEventType {
         String normalized = value.trim().toLowerCase(Locale.ROOT);
         MediaWorkerEventType alias = switch (normalized) {
             case "start_processing", "processing_started", "processing" -> START_PROCESSING;
+            case "converted" -> CONVERTED;
             case "processed", "processing_done", "processing_completed", "completed", "done" -> PROCESSED;
             case "processing_failed", "failed" -> PROCESSING_FAILED;
             case "error" -> ERROR;
