@@ -28,6 +28,9 @@
 | `PODCAST_KAFKA_EXTERNAL_HOST` | `host.docker.internal` | нет | advertised host external listener |
 | `PODCAST_KAFKA_AUTO_CREATE_TOPICS_ENABLE` | `true` | нет | auto-create topics в local Kafka |
 | `PODCAST_KAFKA_UI_PORT` | `8081` | нет | порт Kafka UI |
+| `PODCAST_AUTH_SERVICE_BASE_URL` | `http://localhost:8080`, `http://auth-service:8080` в docker | да | base URL auth-service для выдачи роли автора через `/auth/me/update-roles` |
+| `PODCAST_AUTH_SERVICE_CONNECT_TIMEOUT` | `2s` | нет | timeout установки соединения с auth-service |
+| `PODCAST_AUTH_SERVICE_READ_TIMEOUT` | `5s` | нет | timeout ожидания ответа auth-service |
 | `PODCAST_ACCESS_TOKEN_SECRET` | пусто в base config | да | secret подписи JWT |
 | `PODCAST_ACCESS_TOKEN_ISSUER` | `auth-service` | да | ожидаемый issuer |
 | `PODCAST_AUTH_ENABLED` | `true` | да | включение JWT validation |

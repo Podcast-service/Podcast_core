@@ -3,14 +3,18 @@ package podcastService.author.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import podcastService.author.dto.AuthorProfileResponse;
-import podcastService.author.dto.CreateAuthorProfileRequest;
-import podcastService.author.dto.UpdateAuthorProfileRequest;
+import podcastService.author.dto.*;
 import podcastService.author.entity.AuthorEntity;
 import podcastService.author.mapper.AuthorMapper;
 import podcastService.author.repository.AuthorRepository;
+import podcastService.author.specifications.AuthorSpecifications;
+import podcastService.author.util.AuthorPageableFactory;
+import podcastService.common.dto.PageMeta;
+import podcastService.common.dto.PageResponse;
 import podcastService.common.exception.BadRequestException;
 import podcastService.common.exception.ConflictException;
 import podcastService.common.exception.NotFoundException;
@@ -20,7 +24,9 @@ import podcastService.user.repository.UserProfileRepository;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -62,6 +68,93 @@ public class AuthorProfileService {
             );
             throw new ConflictException("Author profile already exists");
         }
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AuthorCard> getAuthors(AuthorFilter filter, UUID currentUserId) {
+        Specification<AuthorEntity> specification = Specification
+                .where(AuthorSpecifications.fetchUserProfile())
+                .and(AuthorSpecifications.searchByText(filter.q()));
+
+        Page<AuthorEntity> authorPage = authorRepository.findAll(
+                specification,
+                AuthorPageableFactory.create(
+                        filter.normalizedPage(),
+                        filter.normalizedSize(),
+                        filter.normalizedSort()
+                )
+        );
+
+        Set<UUID> subscribedAuthorIds = resolveSubscribedAuthorIds(authorPage, currentUserId);
+        Page<AuthorCard> page = authorPage.map(entity -> authorMapper.toCard(
+                entity,
+                subscribedAuthorIds == null ? null : subscribedAuthorIds.contains(entity.getId())
+        ));
+
+        log.debug(
+                "Authors listed: currentUserId={}, page={}, size={}, totalElements={}",
+                currentUserId,
+                filter.normalizedPage(),
+                filter.normalizedSize(),
+                page.getTotalElements()
+        );
+
+        return new PageResponse<>(
+                page.getContent(),
+                new PageMeta(
+                        filter.normalizedPage(),
+                        page.getSize(),
+                        page.getTotalElements(),
+                        page.getTotalPages()
+                )
+        );
+
+    }
+
+    private Set<UUID> resolveSubscribedAuthorIds(Page<AuthorEntity> authorPage, UUID currentUserId) {
+        if (currentUserId == null) {
+            return null;
+        }
+
+        return userProfileRepository.findByUserId(currentUserId)
+                .map(userProfile -> {
+                    Set<UUID> authorIds = authorPage.getContent().stream()
+                            .map(AuthorEntity::getId)
+                            .collect(Collectors.toSet());
+                    if (authorIds.isEmpty()) {
+                        return Set.<UUID>of();
+                    }
+                    return subscriptionRepository.findSubscribedAuthorIds(userProfile.getId(), authorIds);
+                })
+                .orElse(Set.of());
+    }
+
+    @Transactional
+    public AuthorProfileCreationResult createOrGet(UUID currentUserId, CreateAuthorProfileRequest request) {
+        UserProfileEntity userProfile = requireUserProfile(currentUserId);
+
+        return authorRepository.findByUserProfileId(userProfile.getId())
+                .map(existing -> {
+                    log.info(
+                            "Author profile creation skipped because profile already exists, authorId={}, userId={}, userProfileId={}",
+                            existing.getId(),
+                            currentUserId,
+                            userProfile.getId()
+                    );
+                    return new AuthorProfileCreationResult(authorMapper.toProfileResponse(existing, false), false);
+                })
+                .orElseGet(() -> createNewAuthorProfile(currentUserId, request, userProfile));
+    }
+
+    @Transactional(readOnly = true)
+    public void validateCreateRequestForBecomeAuthor(UUID currentUserId, CreateAuthorProfileRequest request) {
+        UserProfileEntity userProfile = requireUserProfile(currentUserId);
+        if (authorRepository.existsByUserProfileId(userProfile.getId())) {
+            return;
+        }
+
+        normalizeAuthorName(request.authorName());
+        normalizeNullableText(request.description());
     }
 
     @Transactional(readOnly = true)
@@ -126,6 +219,37 @@ public class AuthorProfileService {
     private UserProfileEntity requireUserProfile(UUID currentUserId) {
         return userProfileRepository.findByUserId(currentUserId)
                 .orElseThrow(() -> new NotFoundException("User profile not found: " + currentUserId));
+    }
+
+    private AuthorProfileCreationResult createNewAuthorProfile(
+            UUID currentUserId,
+            CreateAuthorProfileRequest request,
+            UserProfileEntity userProfile
+    ) {
+        AuthorEntity author = new AuthorEntity();
+        author.setUserProfile(userProfile);
+        author.setAuthorName(normalizeAuthorName(request.authorName()));
+        author.setDescription(normalizeNullableText(request.description()));
+
+        try {
+            AuthorEntity saved = authorRepository.saveAndFlush(author);
+            log.info(
+                    "Author profile created: authorId={}, userId={}, userProfileId={}",
+                    saved.getId(),
+                    currentUserId,
+                    userProfile.getId()
+            );
+            return new AuthorProfileCreationResult(authorMapper.toProfileResponse(saved, false), true);
+        } catch (DataIntegrityViolationException exception) {
+            log.warn(
+                    "Author profile creation raced with another request, userId={}, userProfileId={}",
+                    currentUserId,
+                    userProfile.getId()
+            );
+            AuthorEntity existing = authorRepository.findByUserProfileId(userProfile.getId())
+                    .orElseThrow(() -> exception);
+            return new AuthorProfileCreationResult(authorMapper.toProfileResponse(existing, false), false);
+        }
     }
 
     private Boolean resolveSubscriptionStatus(UUID authorId, UUID currentUserId, UUID authorOwnerProfileId) {

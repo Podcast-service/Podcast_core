@@ -1,50 +1,75 @@
 openapi: 3.0.3
 
 info:
-  title: Podcast Service API (DEV)
-  version: 1.3.0-dev
+  title: Podcast Service API
+  version: 1.0.0
   description: |
-    DEV-спецификация отражает текущую реализованную часть сервиса.
+    ## Обзор
+    `podcast-service` — основной сервис бизнес-логики платформы подкастов.
+    Отвечает за профили пользователей и авторов, подкасты, плейлисты,
+    поиск, лайки, подписки и историю прослушивания.
 
-    Авторизация выполняется через `Authorization: Bearer <access_token>`.
-    Access token выдаётся auth-service и валидируется локально как HS256 JWT.
-    Используемые claims: `user_id`, `email`, `roles`, `iss`, `exp`.
+    ## Аутентификация
+    Все защищённые эндпоинты принимают JWT-токен в заголовке:
+    ```
+    Authorization: Bearer <access_token>
+    ```
+    Токен выдаётся `auth-service`. Роли пользователя читаются из claims токена.
 
-    Роли:
-    - `ADMIN` — управление категориями.
-    - `AUTHOR` — профиль автора, создание, изменение, удаление и публикация подкастов.
-    - авторизованный пользователь — профиль, настройки, плейлисты и голосование.
+    ## Роли
+    | Роль | Описание |
+    |------|----------|
+    | **PUBLIC** | Анонимный пользователь, без токена |
+    | **USER** | Зарегистрированный пользователь |
+    | **AUTHOR** | Пользователь с правом публиковать подкасты |
+    | **ADMIN** | Администратор платформы |
+
+    ## Пагинация
+    Все листинги поддерживают параметры `page` (default: 1) и `size` (default: 20, max: 50).
+    Ответ всегда оборачивается в `PageResponse<T>`.
+
+    ## Коды ошибок
+    | HTTP | Когда |
+    |------|-------|
+    | 400 | Невалидные входные данные |
+    | 401 | Токен отсутствует или истёк |
+    | 403 | Недостаточно прав (не тот owner или не та роль) |
+    | 404 | Ресурс не найден |
+    | 422 | Бизнес-логика нарушена (например, подкаст не в том статусе) |
 
 servers:
+  - url: https://api.example.com/podcast/v1
+    description: Production
   - url: http://localhost:8082/podcast/v1
     description: Local development
+
+tags:
+  - name: User Profile
+    description: Профиль пользователя и настройки (тема, язык)
+  - name: Author Profile
+    description: Профиль автора — создание, редактирование, публичная страница
+  - name: Categories
+    description: Категории подкастов (справочник; изменения только через ADMIN)
+  - name: Podcasts
+    description: CRUD подкастов, публикация, счётчики просмотров
+  - name: Podcast Media
+    description: Транскрипт и summary подкаста (генерирует tts-stt-service)
+  - name: Playlists
+    description: Создание и управление плейлистами, добавление подкастов
+  - name: Votes
+    description: Лайки и дизлайки подкастов и плейлистов
+  - name: Subscriptions
+    description: Подписки на авторов и лента подписок
+  - name: Listen History
+    description: История прослушивания и сохранение прогресса
+  - name: Search
+    description: Полнотекстовый поиск и autocomplete
 
 security:
   - bearerAuth: []
 
-tags:
-  - name: User Profile
-    description: Профиль пользователя и настройки
-  - name: Categories
-    description: Категории подкастов
-  - name: Podcasts
-    description: CRUD и базовый жизненный цикл подкастов
-  - name: Podcast Media
-    description: Транскрипт и summary подкаста, подготовленные media/tts-stt сервисом
-  - name: Author Profile
-    description: Профили авторов и публичные страницы авторов
-  - name: Playlists
-    description: Плейлисты и управление треклистом
-  - name: Votes
-    description: Голосование за подкасты и плейлисты
-  - name: Subscriptions
-    description: Подписки на авторов и лента подписок
-  - name: Listen History
-    description: История и прогресс прослушивания
-  - name: Search
-    description: Поиск и подсказки
-
 components:
+
   securitySchemes:
     bearerAuth:
       type: http
@@ -53,116 +78,77 @@ components:
       description: JWT access token, полученный от auth-service
 
   parameters:
-    PathCategoryId:
-      name: categoryId
+    PathAuthorId:
+      name: authorId
       in: path
       required: true
-      schema:
-        type: string
-        format: uuid
+      schema: { type: string, format: uuid }
+      description: UUID автора (author_profiles.id)
 
     PathPodcastId:
       name: podcastId
       in: path
       required: true
-      schema:
-        type: string
-        format: uuid
+      schema: { type: string, format: uuid }
+      description: UUID подкаста
 
     PathPlaylistId:
       name: playlistId
       in: path
       required: true
-      schema:
-        type: string
-        format: uuid
+      schema: { type: string, format: uuid }
+      description: UUID плейлиста
 
-    PathAuthorId:
-      name: authorId
+    PathCategoryId:
+      name: categoryId
       in: path
       required: true
-      schema:
-        type: string
-        format: uuid
+      schema: { type: string, format: uuid }
+      description: UUID категории
 
-    Page:
+    QueryPage:
       name: page
       in: query
-      required: false
-      description: Номер страницы, начиная с 1
-      schema:
-        type: integer
-        minimum: 1
-        default: 1
+      schema: { type: integer, default: 1, minimum: 1 }
+      description: Номер страницы (с 1)
 
-    Size:
+    QuerySize:
       name: size
       in: query
-      required: false
-      description: Размер страницы, максимум 50
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 50
-        default: 20
+      schema: { type: integer, default: 20, minimum: 1, maximum: 50 }
+      description: Количество элементов на странице
 
+  # ─────────────────────────────────────────────────────────────
+  # SCHEMAS
+  # ─────────────────────────────────────────────────────────────
   schemas:
+
+    # ── Generic ──────────────────────────────────────────────
+
     ErrorResponse:
       type: object
+      description: Стандартный ответ при ошибке
       required: [code, message, timestamp]
       properties:
         code:
           type: string
-          example: VALIDATION_ERROR
+          example: RESOURCE_NOT_FOUND
+          description: Машиночитаемый код ошибки
         message:
           type: string
-          example: Request validation failed
+          example: "Podcast with id 'abc' not found"
+          description: Человекочитаемое описание
         timestamp:
           type: string
           format: date-time
         details:
           type: object
-          nullable: true
           additionalProperties: true
-
-    Theme:
-      type: string
-      enum: [DARK, LIGHT]
-
-    Language:
-      type: string
-      enum: [RU, EN]
-
-    VoteType:
-      type: string
-      enum: [LIKE, DISLIKE]
-
-    PodcastStatus:
-      type: string
-      enum: [DRAFT, UPLOADING, UPLOADED, PROCESSING, PROCESSED, PUBLISHED, FAILED, ARCHIVED]
-
-    SortPodcasts:
-      type: string
-      enum: [DATE_DESC, DATE_ASC, RATING, VIEWS]
-      default: DATE_DESC
-
-    SortPlaylists:
-      type: string
-      enum: [DATE_DESC, DATE_ASC, RATING]
-      default: DATE_DESC
-
-    SearchType:
-      type: string
-      enum: [ALL, PODCAST, AUTHOR, PLAYLIST]
-      default: ALL
-
-    SearchSort:
-      type: string
-      enum: [RELEVANCE, DATE, RATING, VIEWS]
-      default: RELEVANCE
+          description: Дополнительные поля (например, список невалидных полей)
 
     PageMeta:
       type: object
+      description: Метаданные пагинации, присутствуют в каждом листинговом ответе
       required: [page, size, totalElements, totalPages]
       properties:
         page:
@@ -174,21 +160,72 @@ components:
         totalElements:
           type: integer
           format: int64
-          example: 53
+          example: 342
         totalPages:
           type: integer
-          example: 3
+          example: 18
+
+    VoteType:
+      type: string
+      enum: [LIKE, DISLIKE]
+      description: Тип голоса
+
+    PodcastStatus:
+      type: string
+      enum: [DRAFT, UPLOADING, UPLOADED, PROCESSING, PROCESSED, PUBLISHED, FAILED, ARCHIVED]
+      description: |
+        Статус подкаста:
+        - `DRAFT` — черновик, не опубликован
+        - `UPLOADING` — исходный аудиофайл загружается
+        - `UPLOADED` — исходный аудиофайл загружен
+        - `PROCESSING` — аудиофайл обрабатывается media worker
+        - `PROCESSED` — обработанный аудиопоток готов к публикации
+        - `PUBLISHED` — доступен публично
+        - `FAILED` — ошибка обработки, можно повторить
+        - `ARCHIVED` — скрыт из лент, доступен по прямой ссылке
+
+    SortPodcast:
+      type: string
+      enum: [DATE_DESC, DATE_ASC, RATING, VIEWS]
+      description: |
+        Сортировка подкастов:
+        - `DATE_DESC` — сначала новые (default)
+        - `DATE_ASC`  — сначала старые
+        - `RATING`    — по убыванию (likes - dislikes)
+        - `VIEWS`     — по убыванию просмотров
+
+    AuthorSort:
+      type: string
+      enum: [POPULAR, SUBSCRIBERS, DATE_DESC]
+      description: |
+        Сортировка авторов:
+        - `POPULAR` — по популярности автора
+        - `SUBSCRIBERS` — по количеству подписчиков
+        - `DATE_DESC` — сначала новые авторы
+
+    LikedPodcastsSort:
+      type: string
+      enum: [DATE_DESC, DATE_ASC]
+      description: |
+        Сортировка лайкнутых подкастов:
+        - `DATE_DESC` — сначала недавно лайкнутые
+        - `DATE_ASC` — сначала давно лайкнутые
+
+    # ── User Profile ────────────────────────────────────────
 
     UserProfileResponse:
       type: object
+      description: Профиль пользователя (только свой, через /users/me/profile)
       required: [id, userId, username, createdAt]
       properties:
         id:
           type: string
           format: uuid
+          description: ID профиля
         userId:
           type: string
           format: uuid
+          description: ID пользователя (совпадает с auth-service users.id)
         username:
           type: string
           example: john_doe
@@ -196,6 +233,7 @@ components:
           type: string
           format: uri
           nullable: true
+          description: Используется и как фото автора
         createdAt:
           type: string
           format: date-time
@@ -204,14 +242,20 @@ components:
       allOf:
         - $ref: '#/components/schemas/UserProfileResponse'
         - type: object
+          description: Профиль текущего пользователя — содержит дополнительные приватные поля
           properties:
             theme:
-              $ref: '#/components/schemas/Theme'
+              type: string
+              enum: [DARK, LIGHT]
+              example: DARK
             language:
-              $ref: '#/components/schemas/Language'
+              type: string
+              enum: [RU, EN]
+              example: RU
 
     UpdateUserProfileRequest:
       type: object
+      description: Поля, которые пользователь может изменить в профиле
       properties:
         username:
           type: string
@@ -223,30 +267,31 @@ components:
           type: string
           format: uri
           nullable: true
+          description: URL загруженного аватара (загрузка файла — через media-api)
 
-    UpdateUserSettingsRequest:
+    UpdateSettingsRequest:
       type: object
+      description: Пользовательские настройки — тема и язык
       properties:
         theme:
-          $ref: '#/components/schemas/Theme'
+          type: string
+          enum: [DARK, LIGHT]
         language:
-          $ref: '#/components/schemas/Language'
+          type: string
+          enum: [RU, EN]
 
-    UserSettingsResponse:
-      type: object
-      properties:
-        theme:
-          $ref: '#/components/schemas/Theme'
-        language:
-          $ref: '#/components/schemas/Language'
+    # ── Author Profile ───────────────────────────────────────
 
     AuthorProfileResponse:
       type: object
+      description: |
+        Профиль автора. Фото автора берётся из `avatarUrl` связанного `user_profiles`.
       required: [id, userId, authorName, subscribersCount, createdAt]
       properties:
         id:
           type: string
           format: uuid
+          description: UUID автора (author_profiles.id)
         userId:
           type: string
           format: uuid
@@ -257,21 +302,58 @@ components:
           type: string
           format: uri
           nullable: true
-          description: Берётся из связанного user_profiles.avatar_url
+          description: Подтягивается из user_profiles.avatar_url
         description:
           type: string
           nullable: true
         subscribersCount:
           type: integer
-          format: int64
           example: 12400
         isSubscribed:
           type: boolean
           nullable: true
-          description: null для анонимного запроса, true/false для авторизованного
+          description: "null если запрос анонимный, true/false если авторизован"
         createdAt:
           type: string
           format: date-time
+
+    BecomeAuthorResponse:
+      type: object
+      description: Ответ существующего API становления пользователем автором.
+      required: [access_token, expires_in, author_profile]
+      properties:
+        access_token:
+          type: string
+          description: Новый access token, полученный от auth-service после выдачи роли author.
+        expires_in:
+          type: integer
+          format: int64
+          example: 1800
+        author_profile:
+          $ref: '#/components/schemas/AuthorProfileResponse'
+
+    AuthorCard:
+      type: object
+      description: Компактная карточка автора (для поиска и листингов)
+      required: [id, authorName, subscribersCount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        authorName:
+          type: string
+          example: Иван Петров
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: Подтягивается из user_profiles.avatar_url
+        subscribersCount:
+          type: integer
+          example: 12400
+        isSubscribed:
+          type: boolean
+          nullable: true
 
     CreateAuthorProfileRequest:
       type: object
@@ -286,7 +368,6 @@ components:
           type: string
           maxLength: 1000
           nullable: true
-          example: Рассказываю о технологиях доступным языком
 
     UpdateAuthorProfileRequest:
       type: object
@@ -295,11 +376,12 @@ components:
           type: string
           minLength: 2
           maxLength: 100
-          example: Иван Петров
         description:
           type: string
           maxLength: 1000
           nullable: true
+
+    # ── Categories ───────────────────────────────────────────
 
     CategoryResponse:
       type: object
@@ -314,6 +396,7 @@ components:
         position:
           type: integer
           example: 1
+          description: Порядок отображения в UI
 
     CreateCategoryRequest:
       type: object
@@ -323,11 +406,9 @@ components:
           type: string
           minLength: 2
           maxLength: 100
-          example: Технологии
         position:
           type: integer
-          minimum: 0
-          example: 1
+          default: 0
 
     UpdateCategoryRequest:
       type: object
@@ -336,51 +417,26 @@ components:
           type: string
           minLength: 2
           maxLength: 100
-          example: Бизнес
         position:
           type: integer
-          minimum: 0
-          example: 2
 
-    AuthorCard:
-      type: object
-      required: [id, authorName, subscribersCount]
-      properties:
-        id:
-          type: string
-          format: uuid
-        authorName:
-          type: string
-          example: Иван Петров
-        avatarUrl:
-          type: string
-          format: uri
-          nullable: true
-        subscribersCount:
-          type: integer
-          format: int64
-          nullable: true
-          example: 125
-        isSubscribed:
-          type: boolean
-          nullable: true
-          example: false
+    # ── Podcasts ─────────────────────────────────────────────
 
     PodcastCard:
       type: object
-      required: [id, title, author, status, num_speakers, viewsCount, likesCount, dislikesCount, createdAt]
+      description: Компактная карточка подкаста — для листингов, поиска, плейлистов
+      required: [id, title, author, status, num_speakers, likesCount, dislikesCount, viewsCount, createdAt]
       properties:
         id:
           type: string
           format: uuid
         title:
           type: string
-          example: Как построить первый продовый backend
+          example: Как работает Kafka
         author:
           $ref: '#/components/schemas/AuthorCard'
         category:
-          allOf:
-            - $ref: '#/components/schemas/CategoryResponse'
+          $ref: '#/components/schemas/CategoryResponse'
           nullable: true
         coverImageUrl:
           type: string
@@ -389,26 +445,25 @@ components:
         durationSeconds:
           type: integer
           nullable: true
-          example: 1830
+          example: 3600
+          description: null пока media-worker не обработал
         num_speakers:
           type: integer
           minimum: 1
           maximum: 32
           example: 2
+          description: Количество спикеров в выпуске
         status:
           $ref: '#/components/schemas/PodcastStatus'
         viewsCount:
           type: integer
-          format: int64
-          example: 1500
+          example: 1520
         likesCount:
           type: integer
-          format: int64
-          example: 220
+          example: 340
         dislikesCount:
           type: integer
-          format: int64
-          example: 4
+          example: 12
         publishedAt:
           type: string
           format: date-time
@@ -417,50 +472,51 @@ components:
           type: string
           format: date-time
         currentUserVote:
-          allOf:
-            - $ref: '#/components/schemas/VoteType'
+          $ref: '#/components/schemas/VoteType'
           nullable: true
+          description: Голос текущего пользователя; null если не голосовал или анонимный
         progressSeconds:
           type: integer
-          format: int64
           nullable: true
+          description: Прогресс прослушивания в секундах; null если не слушал
         progressPercent:
           type: integer
           nullable: true
-          minimum: 0
-          maximum: 100
+          example: 25
+          description: Прогресс в процентах (0–100); null если не слушал
 
     PodcastDetailResponse:
       allOf:
         - $ref: '#/components/schemas/PodcastCard'
         - type: object
+          description: Полная информация о подкасте — для страницы подкаста
           properties:
             description:
               type: string
               nullable: true
-              example: Обсуждаем архитектуру сервиса и типичные ошибки при проектировании.
             audioUrl:
               type: string
               format: uri
               nullable: true
+              description: null пока media-worker не обработал
             audio_url_file:
               type: string
               nullable: true
-              example: /dev/audio/podcast-1.mp3
+              description: URL или путь к аудиофайлу подкаста
+              example: /media/podcasts/episode-001.mp3
             audio_size_file:
               type: integer
               format: int64
               nullable: true
               minimum: 0
+              description: Размер аудиофайла в байтах
               example: 52428800
             hasTranscript:
               type: boolean
-              nullable: true
-              example: false
+              description: Существует ли транскрипт
             hasSummary:
               type: boolean
-              nullable: true
-              example: false
+              description: Существует ли summary
 
     PodcastSpeakersResponse:
       type: object
@@ -476,16 +532,18 @@ components:
           minimum: 1
           maximum: 32
           example: 2
+          description: Количество спикеров в выпуске
 
     CreatePodcastRequest:
       type: object
       required: [title, num_speakers]
+      description: Создание подкаста. Аудиофайл загружается отдельно через media-api.
       properties:
         title:
           type: string
           minLength: 3
           maxLength: 255
-          example: Как построить первый продовый backend
+          example: Как работает Kafka
         description:
           type: string
           maxLength: 5000
@@ -498,15 +556,17 @@ components:
           type: string
           format: uri
           nullable: true
+          description: URL обложки (загрузка через media-api)
         num_speakers:
           type: integer
           minimum: 1
           maximum: 32
           example: 2
+          description: Количество спикеров в выпуске
 
     UpdatePodcastRequest:
       type: object
-      description: Partial update. Должно быть передано хотя бы одно поле.
+      description: Обновление метаданных подкаста.
       properties:
         title:
           type: string
@@ -523,174 +583,6 @@ components:
         coverImageUrl:
           type: string
           format: uri
-          nullable: true
-
-    PlaylistOwnerResponse:
-      type: object
-      required: [id, username]
-      properties:
-        id:
-          type: string
-          format: uuid
-        username:
-          type: string
-          example: john_doe
-
-    PlaylistCard:
-      type: object
-      required: [id, title, owner, isPublic, podcastsCount, likesCount, dislikesCount, createdAt]
-      properties:
-        id:
-          type: string
-          format: uuid
-        title:
-          type: string
-          example: Лучшие подкасты про IT
-        coverImageUrl:
-          type: string
-          format: uri
-          nullable: true
-        owner:
-          $ref: '#/components/schemas/PlaylistOwnerResponse'
-        isPublic:
-          type: boolean
-        podcastsCount:
-          type: integer
-          format: int64
-          example: 8
-        likesCount:
-          type: integer
-          format: int64
-          example: 55
-        dislikesCount:
-          type: integer
-          format: int64
-          example: 2
-        createdAt:
-          type: string
-          format: date-time
-        currentUserVote:
-          allOf:
-            - $ref: '#/components/schemas/VoteType'
-          nullable: true
-
-    PlaylistPodcastItem:
-      allOf:
-        - $ref: '#/components/schemas/PodcastCard'
-        - type: object
-          required: [position]
-          properties:
-            position:
-              type: integer
-              minimum: 1
-
-    PlaylistDetailResponse:
-      allOf:
-        - $ref: '#/components/schemas/PlaylistCard'
-        - type: object
-          properties:
-            description:
-              type: string
-              nullable: true
-            updatedAt:
-              type: string
-              format: date-time
-            podcasts:
-              type: array
-              items:
-                $ref: '#/components/schemas/PlaylistPodcastItem'
-
-    CreatePlaylistRequest:
-      type: object
-      required: [title]
-      properties:
-        title:
-          type: string
-          minLength: 1
-          maxLength: 255
-        description:
-          type: string
-          maxLength: 1000
-          nullable: true
-        coverImageUrl:
-          type: string
-          format: uri
-          nullable: true
-        isPublic:
-          type: boolean
-          default: false
-
-    UpdatePlaylistRequest:
-      type: object
-      description: Partial update. Должно быть передано хотя бы одно поле.
-      properties:
-        title:
-          type: string
-          minLength: 1
-          maxLength: 255
-        description:
-          type: string
-          maxLength: 1000
-          nullable: true
-        coverImageUrl:
-          type: string
-          format: uri
-          nullable: true
-        isPublic:
-          type: boolean
-
-    AddPodcastToPlaylistRequest:
-      type: object
-      required: [podcastId]
-      properties:
-        podcastId:
-          type: string
-          format: uuid
-
-    ReorderPlaylistRequest:
-      type: object
-      required: [items]
-      properties:
-        items:
-          type: array
-          minItems: 1
-          items:
-            type: object
-            required: [podcastId, position]
-            properties:
-              podcastId:
-                type: string
-                format: uuid
-              position:
-                type: integer
-                minimum: 1
-
-    VoteRequest:
-      type: object
-      required: [voteType]
-      properties:
-        voteType:
-          $ref: '#/components/schemas/VoteType'
-
-    VoteResponse:
-      type: object
-      required: [targetId, targetType, likesCount, dislikesCount, currentUserVote]
-      properties:
-        targetId:
-          type: string
-          format: uuid
-        targetType:
-          type: string
-          enum: [PODCAST, PLAYLIST]
-        likesCount:
-          type: integer
-          format: int64
-        dislikesCount:
-          type: integer
-          format: int64
-        currentUserVote:
-          allOf:
-            - $ref: '#/components/schemas/VoteType'
           nullable: true
 
     PodcastTranscriptResponse:
@@ -727,6 +619,185 @@ components:
           type: string
           format: date-time
 
+    # ── Playlists ────────────────────────────────────────────
+
+    PlaylistCard:
+      type: object
+      description: Компактная карточка плейлиста
+      required: [id, title, owner, isPublic, podcastsCount, likesCount, dislikesCount, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: Лучшие подкасты про IT
+        coverImageUrl:
+          type: string
+          format: uri
+          nullable: true
+        owner:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            username:
+              type: string
+        isPublic:
+          type: boolean
+        podcastsCount:
+          type: integer
+          example: 8
+        likesCount:
+          type: integer
+          example: 55
+        dislikesCount:
+          type: integer
+          example: 2
+        createdAt:
+          type: string
+          format: date-time
+        currentUserVote:
+          $ref: '#/components/schemas/VoteType'
+          nullable: true
+
+    PlaylistDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/PlaylistCard'
+        - type: object
+          description: Полный плейлист с треклистом
+          properties:
+            description:
+              type: string
+              nullable: true
+            updatedAt:
+              type: string
+              format: date-time
+            podcasts:
+              type: array
+              description: Треклист в порядке position
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/PodcastCard'
+                  - type: object
+                    properties:
+                      position:
+                        type: integer
+                        description: Порядковый номер в плейлисте
+
+    CreatePlaylistRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: Лучшие подкасты про IT
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+        coverImageUrl:
+          type: string
+          format: uri
+          nullable: true
+        isPublic:
+          type: boolean
+          default: false
+
+    UpdatePlaylistRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+        coverImageUrl:
+          type: string
+          format: uri
+          nullable: true
+        isPublic:
+          type: boolean
+
+    AddPodcastToPlaylistRequest:
+      type: object
+      required: [podcastId]
+      properties:
+        podcastId:
+          type: string
+          format: uuid
+          description: UUID подкаста, который добавляем в плейлист
+
+    ReorderPlaylistRequest:
+      type: object
+      required: [items]
+      description: Новый порядок подкастов в плейлисте
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [podcastId, position]
+            properties:
+              podcastId:
+                type: string
+                format: uuid
+              position:
+                type: integer
+                minimum: 1
+
+    PlaylistSaveResponse:
+      type: object
+      required: [playlistId, isSaved]
+      description: Состояние сохранения плейлиста в библиотеке текущего пользователя
+      properties:
+        playlistId:
+          type: string
+          format: uuid
+        isSaved:
+          type: boolean
+          example: true
+
+    # ── Votes ────────────────────────────────────────────────
+
+    VoteRequest:
+      type: object
+      required: [voteType]
+      description: |
+        Голосование. Если пользователь уже голосовал:
+        - тот же voteType → идемпотентно (200, ничего не меняется)
+        - другой voteType → голос переключается
+      properties:
+        voteType:
+          $ref: '#/components/schemas/VoteType'
+
+    VoteResponse:
+      type: object
+      required: [targetId, targetType, likesCount, dislikesCount, currentUserVote]
+      properties:
+        targetId:
+          type: string
+          format: uuid
+        targetType:
+          type: string
+          enum: [PODCAST, PLAYLIST]
+        likesCount:
+          type: integer
+        dislikesCount:
+          type: integer
+        currentUserVote:
+          $ref: '#/components/schemas/VoteType'
+          nullable: true
+
+    # ── Subscriptions ────────────────────────────────────────
+
     SubscriptionResponse:
       type: object
       required: [author, subscribedAt]
@@ -737,26 +808,20 @@ components:
           type: string
           format: date-time
 
-    AuthorSubscriptionResponse:
-      type: object
-      required: [authorId, subscribersCount, isSubscribed]
-      properties:
-        authorId:
-          type: string
-          format: uuid
-        subscribersCount:
-          type: integer
-          format: int64
-        isSubscribed:
-          type: boolean
+    # ── Listen History ───────────────────────────────────────
 
     SaveProgressRequest:
       type: object
       required: [progressSeconds]
+      description: |
+        Сохранить текущую позицию воспроизведения.
+        Вызывается с периодичностью ~10–30 секунд во время прослушивания.
+        Если progressSeconds >= durationSeconds * 0.95 — помечается как completed.
       properties:
         progressSeconds:
           type: integer
           minimum: 0
+          example: 920
 
     ListenHistoryItem:
       type: object
@@ -768,14 +833,13 @@ components:
           type: integer
         progressPercent:
           type: integer
-          nullable: true
-          minimum: 0
-          maximum: 100
         completed:
           type: boolean
         lastListenedAt:
           type: string
           format: date-time
+
+    # ── Search ───────────────────────────────────────────────
 
     SearchSuggestItem:
       type: object
@@ -789,20 +853,49 @@ components:
           format: uuid
         label:
           type: string
+          description: Текст, который отображается в выпадающем списке
+          example: "Как работает Kafka"
         coverUrl:
           type: string
           format: uri
           nullable: true
+          description: Превью для отображения рядом с текстом
 
     SearchResponse:
       type: object
+      description: |
+        Результаты поиска разбиты по типам и отображаются блоками:
+        Podcasts → Authors → Playlists
       properties:
         podcasts:
-          $ref: '#/components/schemas/PageOfPodcastCard'
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PodcastCard'
+            meta:
+              $ref: '#/components/schemas/PageMeta'
         authors:
-          $ref: '#/components/schemas/PageOfAuthorCard'
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AuthorCard'
+            meta:
+              $ref: '#/components/schemas/PageMeta'
         playlists:
-          $ref: '#/components/schemas/PageOfPlaylistCard'
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PlaylistCard'
+            meta:
+              $ref: '#/components/schemas/PageMeta'
+
+    # ── Page wrappers ────────────────────────────────────────
 
     PageOfPodcastCard:
       type: object
@@ -812,6 +905,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PodcastCard'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    PageOfPodcastDetailResponse:
+      type: object
+      required: [items, meta]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PodcastDetailResponse'
         meta:
           $ref: '#/components/schemas/PageMeta'
 
@@ -859,27 +963,31 @@ components:
         meta:
           $ref: '#/components/schemas/PageMeta'
 
+  # ─────────────────────────────────────────────────────────────
+  # RESPONSES (переиспользуемые)
+  # ─────────────────────────────────────────────────────────────
   responses:
-    BadRequest:
-      description: Невалидные входные данные
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-
     Unauthorized:
       description: Токен отсутствует, невалиден или истёк
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: UNAUTHORIZED
+            message: "Access token is missing or expired"
+            timestamp: "2025-03-01T10:00:00Z"
 
     Forbidden:
-      description: Недостаточно прав или пользователь не владелец ресурса
+      description: Недостаточно прав (не тот owner или не та роль)
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: FORBIDDEN
+            message: "You don't have permission to modify this resource"
+            timestamp: "2025-03-01T10:00:00Z"
 
     NotFound:
       description: Ресурс не найден
@@ -889,7 +997,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
     Conflict:
-      description: Конфликт данных
+      description: Конфликт — ресурс уже существует
       content:
         application/json:
           schema:
@@ -901,27 +1009,72 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: INVALID_STATUS_TRANSITION
+            message: "Cannot publish a podcast in PROCESSING status"
+            timestamp: "2025-03-01T10:00:00Z"
 
+    BadRequest:
+      description: Невалидные входные данные
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: VALIDATION_ERROR
+            message: "Request validation failed"
+            timestamp: "2025-03-01T10:00:00Z"
+            details:
+              fields:
+                username: "must match pattern [a-zA-Z0-9_]+"
+
+    BadGateway:
+      description: Внешний сервис временно недоступен или вернул некорректный ответ
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: UPSTREAM_SERVICE_ERROR
+            message: "Auth-service is unavailable"
+            timestamp: "2026-05-31T10:00:00Z"
+
+# =============================================================================
+# PATHS
+# =============================================================================
 paths:
+
+  # ──────────────────────────────────────────────────────────
+  # USER PROFILE
+  # ──────────────────────────────────────────────────────────
+
   /users/me/profile:
     get:
       tags: [User Profile]
       summary: Получить свой профиль
+      description: |
+        Возвращает полный профиль текущего пользователя, включая приватные поля
+        (тема, язык)`.
+      operationId: getMyProfile
       responses:
         '200':
-          description: Профиль пользователя
+          description: Профиль текущего пользователя
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserProfilePrivateResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
 
     put:
       tags: [User Profile]
       summary: Обновить свой профиль
+      description: |
+        Обновляет username и/или avatar_url.
+        Поля, не переданные в теле — **не изменяются** (partial update).
+        Загрузка аватара выполняется отдельно через `media-api`, сюда передаётся готовый URL.
+        Аватар также отображается на странице автора.
+      operationId: updateMyProfile
       requestBody:
         required: true
         content:
@@ -939,55 +1092,117 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
 
   /users/me/settings:
     get:
       tags: [User Profile]
       summary: Получить настройки пользователя
+      description: Тема (DARK/LIGHT) и язык интерфейса (RU/EN)
+      operationId: getMySettings
       responses:
         '200':
-          description: Настройки пользователя
+          description: Настройки
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserSettingsResponse'
+                type: object
+                properties:
+                  theme:
+                    type: string
+                    enum: [DARK, LIGHT]
+                  language:
+                    type: string
+                    enum: [RU, EN]
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
 
     put:
       tags: [User Profile]
-      summary: Обновить настройки пользователя
+      summary: Изменить настройки
+      description: Изменить тему и/или язык интерфейса. Partial update — передавай только то, что меняешь.
+      operationId: updateMySettings
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateUserSettingsRequest'
+              $ref: '#/components/schemas/UpdateSettingsRequest'
+            example:
+              theme: LIGHT
+              language: EN
       responses:
         '200':
           description: Обновлённые настройки
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserSettingsResponse'
+                type: object
+                properties:
+                  theme:
+                    type: string
+                    enum: [DARK, LIGHT]
+                  language:
+                    type: string
+                    enum: [RU, EN]
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
 
   /users/me/playlists:
     get:
-      tags: [Playlists]
+      tags: [User Profile]
       summary: Мои плейлисты
+      description: Возвращает все плейлисты текущего пользователя, включая приватные (isPublic = false).
+      operationId: getMyPlaylists
+      parameters:
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
       responses:
         '200':
-          description: Плейлисты текущего пользователя
+          description: Список плейлистов с пагинацией
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfPlaylistCard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /users/me/liked-podcasts:
+    get:
+      tags: [User Profile]
+      summary: Лайкнутые подкасты
+      description: Возвращает опубликованные подкасты, которым текущий пользователь поставил лайк.
+      operationId: getMyLikedPodcasts
+      parameters:
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
+        - name: sort
+          in: query
+          schema:
+            $ref: '#/components/schemas/LikedPodcastsSort'
+      responses:
+        '200':
+          description: Лайкнутые подкасты
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfPodcastCard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /users/me/library/playlists:
+    get:
+      tags: [User Profile]
+      summary: Сохранённые плейлисты
+      description: Возвращает публичные чужие плейлисты, сохранённые пользователем в личной библиотеке.
+      operationId: getMyLibraryPlaylists
+      parameters:
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
+      responses:
+        '200':
+          description: Сохранённые плейлисты
           content:
             application/json:
               schema:
@@ -999,12 +1214,14 @@ paths:
     get:
       tags: [Subscriptions]
       summary: Мои подписки на авторов
+      description: Список всех авторов, на которых подписан текущий пользователь. Отсортирован по дате подписки (новые сначала).
+      operationId: getMySubscriptions
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
       responses:
         '200':
-          description: Подписки текущего пользователя
+          description: Список подписок
           content:
             application/json:
               schema:
@@ -1016,16 +1233,20 @@ paths:
     get:
       tags: [Subscriptions]
       summary: Лента подписок
+      description: |
+        Подкасты от всех авторов, на которых подписан пользователь.
+        Только PUBLISHED подкасты, сортировка — новые сначала.
+      operationId: getSubscriptionFeed
       parameters:
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
         - name: sort
           in: query
           schema:
-            $ref: '#/components/schemas/SortPodcasts'
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
+            $ref: '#/components/schemas/SortPodcast'
       responses:
         '200':
-          description: Подкасты авторов, на которых подписан пользователь
+          description: Лента подкастов
           content:
             application/json:
               schema:
@@ -1037,12 +1258,17 @@ paths:
     get:
       tags: [Listen History]
       summary: История прослушивания
+      description: |
+        Список подкастов, которые пользователь слушал.
+        Сортировка — по `lastListenedAt` (последние первыми).
+        Включает прогресс и признак завершённости.
+      operationId: getMyHistory
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
       responses:
         '200':
-          description: История прослушивания текущего пользователя
+          description: История прослушивания
           content:
             application/json:
               schema:
@@ -1050,24 +1276,76 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  # ──────────────────────────────────────────────────────────
+  # AUTHOR PROFILE
+  # ──────────────────────────────────────────────────────────
+
+  /authors:
+    get:
+      tags: [Author Profile]
+      summary: Список авторов
+      description: |
+        Публичный листинг авторов для страниц каталога, блоков популярных авторов и поиска.
+        Авторизация опциональна: при наличии JWT поле `isSubscribed` отражает подписку текущего пользователя.
+      operationId: listAuthors
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Поиск по имени автора и описанию
+        - name: sort
+          in: query
+          schema:
+            $ref: '#/components/schemas/AuthorSort'
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
+      responses:
+        '200':
+          description: Список авторов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfAuthorCard'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
   /authors/me:
     post:
       tags: [Author Profile]
-      summary: Создать профиль автора
-      description: Требуется роль `AUTHOR`. Пользовательский профиль должен уже существовать в `user_profiles`.
+      summary: Стать автором
+      description: |
+        Существующее API становления пользователем автором.
+        Endpoint доступен любому авторизованному пользователю.
+        Podcast-service передаёт текущий `Authorization: Bearer` token в auth-service,
+        вызывает `POST /auth/me/update-roles` с `role_name=author`, получает новый access token,
+        после успешного ответа создаёт или возвращает локальный `author_profile`.
+        Повторный вызов идемпотентен и не создаёт дубль профиля.
+      operationId: createAuthorProfile
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateAuthorProfileRequest'
+            example:
+              authorName: "Иван Петров"
+              description: "Рассказываю о технологиях доступным языком"
       responses:
-        '201':
-          description: Профиль автора создан
+        '200':
+          description: Роль автора обновлена, существующий профиль автора возвращён
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthorProfileResponse'
+                $ref: '#/components/schemas/BecomeAuthorResponse'
+        '201':
+          description: Роль автора обновлена, профиль автора создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BecomeAuthorResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1076,13 +1354,14 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
 
     get:
       tags: [Author Profile]
       summary: Свой профиль автора
-      description: Требуется роль `AUTHOR`.
+      description: Профиль автора с полными данными (только для владельца).
+      operationId: getMyAuthorProfile
       responses:
         '200':
           description: Профиль автора
@@ -1095,12 +1374,18 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
+          description: Профиль автора ещё не создан — нужно POST /authors/me
           $ref: '#/components/responses/NotFound'
 
     put:
       tags: [Author Profile]
       summary: Обновить профиль автора
-      description: Partial update. `avatarUrl` обновляется через `PUT /users/me/profile`.
+      description: |
+        Изменить имя автора и/или описание.
+        Фото автора обновляется через `PUT /users/me/profile` (поле `avatarUrl`) —
+        оно едино для профиля пользователя и страницы автора.
+        Partial update — не переданные поля не изменяются.
+      operationId: updateMyAuthorProfile
       requestBody:
         required: true
         content:
@@ -1109,7 +1394,7 @@ paths:
               $ref: '#/components/schemas/UpdateAuthorProfileRequest'
       responses:
         '200':
-          description: Обновлённый профиль автора
+          description: Обновлённый профиль
           content:
             application/json:
               schema:
@@ -1120,14 +1405,56 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+
+  /authors/me/podcasts:
+    get:
+      tags: [Author Profile]
+      summary: Все подкасты текущего автора
+      description: |
+        Возвращает подкасты владельца в любых статусах: черновики, загрузку, обработку,
+        ошибки, опубликованные и архивные записи. Используется авторским кабинетом.
+      operationId: getMyAuthorPodcasts
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/PodcastStatus'
+          description: Фильтр по статусу подкаста
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Поиск по названию и описанию
+        - name: sort
+          in: query
+          schema:
+            $ref: '#/components/schemas/SortPodcast'
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
+      responses:
+        '200':
+          description: Подкасты текущего автора
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfPodcastDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
+          description: Локальный профиль автора не найден
           $ref: '#/components/responses/NotFound'
 
   /authors/{authorId}:
     get:
       tags: [Author Profile]
-      summary: Публичный профиль автора
-      description: Публичная ручка. Если передан валидный Bearer token, вернёт `isSubscribed`.
+      summary: Публичная страница автора
+      description: |
+        Полный профиль автора — для страницы `/author/{id}` во фронтенде.
+        Включает: имя, описание, изображение, количество подписчиков,
+        а для авторизованного пользователя — флаг `isSubscribed`.
+        Не требует авторизации.
+      operationId: getAuthorProfile
       security:
         - {}
         - bearerAuth: []
@@ -1146,7 +1473,12 @@ paths:
   /authors/{authorId}/podcasts:
     get:
       tags: [Author Profile]
-      summary: Опубликованные подкасты автора
+      summary: Подкасты автора
+      description: |
+        Все опубликованные (PUBLISHED) подкасты конкретного автора.
+        Поддерживает поиск по названию (q) и сортировку.
+        Не требует авторизации.
+      operationId: getAuthorPodcasts
       security:
         - {}
         - bearerAuth: []
@@ -1155,15 +1487,16 @@ paths:
         - name: q
           in: query
           schema: { type: string }
+          description: Поиск по названию подкаста
         - name: sort
           in: query
           schema:
-            $ref: '#/components/schemas/SortPodcasts'
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
+            $ref: '#/components/schemas/SortPodcast'
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
       responses:
         '200':
-          description: Страница опубликованных подкастов автора
+          description: Подкасты автора
           content:
             application/json:
               schema:
@@ -1171,10 +1504,40 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /authors/{authorId}/playlists:
+    get:
+      tags: [Author Profile]
+      summary: Плейлисты автора
+      description: Публичные плейлисты автора (isPublic = true). Не требует авторизации.
+      operationId: getAuthorPlaylists
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PathAuthorId'
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
+      responses:
+        '200':
+          description: Плейлисты автора
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfPlaylistCard'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ──────────────────────────────────────────────────────────
+  # CATEGORIES
+  # ──────────────────────────────────────────────────────────
+
   /categories:
     get:
       tags: [Categories]
       summary: Список всех категорий
+      description: |
+        Возвращает плоский список категорий, отсортированный по полю `position`.
+        Используется для фильтров в поиске и при создании подкаста.
+        Не требует авторизации.
+      operationId: getCategories
       security: []
       responses:
         '200':
@@ -1189,13 +1552,17 @@ paths:
     post:
       tags: [Categories]
       summary: Создать категорию
-      description: Требуется роль `ADMIN`.
+      description: Только ADMIN. Создаёт новую категорию. При передаче `parentId` — создаётся дочерняя.
+      operationId: createCategory
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateCategoryRequest'
+            example:
+              name: "Технологии"
+              position: 1
       responses:
         '201':
           description: Категория создана
@@ -1214,7 +1581,8 @@ paths:
     put:
       tags: [Categories]
       summary: Обновить категорию
-      description: Требуется роль `ADMIN`.
+      description: Только ADMIN. Изменяет название и/или позицию.
+      operationId: updateCategory
       parameters:
         - $ref: '#/components/parameters/PathCategoryId'
       requestBody:
@@ -1230,8 +1598,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CategoryResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1242,7 +1608,10 @@ paths:
     delete:
       tags: [Categories]
       summary: Удалить категорию
-      description: Требуется роль `ADMIN`.
+      description: |
+        Только ADMIN.
+        Нельзя удалить категорию, у которой есть дочерние или которая используется в подкастах (вернёт 422).
+      operationId: deleteCategory
       parameters:
         - $ref: '#/components/parameters/PathCategoryId'
       responses:
@@ -1255,39 +1624,46 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '422':
+          description: Категория используется в подкастах или имеет дочерние
           $ref: '#/components/responses/UnprocessableEntity'
+
+  # ──────────────────────────────────────────────────────────
+  # PODCASTS
+  # ──────────────────────────────────────────────────────────
 
   /podcasts:
     get:
       tags: [Podcasts]
-      summary: Список опубликованных подкастов
-      description: Публичная ручка. Если передан валидный Bearer token, ответ может учитывать текущего пользователя.
-      security:
-        - {}
-        - bearerAuth: []
+      summary: Список подкастов
+      description: |
+        Основной листинг подкастов со статусом PUBLISHED.
+        Поддерживает полнотекстовый поиск, фильтр по категории/автору и сортировку.
+        Для авторизованного пользователя включает `currentUserVote` и `progressPercent`.
+        Не требует авторизации.
+      operationId: listPodcasts
+      security: []
       parameters:
         - name: q
           in: query
           schema: { type: string }
+          description: Полнотекстовый поиск по title и description
         - name: categoryId
           in: query
-          schema:
-            type: string
-            format: uuid
+          schema: { type: string, format: uuid }
+          description: Фильтр по категории
         - name: authorId
           in: query
-          schema:
-            type: string
-            format: uuid
+          schema: { type: string, format: uuid }
+          description: Фильтр по автору
         - name: sort
           in: query
           schema:
-            $ref: '#/components/schemas/SortPodcasts'
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
+            $ref: '#/components/schemas/SortPodcast'
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
       responses:
         '200':
-          description: Страница с подкастами
+          description: Список подкастов
           content:
             application/json:
               schema:
@@ -1296,7 +1672,11 @@ paths:
     post:
       tags: [Podcasts]
       summary: Создать подкаст
-      description: Требуется роль `AUTHOR`.
+      description: |
+        Только AUTHOR. Создаёт подкаст в статусе DRAFT.
+        Аудиофайл загружается **отдельно** через `media-api`;
+        после загрузки публишится событие в kafka при запуске обработки, необходимо менять статус.
+      operationId: createPodcast
       requestBody:
         required: true
         content:
@@ -1310,7 +1690,7 @@ paths:
               num_speakers: 2
       responses:
         '201':
-          description: Подкаст создан
+          description: Подкаст создан (статус DRAFT)
           content:
             application/json:
               schema:
@@ -1321,22 +1701,23 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
 
   /podcasts/{podcastId}:
     get:
       tags: [Podcasts]
-      summary: Получить детальную информацию о подкасте
-      description: Публично доступен только `PUBLISHED`; автор-владелец может увидеть свой неопубликованный подкаст с Bearer token.
-      security:
-        - {}
-        - bearerAuth: []
+      summary: Детальная страница подкаста
+      description: |
+        Полная информация о подкасте.
+        Анонимные пользователи видят только PUBLISHED подкасты.
+        Автор видит свои подкасты в любом статусе.
+        Поле `hasTranscript` и `hasSummary` показывает, готов ли контент от tts-stt.
+      operationId: getPodcast
+      security: []
       parameters:
         - $ref: '#/components/parameters/PathPodcastId'
       responses:
         '200':
-          description: Детальная карточка подкаста
+          description: Подкаст
           content:
             application/json:
               schema:
@@ -1346,8 +1727,10 @@ paths:
 
     put:
       tags: [Podcasts]
-      summary: Обновить подкаст
-      description: Требуется роль `AUTHOR`; менять может только автор-владелец.
+      summary: Обновить метаданные подкаста
+      description: |
+        Только автор-владелец.
+      operationId: updatePodcast
       parameters:
         - $ref: '#/components/parameters/PathPodcastId'
       requestBody:
@@ -1358,7 +1741,7 @@ paths:
               $ref: '#/components/schemas/UpdatePodcastRequest'
       responses:
         '200':
-          description: Подкаст обновлён
+          description: Обновлённый подкаст
           content:
             application/json:
               schema:
@@ -1372,12 +1755,18 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '422':
+          description: Нельзя редактировать подкаст в статусе PROCESSING
           $ref: '#/components/responses/UnprocessableEntity'
 
     delete:
       tags: [Podcasts]
-      summary: Архивировать подкаст
-      description: Требуется роль `AUTHOR`; архивировать может только автор-владелец.
+      summary: Удалить / заархивировать подкаст
+      description: |
+        Только автор-владелец.
+        Подкаст не удаляется физически — переводится в статус `ARCHIVED`.
+        Если подкаст входит в плейлисты других пользователей — он остаётся там,
+        но помечается как недоступный.
+      operationId: deletePodcast
       parameters:
         - $ref: '#/components/parameters/PathPodcastId'
       responses:
@@ -1394,7 +1783,10 @@ paths:
     get:
       tags: [Podcasts]
       summary: Количество спикеров подкаста
-      description: Публичный service-to-service endpoint. Возвращает количество спикеров для подкаста в любом статусе.
+      description: |
+        Возвращает количество спикеров подкаста для любого статуса подкаста.
+        Endpoint публичный и предназначен в том числе для service-to-service чтения.
+      operationId: getPodcastSpeakers
       security: []
       parameters:
         - $ref: '#/components/parameters/PathPodcastId'
@@ -1414,13 +1806,15 @@ paths:
   /podcasts/{podcastId}/publish:
     post:
       tags: [Podcasts]
-      summary: Отправить подкаст в обработку
-      description: Требуется роль `AUTHOR`; публиковать может только автор-владелец.
+      summary: Опубликовать подкаст
+      description: |
+        Только автор-владелец. Переводит подкаст из Ready to published -> Published
+      operationId: publishPodcast
       parameters:
         - $ref: '#/components/parameters/PathPodcastId'
       responses:
         '202':
-          description: Подкаст принят в обработку
+          description: Подкаст принят в обработку (статус → PROCESSING)
           content:
             application/json:
               schema:
@@ -1432,12 +1826,19 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '422':
+          description: Нельзя опубликовать (неверный статус или не загружено аудио)
           $ref: '#/components/responses/UnprocessableEntity'
 
   /podcasts/{podcastId}/progress:
     post:
       tags: [Listen History]
       summary: Сохранить прогресс прослушивания
+      description: |
+        Сохраняет текущую позицию воспроизведения (в секундах).
+        Вызывается клиентом периодически (~каждые 10–30 сек) во время воспроизведения.
+        Если `progressSeconds >= durationSeconds * 0.95` — подкаст помечается как `completed = true`.
+        Создаёт запись в `listen_history` при первом вызове, обновляет при последующих (upsert).
+      operationId: saveProgress
       parameters:
         - $ref: '#/components/parameters/PathPodcastId'
       requestBody:
@@ -1446,21 +1847,27 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SaveProgressRequest'
+            example:
+              progressSeconds: 920
       responses:
         '204':
           description: Прогресс сохранён
-        '400':
-          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
+  # ── Podcast Media ─────────────────────────────────────────
+
   /podcasts/{podcastId}/transcript:
     get:
       tags: [Podcast Media]
-      summary: Получить транскрипт подкаста
-      description: Публичная ручка. Возвращает 404, если подкаст не опубликован или транскрипт ещё не готов.
+      summary: Транскрипт подкаста
+      description: |
+        Возвращает транскрипт, сгенерированный tts-stt-service.
+        Если транскрипт ещё не готов — 404.
+        Проверить готовность можно через поле `hasTranscript` в `GET /podcasts/{id}`.
+      operationId: getPodcastTranscript
       security: []
       parameters:
         - $ref: '#/components/parameters/PathPodcastId'
@@ -1477,8 +1884,12 @@ paths:
   /podcasts/{podcastId}/summary:
     get:
       tags: [Podcast Media]
-      summary: Получить summary подкаста
-      description: Публичная ручка. Возвращает 404, если подкаст не опубликован или summary ещё не готово.
+      summary: Summary подкаста
+      description: |
+        Возвращает AI-сгенерированное краткое содержание.
+        Если summary ещё не готово — 404.
+        Проверить готовность: поле `hasSummary` в `GET /podcasts/{id}`.
+      operationId: getPodcastSummary
       security: []
       parameters:
         - $ref: '#/components/parameters/PathPodcastId'
@@ -1492,11 +1903,22 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  # ── Podcast Votes ──────────────────────────────────────────
+
   /podcasts/{podcastId}/vote:
     post:
       tags: [Votes]
       summary: Проголосовать за подкаст
-      description: Требуется Bearer token. Повторный голос с тем же типом идемпотентен, противоположный тип переключает голос.
+      description: |
+        Поставить лайк или дизлайк подкасту.
+
+        **Логика идемпотентности:**
+        - Повторный POST с тем же `voteType` → ничего не меняется, вернёт 200
+        - POST с противоположным `voteType` → голос переключается (старый удаляется)
+        - Для отзыва голоса — `DELETE /podcasts/{id}/vote`
+
+        Счётчики в ответе всегда актуальны.
+      operationId: votePodcast
       parameters:
         - $ref: '#/components/parameters/PathPodcastId'
       requestBody:
@@ -1505,15 +1927,15 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/VoteRequest'
+            example:
+              voteType: LIKE
       responses:
         '200':
-          description: Голос засчитан
+          description: Голос засчитан. Возвращает актуальные счётчики.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VoteResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -1522,12 +1944,15 @@ paths:
     delete:
       tags: [Votes]
       summary: Отозвать голос с подкаста
-      description: Требуется Bearer token. Если голоса не было, возвращаются текущие счётчики без изменения состояния.
+      description: |
+        Убирает лайк или дизлайк.
+        Если пользователь не голосовал — возвращает 204 (идемпотентно).
+      operationId: removeVotePodcast
       parameters:
         - $ref: '#/components/parameters/PathPodcastId'
       responses:
         '200':
-          description: Голос отозван
+          description: Голос отозван. Возвращает актуальные счётчики.
           content:
             application/json:
               schema:
@@ -1537,48 +1962,35 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /authors/{authorId}/playlists:
-    get:
-      tags: [Author Profile]
-      summary: Публичные плейлисты автора
-      security:
-        - {}
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/PathAuthorId'
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-      responses:
-        '200':
-          description: Страница плейлистов автора
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PageOfPlaylistCard'
-        '404':
-          $ref: '#/components/responses/NotFound'
+  # ──────────────────────────────────────────────────────────
+  # PLAYLISTS
+  # ──────────────────────────────────────────────────────────
 
   /playlists:
     get:
       tags: [Playlists]
       summary: Публичные плейлисты
-      description: Публичная ручка. Если передан валидный Bearer token, вернёт `currentUserVote`.
-      security:
-        - {}
-        - bearerAuth: []
+      description: |
+        Листинг публичных плейлистов (isPublic = true).
+        Поддерживает поиск по названию и сортировку.
+        Не требует авторизации.
+      operationId: listPlaylists
+      security: []
       parameters:
         - name: q
           in: query
           schema: { type: string }
+          description: Поиск по названию плейлиста
         - name: sort
           in: query
           schema:
-            $ref: '#/components/schemas/SortPlaylists'
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
+            type: string
+            enum: [DATE_DESC, DATE_ASC, RATING]
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
       responses:
         '200':
-          description: Страница публичных плейлистов
+          description: Список плейлистов
           content:
             application/json:
               schema:
@@ -1587,12 +1999,20 @@ paths:
     post:
       tags: [Playlists]
       summary: Создать плейлист
+      description: |
+        Создаёт плейлист для текущего пользователя.
+        По умолчанию — приватный (isPublic = false).
+        Автор может создавать публичные плейлисты.
+      operationId: createPlaylist
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreatePlaylistRequest'
+            example:
+              title: "Лучшие подкасты про IT"
+              isPublic: true
       responses:
         '201':
           description: Плейлист создан
@@ -1609,10 +2029,11 @@ paths:
     get:
       tags: [Playlists]
       summary: Получить плейлист с треклистом
-      description: Публичный плейлист доступен всем; приватный доступен только владельцу с Bearer token.
-      security:
-        - {}
-        - bearerAuth: []
+      description: |
+        Возвращает полный плейлист со списком подкастов (позиция, карточка).
+        Приватный плейлист (isPublic = false) доступен только владельцу — иначе 403.
+      operationId: getPlaylist
+      security: []
       parameters:
         - $ref: '#/components/parameters/PathPlaylistId'
       responses:
@@ -1630,7 +2051,10 @@ paths:
     put:
       tags: [Playlists]
       summary: Обновить плейлист
-      description: Только владелец.
+      description: |
+        Только владелец. Изменяет title, description, cover, isPublic.
+        Partial update — не переданные поля не изменяются.
+      operationId: updatePlaylist
       parameters:
         - $ref: '#/components/parameters/PathPlaylistId'
       requestBody:
@@ -1658,7 +2082,10 @@ paths:
     delete:
       tags: [Playlists]
       summary: Удалить плейлист
-      description: Только владелец.
+      description: |
+        Только владелец. Удаляет плейлист и все записи в `playlist_podcasts`.
+        Подкасты при этом не удаляются.
+      operationId: deletePlaylist
       parameters:
         - $ref: '#/components/parameters/PathPlaylistId'
       responses:
@@ -1671,11 +2098,68 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /playlists/{playlistId}/save:
+    post:
+      tags: [Playlists]
+      summary: Сохранить плейлист в библиотеку
+      description: |
+        Сохраняет чужой публичный плейлист в библиотеку текущего пользователя.
+        Собственный плейлист сохранить нельзя.
+      operationId: savePlaylistToLibrary
+      parameters:
+        - $ref: '#/components/parameters/PathPlaylistId'
+      responses:
+        '200':
+          description: Плейлист сохранён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistSaveResponse'
+              example:
+                playlistId: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                isSaved: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Нельзя сохранить собственный плейлист
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Плейлист уже сохранён
+          $ref: '#/components/responses/Conflict'
+
+    delete:
+      tags: [Playlists]
+      summary: Убрать плейлист из библиотеки
+      description: Удаляет сохранение плейлиста из библиотеки текущего пользователя. Повторный вызов безопасен.
+      operationId: removePlaylistFromLibrary
+      parameters:
+        - $ref: '#/components/parameters/PathPlaylistId'
+      responses:
+        '200':
+          description: Плейлист убран из библиотеки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistSaveResponse'
+              example:
+                playlistId: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                isSaved: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /playlists/{playlistId}/podcasts:
     post:
       tags: [Playlists]
       summary: Добавить подкаст в плейлист
-      description: Только владелец. Можно добавить только `PUBLISHED` подкаст.
+      description: |
+        Только владелец плейлиста. Добавляет подкаст в конец плейлиста.
+        Если подкаст уже есть в этом плейлисте — вернёт 409.
+        Можно добавить только PUBLISHED подкаст.
+      operationId: addPodcastToPlaylist
       parameters:
         - $ref: '#/components/parameters/PathPlaylistId'
       requestBody:
@@ -1684,9 +2168,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/AddPodcastToPlaylistRequest'
+            example:
+              podcastId: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
       responses:
         '200':
-          description: Подкаст добавлен
+          description: Подкаст добавлен, возвращает обновлённый плейлист
           content:
             application/json:
               schema:
@@ -1698,21 +2184,24 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
+          description: Подкаст уже есть в плейлисте
           $ref: '#/components/responses/Conflict'
         '422':
+          description: Подкаст не опубликован
           $ref: '#/components/responses/UnprocessableEntity'
 
   /playlists/{playlistId}/podcasts/{podcastId}:
     delete:
       tags: [Playlists]
       summary: Убрать подкаст из плейлиста
-      description: Только владелец.
+      description: Только владелец плейлиста.
+      operationId: removePodcastFromPlaylist
       parameters:
         - $ref: '#/components/parameters/PathPlaylistId'
         - $ref: '#/components/parameters/PathPodcastId'
       responses:
         '204':
-          description: Подкаст убран
+          description: Подкаст убран из плейлиста
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1724,7 +2213,11 @@ paths:
     put:
       tags: [Playlists]
       summary: Изменить порядок подкастов в плейлисте
-      description: Только владелец. Принимает полный новый порядок всех подкастов плейлиста.
+      description: |
+        Только владелец. Принимает полный новый порядок всех подкастов плейлиста.
+        Все переданные `podcastId` должны уже быть в плейлисте — иначе 422.
+        Позиции — натуральные числа, начиная с 1.
+      operationId: reorderPlaylist
       parameters:
         - $ref: '#/components/parameters/PathPlaylistId'
       requestBody:
@@ -1733,9 +2226,15 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ReorderPlaylistRequest'
+            example:
+              items:
+                - podcastId: "aaa-bbb-ccc"
+                  position: 1
+                - podcastId: "ddd-eee-fff"
+                  position: 2
       responses:
         '200':
-          description: Порядок обновлён
+          description: Порядок обновлён, возвращает плейлист
           content:
             application/json:
               schema:
@@ -1747,12 +2246,17 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
         '422':
+          description: В списке есть podcastId не из этого плейлиста
           $ref: '#/components/responses/UnprocessableEntity'
+
+  # ── Playlist Votes ─────────────────────────────────────────
 
   /playlists/{playlistId}/vote:
     post:
       tags: [Votes]
       summary: Проголосовать за плейлист
+      description: Та же логика, что и для подкаста. Идемпотентен, переключает голос.
+      operationId: votePlaylist
       parameters:
         - $ref: '#/components/parameters/PathPlaylistId'
       requestBody:
@@ -1776,6 +2280,8 @@ paths:
     delete:
       tags: [Votes]
       summary: Отозвать голос с плейлиста
+      description: Убирает лайк или дизлайк. Идемпотентен.
+      operationId: removeVotePlaylist
       parameters:
         - $ref: '#/components/parameters/PathPlaylistId'
       responses:
@@ -1790,29 +2296,53 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  # ──────────────────────────────────────────────────────────
+  # SUBSCRIPTIONS
+  # ──────────────────────────────────────────────────────────
+
   /authors/{authorId}/subscribe:
     post:
       tags: [Subscriptions]
       summary: Подписаться на автора
+      description: |
+        Подписывает текущего пользователя на автора.
+        Инкрементирует `author_profiles.subscribers_count`.
+        Если пользователь уже подписан — идемпотентно (200).
+      operationId: subscribeAuthor
       parameters:
         - $ref: '#/components/parameters/PathAuthorId'
       responses:
         '200':
-          description: Подписка оформлена
+          description: Подписка оформлена (или уже существовала)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthorSubscriptionResponse'
+                type: object
+                properties:
+                  authorId:
+                    type: string
+                    format: uuid
+                  subscribersCount:
+                    type: integer
+                  isSubscribed:
+                    type: boolean
+                    example: true
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
         '422':
+          description: Нельзя подписаться на самого себя
           $ref: '#/components/responses/UnprocessableEntity'
 
     delete:
       tags: [Subscriptions]
       summary: Отписаться от автора
+      description: |
+        Отписывает текущего пользователя от автора.
+        Декрементирует `subscribers_count`.
+        Если не был подписан — идемпотентно (200).
+      operationId: unsubscribeAuthor
       parameters:
         - $ref: '#/components/parameters/PathAuthorId'
       responses:
@@ -1821,16 +2351,34 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthorSubscriptionResponse'
+                type: object
+                properties:
+                  authorId:
+                    type: string
+                    format: uuid
+                  subscribersCount:
+                    type: integer
+                  isSubscribed:
+                    type: boolean
+                    example: false
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
+  # ──────────────────────────────────────────────────────────
+  # SEARCH
+  # ──────────────────────────────────────────────────────────
+
   /search/suggest:
     get:
       tags: [Search]
-      summary: Подсказки поиска
+      summary: Autocomplete (live-поиск)
+      description: |
+        Возвращает до 5 подсказок пока пользователь вводит текст.
+        Поиск — по началу строки (prefix match) по полям title/authorName.
+        Не требует авторизации.
+      operationId: searchSuggest
       security: []
       parameters:
         - name: q
@@ -1839,9 +2387,10 @@ paths:
           schema:
             type: string
             minLength: 1
+          description: Вводимый текст (минимум 1 символ)
       responses:
         '200':
-          description: До 5 подсказок
+          description: Список подсказок (максимум 5)
           content:
             application/json:
               schema:
@@ -1849,6 +2398,15 @@ paths:
                 maxItems: 5
                 items:
                   $ref: '#/components/schemas/SearchSuggestItem'
+              example:
+                - type: PODCAST
+                  id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                  label: "Как работает Kafka"
+                  coverUrl: "https://cdn.example.com/covers/abc.jpg"
+                - type: AUTHOR
+                  id: "1ab85f64-5717-4562-b3fc-2c963f66aaa1"
+                  label: "Иван Петров"
+                  coverUrl: "https://cdn.example.com/avatars/ivan.jpg"
         '400':
           $ref: '#/components/responses/BadRequest'
 
@@ -1856,9 +2414,16 @@ paths:
     get:
       tags: [Search]
       summary: Полнотекстовый поиск
-      security:
-        - {}
-        - bearerAuth: []
+      description: |
+        Вызывается после нажатия Enter на странице поиска.
+        Возвращает три блока: `podcasts`, `authors`, `playlists` — каждый с пагинацией.
+
+        Порядок блоков в UI: Podcasts → Authors → Playlists.
+
+        Параметр `type` ограничивает поиск одним типом (для вкладок).
+        Фильтр `categoryId` применяется только к подкастам.
+      operationId: search
+      security: []
       parameters:
         - name: q
           in: query
@@ -1866,21 +2431,33 @@ paths:
           schema:
             type: string
             minLength: 1
+          description: Поисковой запрос
         - name: type
           in: query
           schema:
-            $ref: '#/components/schemas/SearchType'
+            type: string
+            enum: [ALL, PODCAST, AUTHOR, PLAYLIST]
+            default: ALL
+          description: Ограничить поиск одним типом ресурса
         - name: categoryId
           in: query
           schema:
             type: string
             format: uuid
+          description: Фильтр по категории (только для type=PODCAST или ALL)
         - name: sort
           in: query
           schema:
-            $ref: '#/components/schemas/SearchSort'
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
+            type: string
+            enum: [RELEVANCE, DATE, RATING, VIEWS]
+            default: RELEVANCE
+          description: |
+            - `RELEVANCE` — по релевантности запросу (full-text score)
+            - `DATE` — по дате публикации (новые сначала)
+            - `RATING` — по (likes - dislikes)
+            - `VIEWS` — по количеству просмотров
+        - $ref: '#/components/parameters/QueryPage'
+        - $ref: '#/components/parameters/QuerySize'
       responses:
         '200':
           description: Результаты поиска

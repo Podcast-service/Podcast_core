@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,18 +16,22 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import podcastService.author.dto.AuthorProfileResponse;
-import podcastService.author.dto.CreateAuthorProfileRequest;
-import podcastService.author.dto.UpdateAuthorProfileRequest;
+
+import podcastService.author.dto.*;
 import podcastService.author.service.AuthorProfileService;
+import podcastService.author.service.BecomeAuthorResult;
+import podcastService.author.service.BecomeAuthorService;
 import podcastService.common.dto.PageResponse;
 import podcastService.infrastructure.security.AuthenticatedUser;
 import podcastService.podcast.dto.PodcastCard;
+import podcastService.podcast.dto.PodcastDetailResponse;
 import podcastService.podcast.dto.SortPodcasts;
+import podcastService.podcast.entity.Status;
 import podcastService.podcast.service.PodcastService;
 
 import java.util.UUID;
@@ -39,24 +44,27 @@ import java.util.UUID;
 public class AuthorProfileController {
 
     private final AuthorProfileService authorProfileService;
+    private final BecomeAuthorService becomeAuthorService;
     private final PodcastService podcastService;
 
     @PostMapping("/me")
-    @PreAuthorize("hasRole('AUTHOR')")
-    public ResponseEntity<AuthorProfileResponse> createMyAuthorProfile(
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<BecomeAuthorResponse> createMyAuthorProfile(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader,
             @Valid @RequestBody CreateAuthorProfileRequest request
     ) {
         UUID currentUserId = currentUser.userId();
         log.info(
-                "POST /authors/me, currentUserId={}, authorNameLength={}, hasDescription={}",
+                "POST /authors/me author onboarding, currentUserId={}, authorNameLength={}, hasDescription={}",
                 currentUserId,
                 request.authorName() == null ? null : request.authorName().length(),
                 request.description() != null
         );
 
-        AuthorProfileResponse response = authorProfileService.create(currentUserId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        BecomeAuthorResult result = becomeAuthorService.becomeAuthor(currentUserId, authorizationHeader, request);
+        HttpStatus status = result.authorProfileCreated() ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(result.response());
     }
 
     @GetMapping("/me")
@@ -85,6 +93,30 @@ public class AuthorProfileController {
                 request.isDescriptionSet()
         );
         return authorProfileService.updateMine(currentUserId, request);
+    }
+
+    @GetMapping("/me/podcasts")
+    @PreAuthorize("hasRole('AUTHOR')")
+    @ResponseStatus(HttpStatus.OK)
+    public PageResponse<PodcastDetailResponse> getMyAuthorPodcasts(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @RequestParam(required = false) Status status,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) SortPodcasts sort,
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size
+    ) {
+        UUID currentUserId = currentUser.userId();
+        log.info(
+                "GET /authors/me/podcasts, currentUserId={}, status={}, q='{}', sort={}, page={}, size={}",
+                currentUserId,
+                status,
+                q,
+                sort,
+                page,
+                size
+        );
+        return podcastService.listMineAsAuthor(currentUserId, status, q, sort, page, size);
     }
 
     @GetMapping("/{authorId}")
@@ -119,6 +151,21 @@ public class AuthorProfileController {
                 size
         );
         return podcastService.listByAuthor(authorId, q, sort, page, size, currentUserId);
+    }
+
+    @GetMapping
+    @ResponseStatus(HttpStatus.OK)
+    public PageResponse<AuthorCard> getAuthors(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) AuthorSort sort,
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size,
+            @AuthenticationPrincipal AuthenticatedUser currentUser
+    ) {
+        UUID currentUserId = userIdOrNull(currentUser);
+        log.info("GET /authors, q='{}', sort={}, page={}, size={}, currentUserId={}",
+                q, sort, page, size, currentUserId);
+        return authorProfileService.getAuthors(new AuthorFilter(q, sort, page, size), currentUserId);
     }
 
     private UUID userIdOrNull(AuthenticatedUser currentUser) {

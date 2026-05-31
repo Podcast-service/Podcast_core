@@ -69,8 +69,8 @@ public class SecurityConfiguration {
                                 "/podcasts/*/summary"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/playlists", "/playlists/*").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/authors/me").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/authors/*", "/authors/*/podcasts", "/authors/*/playlists").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/authors/me", "/authors/me/podcasts").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/authors", "/authors/*", "/authors/*/podcasts", "/authors/*/playlists").permitAll()
                         .requestMatchers(HttpMethod.GET, "/search", "/search/suggest").permitAll()
                         .anyRequest().authenticated()
                 )

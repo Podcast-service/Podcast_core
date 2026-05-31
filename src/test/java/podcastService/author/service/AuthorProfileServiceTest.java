@@ -92,6 +92,63 @@ class AuthorProfileServiceTest {
     }
 
     @Test
+    void createOrGetReturnsExistingAuthorProfileWithoutCreatingDuplicate() {
+        AuthorEntity existing = author();
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
+        when(authorRepository.findByUserProfileId(PROFILE_ID)).thenReturn(Optional.of(existing));
+
+        AuthorProfileCreationResult result = service.createOrGet(
+                USER_ID,
+                new CreateAuthorProfileRequest("Новое имя", "Новое описание")
+        );
+
+        assertThat(result.created()).isFalse();
+        assertThat(result.profile().id()).isEqualTo(AUTHOR_ID);
+        assertThat(result.profile().authorName()).isEqualTo("Иван Петров");
+        verify(authorRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void createOrGetCreatesAuthorProfileWhenItDoesNotExist() {
+        UserProfileEntity user = userProfile();
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(user));
+        when(authorRepository.findByUserProfileId(PROFILE_ID)).thenReturn(Optional.empty());
+        when(authorRepository.saveAndFlush(any(AuthorEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuthorProfileCreationResult result = service.createOrGet(
+                USER_ID,
+                new CreateAuthorProfileRequest("  Новый автор  ", null)
+        );
+
+        assertThat(result.created()).isTrue();
+        assertThat(result.profile().authorName()).isEqualTo("Новый автор");
+        verify(authorRepository).saveAndFlush(any(AuthorEntity.class));
+    }
+
+    @Test
+    void validateCreateRequestForBecomeAuthorRejectsTrimmedShortAuthorNameBeforeRoleUpdate() {
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
+        when(authorRepository.existsByUserProfileId(PROFILE_ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.validateCreateRequestForBecomeAuthor(
+                USER_ID,
+                new CreateAuthorProfileRequest(" a ", null)
+        ))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessage("Request validation failed");
+    }
+
+    @Test
+    void validateCreateRequestForBecomeAuthorSkipsBodyValidationWhenProfileAlreadyExists() {
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
+        when(authorRepository.existsByUserProfileId(PROFILE_ID)).thenReturn(true);
+
+        service.validateCreateRequestForBecomeAuthor(USER_ID, new CreateAuthorProfileRequest(" a ", null));
+
+        verify(authorRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
     void createRejectsAuthorNameThatIsTooShortAfterTrim() {
         when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
         when(authorRepository.existsByUserProfileId(PROFILE_ID)).thenReturn(false);

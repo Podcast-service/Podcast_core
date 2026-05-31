@@ -45,6 +45,10 @@ app:
   cors:
     allowed-origins: ${PODCAST_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:8082}
   auth:
+    service:
+      base-url: ${PODCAST_AUTH_SERVICE_BASE_URL:http://localhost:8080}
+      connect-timeout: ${PODCAST_AUTH_SERVICE_CONNECT_TIMEOUT:2s}
+      read-timeout: ${PODCAST_AUTH_SERVICE_READ_TIMEOUT:5s}
     jwt:
       enabled: ${PODCAST_AUTH_ENABLED:true}
       secret: ${PODCAST_ACCESS_TOKEN_SECRET:}
