@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import podcastService.author.repository.AuthorRepository;
 import podcastService.common.exception.AlreadySavedException;
 import podcastService.common.exception.CannotSaveOwnPlaylistException;
+import podcastService.infrastructure.outbox.recommendation.RecommendationOutboxEventService;
 import podcastService.playlist.dto.PlaylistSaveResponse;
 import podcastService.playlist.entity.PlaylistEntity;
 import podcastService.playlist.entity.SavedPlaylistEntity;
@@ -48,6 +49,7 @@ class PlaylistServiceSavedLibraryTest {
     @Mock private AuthorRepository authorRepository;
     @Mock private PlaylistMapper playlistMapper;
     @Mock private EntityManager entityManager;
+    @Mock private RecommendationOutboxEventService recommendationOutboxEventService;
 
     private PlaylistService service;
 
@@ -62,7 +64,8 @@ class PlaylistServiceSavedLibraryTest {
                 userProfileRepository,
                 authorRepository,
                 playlistMapper,
-                entityManager
+                entityManager,
+                recommendationOutboxEventService
         );
     }
 
