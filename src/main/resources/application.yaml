@@ -66,6 +66,9 @@ app:
       max-attempts: ${PODCAST_KAFKA_RETRY_MAX_ATTEMPTS:3}
     dlt:
       suffix: ${PODCAST_KAFKA_DLT_SUFFIX:.DLT}
+  recommendation:
+    events:
+      enabled: ${PODCAST_RECOMMENDATION_EVENTS_ENABLED:false}
 
 server:
   port: ${PODCAST_SERVER_PORT:8082}

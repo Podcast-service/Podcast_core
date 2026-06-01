@@ -6,6 +6,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import podcastService.common.exception.ForbiddenOperationException;
 import podcastService.common.exception.NotFoundException;
+import podcastService.infrastructure.outbox.OutboxEventService;
+import podcastService.infrastructure.outbox.RecommendationEventsProperties;
+import podcastService.infrastructure.outbox.recommendation.PodcastActivityEventFactory;
 import podcastService.podcast.entity.PodcastEntity;
 import podcastService.podcast.entity.PodcastVoteEntity;
 import podcastService.podcast.entity.PodcastVoteId;
@@ -18,6 +21,7 @@ import podcastService.vote.dto.VoteRequest;
 import podcastService.vote.dto.VoteResponse;
 import podcastService.vote.dto.VoteType;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Slf4j
@@ -28,6 +32,8 @@ public class PodcastVoteService {
     private final PodcastRepository podcastRepository;
     private final PodcastVoteRepository podcastVoteRepository;
     private final UserProfileRepository userProfileRepository;
+    private final OutboxEventService outboxEventService;
+    private final RecommendationEventsProperties recommendationEventsProperties;
 
     @Transactional
     public VoteResponse vote(UUID podcastId, UUID currentUserId, VoteRequest request) {
@@ -38,6 +44,7 @@ public class PodcastVoteService {
                 .findByIdUserProfileIdAndIdPodcastId(currentUser.getId(), podcastId)
                 .orElse(null);
 
+        boolean changedToLike = false;
         if (vote == null) {
             vote = new PodcastVoteEntity();
             vote.setId(new PodcastVoteId(currentUser.getId(), podcastId));
@@ -46,14 +53,17 @@ public class PodcastVoteService {
             vote.setVoteType(request.voteType());
             applyVoteDelta(podcast, null, request.voteType());
             podcastVoteRepository.save(vote);
+            changedToLike = request.voteType() == VoteType.LIKE;
         } else if (vote.getVoteType() != request.voteType()) {
             VoteType previousVote = vote.getVoteType();
             vote.setVoteType(request.voteType());
             applyVoteDelta(podcast, previousVote, request.voteType());
+            changedToLike = request.voteType() == VoteType.LIKE;
         }
 
         PodcastEntity saved = podcastRepository.saveAndFlush(podcast);
         podcastVoteRepository.flush();
+        savePodcastLikedOutboxEventIfEnabled(saved, currentUserId, changedToLike);
 
         log.info(
                 "Podcast vote saved: podcastId={}, userId={}, voteType={}",
@@ -117,6 +127,25 @@ public class PodcastVoteService {
         } else if (nextVote == VoteType.DISLIKE) {
             podcast.setDislikesCount(podcast.getDislikesCount() + 1);
         }
+    }
+
+    private void savePodcastLikedOutboxEventIfEnabled(PodcastEntity podcast, UUID currentUserId, boolean changedToLike) {
+        if (!recommendationEventsProperties.enabled() || !changedToLike) {
+            return;
+        }
+
+        outboxEventService.saveEvent(
+                "podcast",
+                podcast.getId(),
+                podcast.getId().toString(),
+                PodcastActivityEventFactory.liked(
+                        podcast.getId(),
+                        currentUserId,
+                        Instant.now(),
+                        null,
+                        null
+                )
+        );
     }
 
     private VoteResponse toResponse(PodcastEntity podcast, VoteType currentUserVote) {

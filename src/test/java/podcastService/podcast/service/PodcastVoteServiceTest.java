@@ -1,11 +1,18 @@
 package podcastService.podcast.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import podcastService.common.exception.NotFoundException;
+import podcastService.infrastructure.config.JacksonConfig;
+import podcastService.infrastructure.outbox.OutboxEventService;
+import podcastService.infrastructure.outbox.RecommendationEventsProperties;
+import podcastService.infrastructure.outbox.entity.OutboxEventEntity;
+import podcastService.infrastructure.outbox.repository.OutboxEventRepository;
+import podcastService.infrastructure.outbox.recommendation.RecommendationEventTypes;
 import podcastService.podcast.entity.PodcastEntity;
 import podcastService.podcast.entity.PodcastVoteEntity;
 import podcastService.podcast.entity.PodcastVoteId;
@@ -25,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -44,11 +52,20 @@ class PodcastVoteServiceTest {
     @Mock
     private UserProfileRepository userProfileRepository;
 
+    @Mock
+    private OutboxEventService outboxEventService;
+
     private PodcastVoteService service;
 
     @BeforeEach
     void setUp() {
-        service = new PodcastVoteService(podcastRepository, podcastVoteRepository, userProfileRepository);
+        service = new PodcastVoteService(
+                podcastRepository,
+                podcastVoteRepository,
+                userProfileRepository,
+                outboxEventService,
+                new RecommendationEventsProperties(false)
+        );
     }
 
     @Test
@@ -67,6 +84,7 @@ class PodcastVoteServiceTest {
         assertThat(response.targetType()).isEqualTo("PODCAST");
         assertThat(response.currentUserVote()).isEqualTo(VoteType.LIKE);
         verify(podcastVoteRepository).save(any(PodcastVoteEntity.class));
+        verifyNoInteractions(outboxEventService);
     }
 
     @Test
@@ -88,6 +106,69 @@ class PodcastVoteServiceTest {
         assertThat(existingVote.getVoteType()).isEqualTo(VoteType.DISLIKE);
         assertThat(response.currentUserVote()).isEqualTo(VoteType.DISLIKE);
         verify(podcastVoteRepository, never()).save(any(PodcastVoteEntity.class));
+        verifyNoInteractions(outboxEventService);
+    }
+
+    @Test
+    void voteCreatesPodcastLikedOutboxEventWhenRecommendationEventsEnabled() {
+        PodcastEntity podcast = publishedPodcast();
+        OutboxEventRepository outboxEventRepository = org.mockito.Mockito.mock(OutboxEventRepository.class);
+        OutboxEventService realOutboxEventService = new OutboxEventService(
+                outboxEventRepository,
+                new JacksonConfig().objectMapper()
+        );
+        service = new PodcastVoteService(
+                podcastRepository,
+                podcastVoteRepository,
+                userProfileRepository,
+                realOutboxEventService,
+                new RecommendationEventsProperties(true)
+        );
+
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+        when(podcastVoteRepository.findByIdUserProfileIdAndIdPodcastId(PROFILE_ID, PODCAST_ID))
+                .thenReturn(Optional.empty());
+        when(podcastRepository.saveAndFlush(podcast)).thenReturn(podcast);
+        when(outboxEventRepository.saveAndFlush(any(OutboxEventEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        VoteResponse response = service.vote(PODCAST_ID, USER_ID, new VoteRequest(VoteType.LIKE));
+
+        org.mockito.ArgumentCaptor<OutboxEventEntity> captor =
+                org.mockito.ArgumentCaptor.forClass(OutboxEventEntity.class);
+        verify(outboxEventRepository).saveAndFlush(captor.capture());
+
+        OutboxEventEntity outboxEvent = captor.getValue();
+        JsonNode payload = outboxEvent.getPayload();
+        assertThat(response.currentUserVote()).isEqualTo(VoteType.LIKE);
+        assertThat(outboxEvent.getEventType()).isEqualTo(RecommendationEventTypes.PODCAST_LIKED);
+        assertThat(outboxEvent.getEventVersion()).isEqualTo(1);
+        assertThat(outboxEvent.getEventKey()).isEqualTo(PODCAST_ID.toString());
+        assertThat(outboxEvent.getStatus().name()).isEqualTo("NEW");
+        assertThat(payload.get("eventType").asText()).isEqualTo(RecommendationEventTypes.PODCAST_LIKED);
+        assertThat(payload.get("eventVersion").asInt()).isEqualTo(1);
+        assertThat(payload.get("producer").asText()).isEqualTo("podcast-core");
+        assertThat(payload.get("userId").asText()).isEqualTo(USER_ID.toString());
+        assertThat(payload.get("payload").get("podcastId").asText()).isEqualTo(PODCAST_ID.toString());
+        assertThat(payload.get("payload").get("userId").asText()).isEqualTo(USER_ID.toString());
+    }
+
+    @Test
+    void voteDoesNotCreateOutboxEventWhenBusinessValidationFails() {
+        PodcastEntity podcast = publishedPodcast();
+        podcast.setStatus(Status.DRAFT);
+
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+
+        assertThatThrownBy(() -> service.vote(PODCAST_ID, USER_ID, new VoteRequest(VoteType.LIKE)))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Podcast not found");
+
+        verifyNoInteractions(outboxEventService);
+        verify(podcastRepository, never()).saveAndFlush(any());
+        verify(podcastVoteRepository, never()).save(any());
     }
 
     @Test

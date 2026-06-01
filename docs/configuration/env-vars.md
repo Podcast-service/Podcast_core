@@ -28,6 +28,7 @@
 | `PODCAST_KAFKA_EXTERNAL_PORT` | `9094` | нет | local port Kafka external listener |
 | `PODCAST_KAFKA_EXTERNAL_HOST` | `host.docker.internal` | нет | advertised host external listener |
 | `PODCAST_KAFKA_AUTO_CREATE_TOPICS_ENABLE` | `true` | нет | auto-create topics в local Kafka |
+| `PODCAST_RECOMMENDATION_EVENTS_ENABLED` | `false` | нет | запись recommendation MVP events в `outbox_events`; Kafka publisher не включает |
 | `PODCAST_KAFKA_UI_PORT` | `8081` | нет | порт Kafka UI |
 | `PODCAST_AUTH_SERVICE_BASE_URL` | `http://localhost:8080`, `http://auth-service:8080` в docker | да | base URL auth-service для выдачи роли автора через `/auth/me/update-roles` |
 | `PODCAST_AUTH_SERVICE_CONNECT_TIMEOUT` | `2s` | нет | timeout установки соединения с auth-service |
