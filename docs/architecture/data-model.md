@@ -62,6 +62,8 @@
 
 Java layer для таблицы расположен в `podcastService.infrastructure.outbox`. Он умеет сериализовать `DomainEventEnvelope` в JSON и сохранять запись со статусом `NEW`, но пока не вызывается из существующих use cases и не публикует Kafka-сообщения.
 
+Контракты recommendation events и factory-классы расположены в `podcastService.infrastructure.outbox.recommendation`. Они создают только in-memory `DomainEventEnvelope` с versioned `eventType` `.v1`; подключение к outbox persistence, scheduler или Kafka publisher выполняется отдельным этапом.
+
 ## Статусы подкастов
 
 | Статус | Значение |
