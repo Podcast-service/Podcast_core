@@ -1,9 +1,7 @@
 package podcastService.playlist.repository;
 
-import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,14 +24,13 @@ public interface PlaylistPodcastRepository extends JpaRepository<PlaylistPodcast
     })
     List<PlaylistPodcastEntity> findByIdPlaylistIdOrderByPositionAsc(UUID playlistId);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @EntityGraph(attributePaths = {
-            "podcast",
-            "podcast.author",
-            "podcast.author.userProfile",
-            "podcast.category"
-    })
-    @Query("select pp from PlaylistPodcastEntity pp where pp.id.playlistId = :playlistId order by pp.position asc")
+    @Query(value = """
+            select *
+              from playlist_podcasts
+             where playlist_id = :playlistId
+             order by position asc
+             for update
+            """, nativeQuery = true)
     List<PlaylistPodcastEntity> findByPlaylistIdForUpdate(UUID playlistId);
 
     @Query("select coalesce(max(pp.position), 0) from PlaylistPodcastEntity pp where pp.id.playlistId = :playlistId")
