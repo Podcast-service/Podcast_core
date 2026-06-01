@@ -24,11 +24,11 @@
 | `V5__final_media_lifecycle_contracts.sql` | финализация media lifecycle статусов |
 | `V6__require_podcast_duration_for_publication.sql` | требование duration для публикации |
 | `V7__add_saved_playlists.sql` | сохранённые плейлисты пользователей |
-| `V8__create_outbox_events.sql` | таблица `outbox_events` для будущего outbox pattern |
+| `V8__create_outbox_events.sql` | таблица `outbox_events` для асинхронной публикации событий |
 
 ## Outbox events
 
-`outbox_events` добавлена только как схема хранения для будущей публикации событий. На текущем этапе Podcast Core не пишет outbox-события, не публикует их в Kafka и не включает новую runtime-функциональность.
+`outbox_events` хранит recommendation MVP events. Запись событий включается отдельно через `PODCAST_RECOMMENDATION_EVENTS_ENABLED=false` по умолчанию. Kafka-публикация выполняется только outbox publisher-ом и требует двух выключателей: `PODCAST_OUTBOX_PUBLISHER_ENABLED=true` и `PODCAST_KAFKA_PRODUCER_ENABLED=true`.
 
 ## Локальный доступ
 

@@ -21,14 +21,25 @@
 | `PODCAST_KAFKA_TOPIC_MEDIA_SUBTITLE` | `media.subtitle` | да | topic результатов субтитров |
 | `PODCAST_KAFKA_TOPIC_TTS_START` | `tts.start` | да | topic старта TTS-flow |
 | `PODCAST_KAFKA_TOPIC_TTS_FAILED` | `tts.failed` | да | topic ошибок TTS-flow |
+| `PODCAST_KAFKA_TOPIC_PODCAST_ACTIVITY_EVENTS` | `podcast.activity.events.v1` | нет | исходящий topic recommendation activity events из outbox publisher |
+| `PODCAST_KAFKA_TOPIC_PODCAST_CONTENT_EVENTS` | `podcast.content.events.v1` | нет | исходящий topic recommendation content events из outbox publisher |
+| `PODCAST_KAFKA_TOPIC_PODCAST_SEARCH_EVENTS` | `podcast.search.events.v1` | нет | зарезервированный исходящий topic search events |
 | `PODCAST_KAFKA_RETRY_BACKOFF_MS` | `1000` | нет | задержка между retry Kafka |
 | `PODCAST_KAFKA_RETRY_MAX_ATTEMPTS` | `3` | нет | количество retry перед DLT для retryable ошибок |
 | `PODCAST_KAFKA_DLT_SUFFIX` | `.DLT` | нет | суффикс DLT topic |
+| `PODCAST_KAFKA_DLT_TOPIC_PODCAST_ACTIVITY_EVENTS` | `podcast.activity.events.v1.DLT` | нет | имя DLT topic для activity events; на текущем этапе outbox publisher туда не публикует |
+| `PODCAST_KAFKA_DLT_TOPIC_PODCAST_CONTENT_EVENTS` | `podcast.content.events.v1.DLT` | нет | имя DLT topic для content events; на текущем этапе outbox publisher туда не публикует |
+| `PODCAST_KAFKA_DLT_TOPIC_PODCAST_SEARCH_EVENTS` | `podcast.search.events.v1.DLT` | нет | имя DLT topic для search events; на текущем этапе outbox publisher туда не публикует |
+| `PODCAST_KAFKA_PRODUCER_ENABLED` | `false` | нет | второй выключатель Kafka producer для outbox publisher; без него publisher не отправляет сообщения |
 | `PODCAST_KAFKA_INTERNAL_PORT` | `9092` | нет | local port Kafka internal listener |
 | `PODCAST_KAFKA_EXTERNAL_PORT` | `9094` | нет | local port Kafka external listener |
 | `PODCAST_KAFKA_EXTERNAL_HOST` | `host.docker.internal` | нет | advertised host external listener |
 | `PODCAST_KAFKA_AUTO_CREATE_TOPICS_ENABLE` | `true` | нет | auto-create topics в local Kafka |
 | `PODCAST_RECOMMENDATION_EVENTS_ENABLED` | `false` | нет | запись recommendation MVP events в `outbox_events`; Kafka publisher не включает |
+| `PODCAST_OUTBOX_PUBLISHER_ENABLED` | `false` | нет | включает scheduled outbox publisher для `NEW`/`FAILED` событий |
+| `PODCAST_OUTBOX_BATCH_SIZE` | `100` | нет | максимальный размер batch для outbox publisher |
+| `PODCAST_OUTBOX_PUBLISH_DELAY_MS` | `3000` | нет | fixed delay scheduler-а и базовый retry backoff publisher-а |
+| `PODCAST_OUTBOX_MAX_RETRY_ATTEMPTS` | `10` | нет | максимум попыток публикации outbox event |
 | `PODCAST_KAFKA_UI_PORT` | `8081` | нет | порт Kafka UI |
 | `PODCAST_AUTH_SERVICE_BASE_URL` | `http://localhost:8080`, `http://auth-service:8080` в docker | да | base URL auth-service для выдачи роли автора через `/auth/me/update-roles` |
 | `PODCAST_AUTH_SERVICE_CONNECT_TIMEOUT` | `2s` | нет | timeout установки соединения с auth-service |
