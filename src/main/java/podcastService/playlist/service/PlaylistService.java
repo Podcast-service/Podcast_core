@@ -406,6 +406,7 @@ public class PlaylistService {
         playlistPodcastRepository.delete(item);
         playlistPodcastRepository.flush();
         playlistPodcastRepository.closeGapAfterDelete(playlistId, removedPosition);
+        playlistPodcastRepository.flush();
 
         log.info(
                 "Podcast removed from playlist: playlistId={}, podcastId={}, userId={}, oldPosition={}",
@@ -557,7 +558,7 @@ public class PlaylistService {
         }
 
         Set<UUID> existingPodcastIds = existingItems.stream()
-                .map(item -> item.getPodcast().getId())
+                .map(item -> item.getId().getPodcastId())
                 .collect(Collectors.toSet());
         Set<UUID> requestedPodcastIds = new HashSet<>();
         Set<Integer> requestedPositions = new HashSet<>();
