@@ -21,6 +21,8 @@ import podcastService.common.exception.ConflictException;
 import podcastService.common.exception.ForbiddenOperationException;
 import podcastService.common.exception.NotFoundException;
 import podcastService.common.exception.PlaylistNotFoundException;
+import podcastService.infrastructure.outbox.recommendation.PlaylistContentEventFactory;
+import podcastService.infrastructure.outbox.recommendation.RecommendationOutboxEventService;
 import podcastService.playlist.dto.AddPodcastToPlaylistRequest;
 import podcastService.playlist.dto.CreatePlaylistRequest;
 import podcastService.playlist.dto.PlaylistCard;
@@ -53,6 +55,7 @@ import podcastService.vote.dto.VoteRequest;
 import podcastService.vote.dto.VoteResponse;
 import podcastService.vote.dto.VoteType;
 
+import java.time.Instant;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Comparator;
@@ -81,6 +84,7 @@ public class PlaylistService {
     private final AuthorRepository authorRepository;
     private final PlaylistMapper playlistMapper;
     private final EntityManager entityManager;
+    private final RecommendationOutboxEventService recommendationOutboxEventService;
 
     @Transactional(readOnly = true)
     public PageResponse<PlaylistCard> listPublic(PlaylistFilter filter, UUID currentUserId) {
@@ -256,6 +260,18 @@ public class PlaylistService {
         entity.setPublicPlaylist(Boolean.TRUE.equals(request.isPublic()));
 
         PlaylistEntity saved = playlistRepository.saveAndFlush(entity);
+        recommendationOutboxEventService.savePlaylistEvent(
+                saved.getId(),
+                PlaylistContentEventFactory.created(
+                        saved.getId(),
+                        currentUserId,
+                        saved.getTitle(),
+                        saved.isPublicPlaylist(),
+                        Instant.now(),
+                        null,
+                        null
+                )
+        );
 
         log.info(
                 "Playlist created: playlistId={}, ownerProfileId={}, userId={}, public={}",
@@ -310,6 +326,18 @@ public class PlaylistService {
         }
 
         playlistRepository.saveAndFlush(playlist);
+        recommendationOutboxEventService.savePlaylistEvent(
+                playlist.getId(),
+                PlaylistContentEventFactory.updated(
+                        playlist.getId(),
+                        currentUserId,
+                        playlist.getTitle(),
+                        playlist.isPublicPlaylist(),
+                        Instant.now(),
+                        null,
+                        null
+                )
+        );
 
         log.info(
                 "Playlist updated: playlistId={}, userId={}, titleChanged={}, descriptionChanged={}, coverChanged={}, publicChanged={}",
@@ -334,6 +362,16 @@ public class PlaylistService {
 
         playlistRepository.delete(playlist);
         playlistRepository.flush();
+        recommendationOutboxEventService.savePlaylistEvent(
+                playlistId,
+                PlaylistContentEventFactory.deleted(
+                        playlistId,
+                        currentUserId,
+                        Instant.now(),
+                        null,
+                        null
+                )
+        );
 
         log.info("Playlist deleted: playlistId={}, userId={}", playlistId, currentUserId);
     }

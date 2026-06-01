@@ -1,6 +1,6 @@
 package podcastService.infrastructure.outbox;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record DomainEventEnvelope(
@@ -8,7 +8,7 @@ public record DomainEventEnvelope(
         String eventType,
         int eventVersion,
         String producer,
-        OffsetDateTime occurredAt,
+        Instant occurredAt,
         String correlationId,
         String causationId,
         UUID userId,

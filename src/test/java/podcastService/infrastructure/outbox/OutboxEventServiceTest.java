@@ -8,7 +8,7 @@ import podcastService.infrastructure.config.JacksonConfig;
 import podcastService.infrastructure.outbox.entity.OutboxEventEntity;
 import podcastService.infrastructure.outbox.repository.OutboxEventRepository;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
@@ -23,7 +23,7 @@ class OutboxEventServiceTest {
     private static final UUID EVENT_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
     private static final UUID PODCAST_ID = UUID.fromString("20000000-0000-0000-0000-000000000001");
     private static final UUID USER_ID = UUID.fromString("30000000-0000-0000-0000-000000000001");
-    private static final OffsetDateTime OCCURRED_AT = OffsetDateTime.parse("2026-06-01T10:15:30Z");
+    private static final Instant OCCURRED_AT = Instant.parse("2026-06-01T10:15:30Z");
 
     private OutboxEventRepository repository;
     private OutboxEventService service;

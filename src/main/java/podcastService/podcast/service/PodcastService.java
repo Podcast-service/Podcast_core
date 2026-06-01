@@ -20,6 +20,8 @@ import podcastService.common.exception.BadRequestException;
 import podcastService.common.exception.BusinessRuleException;
 import podcastService.common.exception.ForbiddenOperationException;
 import podcastService.common.exception.NotFoundException;
+import podcastService.infrastructure.outbox.recommendation.PodcastContentEventFactory;
+import podcastService.infrastructure.outbox.recommendation.RecommendationOutboxEventService;
 import podcastService.podcast.dto.CreatePodcastRequest;
 import podcastService.podcast.dto.LikedPodcastsSort;
 import podcastService.podcast.dto.PodcastCard;
@@ -43,6 +45,7 @@ import podcastService.user.entity.UserProfileEntity;
 import podcastService.user.repository.UserProfileRepository;
 import podcastService.vote.dto.VoteType;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -63,6 +66,7 @@ public class PodcastService {
     private final PodcastTranscriptRepository podcastTranscriptRepository;
     private final PodcastSummaryRepository podcastSummaryRepository;
     private final PodcastMediaStatusTransitionPolicy mediaStatusTransitionPolicy;
+    private final RecommendationOutboxEventService recommendationOutboxEventService;
 
     @Transactional(readOnly = true)
     public PageResponse<PodcastCard> list(PodcastFilter filter, UUID currentUserId) {
@@ -332,6 +336,19 @@ public class PodcastService {
 
         PodcastEntity saved = podcastRepository.saveAndFlush(podcast);
         UUID currentUserProfileId = resolveUserProfileId(currentUserId);
+        recommendationOutboxEventService.savePodcastContentEvent(
+                saved.getId(),
+                PodcastContentEventFactory.updated(
+                        saved.getId(),
+                        saved.getAuthor().getId(),
+                        saved.getCategory() == null ? null : saved.getCategory().getId(),
+                        saved.getTitle(),
+                        Instant.now(),
+                        currentUserId,
+                        null,
+                        null
+                )
+        );
 
         log.info(
                 "Podcast updated: podcastId={}, currentUserId={}, status={}, titleChanged={}, descriptionChanged={}, categoryChanged={}, coverChanged={}",
@@ -373,6 +390,17 @@ public class PodcastService {
 
         podcast.setStatus(Status.ARCHIVED);
         podcastRepository.saveAndFlush(podcast);
+        recommendationOutboxEventService.savePodcastContentEvent(
+                podcast.getId(),
+                PodcastContentEventFactory.deleted(
+                        podcast.getId(),
+                        podcast.getAuthor().getId(),
+                        Instant.now(),
+                        currentUserId,
+                        null,
+                        null
+                )
+        );
 
         log.info(
                 "Podcast archived: podcastId={}, currentUserId={}, ownerAuthorId={}",
@@ -418,6 +446,19 @@ public class PodcastService {
 
         PodcastEntity saved = podcastRepository.saveAndFlush(podcast);
         UUID currentUserProfileId = resolveUserProfileId(currentUserId);
+        recommendationOutboxEventService.savePodcastContentEvent(
+                saved.getId(),
+                PodcastContentEventFactory.published(
+                        saved.getId(),
+                        saved.getAuthor().getId(),
+                        saved.getCategory() == null ? null : saved.getCategory().getId(),
+                        saved.getTitle(),
+                        Instant.now(),
+                        currentUserId,
+                        null,
+                        null
+                )
+        );
 
         log.info(
                 "Podcast sent to processing: podcastId={}, currentUserId={}, ownerAuthorId={}, status={}",

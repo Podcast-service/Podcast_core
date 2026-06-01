@@ -18,7 +18,7 @@
 | `podcast_votes` | голоса за подкасты |
 | `playlist_votes` | голоса за плейлисты |
 | `listen_history` | прогресс прослушивания |
-| `outbox_events` | подготовленная таблица outbox pattern для будущей асинхронной публикации событий |
+| `outbox_events` | таблица outbox pattern для асинхронной публикации событий |
 
 ## Ключевые связи
 
@@ -58,9 +58,11 @@
 
 ## Outbox events
 
-`outbox_events` хранит минимальный контракт будущего outbox pattern: тип агрегата, идентификатор агрегата, тип события, версию события, ключ, JSON payload/headers, статус отправки, retry metadata и timestamps. Таблица не связана foreign key с доменными таблицами намеренно: outbox должен позволять фиксировать события разных агрегатов без изменения текущей бизнес-логики и без зависимости от будущего publisher.
+`outbox_events` хранит контракт outbox pattern: тип агрегата, идентификатор агрегата, тип события, версию события, ключ, JSON payload/headers, статус отправки, retry metadata и timestamps. Таблица не связана foreign key с доменными таблицами намеренно: outbox должен позволять фиксировать события разных агрегатов без изменения текущей бизнес-логики и без зависимости от доступности Kafka.
 
-Java layer для таблицы расположен в `podcastService.infrastructure.outbox`. Он умеет сериализовать `DomainEventEnvelope` в JSON и сохранять запись со статусом `NEW`, но пока не вызывается из существующих use cases и не публикует Kafka-сообщения.
+Java layer для таблицы расположен в `podcastService.infrastructure.outbox`. Он сериализует `DomainEventEnvelope` в JSON, сохраняет запись со статусом `NEW` и содержит выключенный по умолчанию publisher для отправки `NEW`/`FAILED` событий в Kafka.
+
+Контракты recommendation events и factory-классы расположены в `podcastService.infrastructure.outbox.recommendation`. Все recommendation runtime paths защищены feature flags: запись событий требует `PODCAST_RECOMMENDATION_EVENTS_ENABLED=true`, публикация требует `PODCAST_OUTBOX_PUBLISHER_ENABLED=true` и `PODCAST_KAFKA_PRODUCER_ENABLED=true`.
 
 ## Статусы подкастов
 
