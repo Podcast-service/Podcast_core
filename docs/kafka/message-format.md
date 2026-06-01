@@ -89,7 +89,7 @@ Consumer принимает только каноничные значения �
 }
 ```
 
-Поле `content` сохраняется в `podcast_transcripts.content` в исходном виде. Если producer присылает строку, сохраняется строка. Если producer присылает JSON-объект или массив, сохраняется компактная JSON-строка.
+Поле `content` сохраняется в `podcast_transcripts.content` в исходном виде. Если producer присылает строку, сохраняется строка. Если producer присылает JSON-объект или массив, сохраняется компактная JSON-строка. `vtt_object_key` и `srt_object_key` являются object keys в subtitle storage, а не текстом transcript; summary generation читает соответствующий `.srt`/`.vtt` объект через `PODCAST_SUBTITLE_STORAGE_BASE_URL`.
 
 ## `tts.start`
 

@@ -9,7 +9,6 @@ import podcastService.author.entity.AuthorEntity;
 import podcastService.author.repository.AuthorRepository;
 import podcastService.common.exception.ForbiddenOperationException;
 import podcastService.common.exception.NotFoundException;
-import podcastService.infrastructure.config.JacksonConfig;
 import podcastService.podcast.entity.PodcastEntity;
 import podcastService.podcast.repository.PodcastRepository;
 import podcastService.transcript.dto.PodcastSummaryResponse;
@@ -47,6 +46,7 @@ class SummaryGenerationServiceTest {
     @Mock private PodcastTranscriptRepository podcastTranscriptRepository;
     @Mock private PodcastSummaryRepository podcastSummaryRepository;
     @Mock private OpenRouterClient openRouterClient;
+    @Mock private TranscriptTextResolver transcriptTextResolver;
 
     private SummaryGenerationService service;
 
@@ -67,7 +67,7 @@ class SummaryGenerationServiceTest {
                 )),
                 new TranscriptChunkingService(),
                 openRouterClient,
-                new JacksonConfig().objectMapper()
+                transcriptTextResolver
         );
     }
 
@@ -92,6 +92,8 @@ class SummaryGenerationServiceTest {
                 .thenReturn(Optional.empty());
         when(podcastTranscriptRepository.findByIdPodcastIdAndIdLanguage(PODCAST_ID, "RU"))
                 .thenReturn(Optional.of(transcript("Это достаточно длинный полезный transcript для генерации краткого summary.")));
+        when(transcriptTextResolver.resolve("Это достаточно длинный полезный transcript для генерации краткого summary."))
+                .thenReturn("Это достаточно длинный полезный transcript для генерации краткого summary.");
         when(openRouterClient.complete(anyList())).thenReturn("Generated summary");
         when(podcastSummaryRepository.saveAndFlush(any(PodcastSummaryEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -109,6 +111,8 @@ class SummaryGenerationServiceTest {
                 .thenReturn(Optional.of(summary("Old summary")));
         when(podcastTranscriptRepository.findByIdPodcastIdAndIdLanguage(PODCAST_ID, "RU"))
                 .thenReturn(Optional.of(transcript("Это достаточно длинный полезный transcript для повторной генерации summary.")));
+        when(transcriptTextResolver.resolve("Это достаточно длинный полезный transcript для повторной генерации summary."))
+                .thenReturn("Это достаточно длинный полезный transcript для повторной генерации summary.");
         when(openRouterClient.complete(anyList())).thenReturn("New summary");
         when(podcastSummaryRepository.saveAndFlush(any(PodcastSummaryEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -156,6 +160,12 @@ class SummaryGenerationServiceTest {
                         Второй большой фрагмент transcript содержит продолжение, детали и выводы.
                         Третий большой фрагмент transcript завершает выпуск и добавляет контекст.
                         """)));
+        when(transcriptTextResolver.resolve(any()))
+                .thenReturn("""
+                        Первый большой фрагмент transcript содержит полезный текст и важные мысли.
+                        Второй большой фрагмент transcript содержит продолжение, детали и выводы.
+                        Третий большой фрагмент transcript завершает выпуск и добавляет контекст.
+                        """);
         when(openRouterClient.complete(anyList()))
                 .thenReturn("partial one")
                 .thenReturn("partial two")
@@ -181,6 +191,12 @@ class SummaryGenerationServiceTest {
                         Второй большой фрагмент transcript содержит продолжение, детали и выводы.
                         Третий большой фрагмент transcript завершает выпуск и добавляет контекст.
                         """)));
+        when(transcriptTextResolver.resolve(any()))
+                .thenReturn("""
+                        Первый большой фрагмент transcript содержит полезный текст и важные мысли.
+                        Второй большой фрагмент transcript содержит продолжение, детали и выводы.
+                        Третий большой фрагмент transcript завершает выпуск и добавляет контекст.
+                        """);
         when(openRouterClient.complete(anyList()))
                 .thenThrow(new OpenRouterClientException("OpenRouter service is unavailable"));
 
@@ -201,7 +217,7 @@ class SummaryGenerationServiceTest {
                 new SummaryPromptBuilder(new SummaryPromptProperties(null, null, null, null)),
                 new TranscriptChunkingService(),
                 openRouterClient,
-                new JacksonConfig().objectMapper()
+                transcriptTextResolver
         );
 
         assertThatThrownBy(() -> disabledService.generate(PODCAST_ID, false))
@@ -232,6 +248,8 @@ class SummaryGenerationServiceTest {
                 .thenReturn(Optional.of(transcript("""
                         {"vtt_object_key":"media/podcast/subtitles.vtt","srt_object_key":"media/podcast/subtitles.srt","ready_at":"2026-06-01T00:00:00Z"}
                         """)));
+        when(transcriptTextResolver.resolve(any()))
+                .thenThrow(new SummaryGenerationException("Podcast transcript is not usable for summary generation"));
 
         assertThatThrownBy(() -> service.generate(PODCAST_ID, false))
                 .isInstanceOf(SummaryGenerationException.class)

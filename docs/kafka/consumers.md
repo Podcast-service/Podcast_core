@@ -48,7 +48,7 @@
 
 Читает `media.subtitle`, валидирует `podcast_id` и `content`, после чего сохраняет содержимое `content` в `podcast_transcripts.content`. Для текущего контракта subtitle это JSON с `vtt_object_key`, `srt_object_key` и `ready_at`.
 
-После commit сохранения transcript публикуется internal application event для best-effort генерации summary. Если `PODCAST_OPENROUTER_ENABLED=false` или OpenRouter недоступен, Kafka flow не откатывается и consumer не падает из-за ошибки генерации summary.
+После commit сохранения transcript публикуется internal application event для best-effort генерации summary. Если `content` содержит `vtt_object_key`/`srt_object_key`, summary generation читает subtitle object из storage через `PODCAST_SUBTITLE_STORAGE_BASE_URL` и извлекает текст из `.srt`/`.vtt`; сам pointer JSON в OpenRouter не отправляется. Если `PODCAST_OPENROUTER_ENABLED=false`, storage не настроен или OpenRouter недоступен, Kafka flow не откатывается и consumer не падает из-за ошибки генерации summary.
 
 ## `TtsStartConsumer`
 

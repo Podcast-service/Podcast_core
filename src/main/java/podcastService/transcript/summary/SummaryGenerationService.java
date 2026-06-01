@@ -1,8 +1,5 @@
 package podcastService.transcript.summary;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -23,7 +20,6 @@ import podcastService.transcript.repository.PodcastTranscriptRepository;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -33,13 +29,6 @@ public class SummaryGenerationService {
 
     public static final String DEFAULT_LANGUAGE = "RU";
     private static final long MIN_USEFUL_LETTERS = 20;
-    private static final List<String> TECHNICAL_JSON_FIELDS = List.of(
-            "vtt_object_key",
-            "srt_object_key",
-            "ready_at",
-            "timestamp",
-            "voice"
-    );
 
     private final PodcastRepository podcastRepository;
     private final AuthorRepository authorRepository;
@@ -50,7 +39,7 @@ public class SummaryGenerationService {
     private final SummaryPromptBuilder promptBuilder;
     private final TranscriptChunkingService chunkingService;
     private final OpenRouterClient openRouterClient;
-    private final ObjectMapper objectMapper;
+    private final TranscriptTextResolver transcriptTextResolver;
 
     public PodcastSummaryResponse generate(UUID podcastId, boolean force) {
         if (!openRouterProperties.enabled()) {
@@ -189,7 +178,7 @@ public class SummaryGenerationService {
         if (content == null || content.isBlank()) {
             throw new SummaryGenerationException("Podcast transcript is blank");
         }
-        String normalized = extractTranscriptText(content.trim());
+        String normalized = transcriptTextResolver.resolve(content);
         long letterCount = normalized.codePoints()
                 .filter(Character::isLetter)
                 .count();
@@ -197,60 +186,6 @@ public class SummaryGenerationService {
             throw new SummaryGenerationException("Podcast transcript is not usable for summary generation");
         }
         return normalized;
-    }
-
-    private String extractTranscriptText(String content) {
-        if (!looksLikeJson(content)) {
-            return content;
-        }
-        try {
-            JsonNode root = objectMapper.readTree(content);
-            List<String> values = new ArrayList<>();
-            collectTextValues(root, null, values);
-            return String.join("\n", values).trim();
-        } catch (JsonProcessingException exception) {
-            return content;
-        }
-    }
-
-    private boolean looksLikeJson(String content) {
-        return (content.startsWith("{") && content.endsWith("}"))
-                || (content.startsWith("[") && content.endsWith("]"));
-    }
-
-    private void collectTextValues(JsonNode node, String fieldName, List<String> values) {
-        if (node == null || node.isNull()) {
-            return;
-        }
-        if (node.isTextual()) {
-            String value = node.asText().trim();
-            if (!value.isBlank() && !isTechnicalField(fieldName) && !looksLikeTechnicalValue(value)) {
-                values.add(value);
-            }
-            return;
-        }
-        if (node.isArray()) {
-            node.forEach(child -> collectTextValues(child, fieldName, values));
-            return;
-        }
-        if (node.isObject()) {
-            for (Map.Entry<String, JsonNode> field : node.properties()) {
-                collectTextValues(field.getValue(), field.getKey(), values);
-            }
-        }
-    }
-
-    private boolean isTechnicalField(String fieldName) {
-        return fieldName != null && TECHNICAL_JSON_FIELDS.contains(fieldName);
-    }
-
-    private boolean looksLikeTechnicalValue(String value) {
-        String lower = value.toLowerCase();
-        return lower.startsWith("http://")
-                || lower.startsWith("https://")
-                || lower.endsWith(".vtt")
-                || lower.endsWith(".srt")
-                || lower.matches("\\d{4}-\\d{2}-\\d{2}t.*");
     }
 
     private String normalizeSummary(String content) {

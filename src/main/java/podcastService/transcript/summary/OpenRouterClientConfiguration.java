@@ -21,4 +21,19 @@ public class OpenRouterClientConfiguration {
                 .requestFactory(requestFactory)
                 .build();
     }
+
+    @Bean
+    @Qualifier("subtitleStorageRestClient")
+    public RestClient subtitleStorageRestClient(SubtitleStorageProperties properties) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(properties.connectTimeout());
+        requestFactory.setReadTimeout(properties.readTimeout());
+
+        RestClient.Builder builder = RestClient.builder()
+                .requestFactory(requestFactory);
+        if (properties.baseUrl() != null && !properties.baseUrl().isBlank()) {
+            builder.baseUrl(properties.baseUrl());
+        }
+        return builder.build();
+    }
 }
