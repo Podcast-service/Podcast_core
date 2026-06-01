@@ -13,6 +13,7 @@ import podcastService.infrastructure.outbox.RecommendationEventsProperties;
 import podcastService.infrastructure.outbox.entity.OutboxEventEntity;
 import podcastService.infrastructure.outbox.repository.OutboxEventRepository;
 import podcastService.infrastructure.outbox.recommendation.RecommendationEventTypes;
+import podcastService.infrastructure.outbox.recommendation.RecommendationOutboxEventService;
 import podcastService.podcast.entity.PodcastEntity;
 import podcastService.podcast.entity.PodcastVoteEntity;
 import podcastService.podcast.entity.PodcastVoteId;
@@ -53,19 +54,13 @@ class PodcastVoteServiceTest {
     private UserProfileRepository userProfileRepository;
 
     @Mock
-    private OutboxEventService outboxEventService;
+    private OutboxEventRepository outboxEventRepository;
 
     private PodcastVoteService service;
 
     @BeforeEach
     void setUp() {
-        service = new PodcastVoteService(
-                podcastRepository,
-                podcastVoteRepository,
-                userProfileRepository,
-                outboxEventService,
-                new RecommendationEventsProperties(false)
-        );
+        service = serviceWithRecommendationEvents(false);
     }
 
     @Test
@@ -84,7 +79,7 @@ class PodcastVoteServiceTest {
         assertThat(response.targetType()).isEqualTo("PODCAST");
         assertThat(response.currentUserVote()).isEqualTo(VoteType.LIKE);
         verify(podcastVoteRepository).save(any(PodcastVoteEntity.class));
-        verifyNoInteractions(outboxEventService);
+        verifyNoInteractions(outboxEventRepository);
     }
 
     @Test
@@ -106,24 +101,13 @@ class PodcastVoteServiceTest {
         assertThat(existingVote.getVoteType()).isEqualTo(VoteType.DISLIKE);
         assertThat(response.currentUserVote()).isEqualTo(VoteType.DISLIKE);
         verify(podcastVoteRepository, never()).save(any(PodcastVoteEntity.class));
-        verifyNoInteractions(outboxEventService);
+        verifyNoInteractions(outboxEventRepository);
     }
 
     @Test
     void voteCreatesPodcastLikedOutboxEventWhenRecommendationEventsEnabled() {
         PodcastEntity podcast = publishedPodcast();
-        OutboxEventRepository outboxEventRepository = org.mockito.Mockito.mock(OutboxEventRepository.class);
-        OutboxEventService realOutboxEventService = new OutboxEventService(
-                outboxEventRepository,
-                new JacksonConfig().objectMapper()
-        );
-        service = new PodcastVoteService(
-                podcastRepository,
-                podcastVoteRepository,
-                userProfileRepository,
-                realOutboxEventService,
-                new RecommendationEventsProperties(true)
-        );
+        service = serviceWithRecommendationEvents(true);
 
         when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
@@ -144,14 +128,46 @@ class PodcastVoteServiceTest {
         assertThat(response.currentUserVote()).isEqualTo(VoteType.LIKE);
         assertThat(outboxEvent.getEventType()).isEqualTo(RecommendationEventTypes.PODCAST_LIKED);
         assertThat(outboxEvent.getEventVersion()).isEqualTo(1);
-        assertThat(outboxEvent.getEventKey()).isEqualTo(PODCAST_ID.toString());
+        assertThat(outboxEvent.getEventKey()).isEqualTo(USER_ID.toString());
         assertThat(outboxEvent.getStatus().name()).isEqualTo("NEW");
+        assertThat(outboxEvent.getAggregateType()).isEqualTo("USER_ACTIVITY");
+        assertThat(outboxEvent.getAggregateId()).isEqualTo(USER_ID);
         assertThat(payload.get("eventType").asText()).isEqualTo(RecommendationEventTypes.PODCAST_LIKED);
         assertThat(payload.get("eventVersion").asInt()).isEqualTo(1);
         assertThat(payload.get("producer").asText()).isEqualTo("podcast-core");
         assertThat(payload.get("userId").asText()).isEqualTo(USER_ID.toString());
         assertThat(payload.get("payload").get("podcastId").asText()).isEqualTo(PODCAST_ID.toString());
         assertThat(payload.get("payload").get("userId").asText()).isEqualTo(USER_ID.toString());
+    }
+
+    @Test
+    void voteCreatesPodcastDislikedOutboxEventWhenRecommendationEventsEnabled() {
+        PodcastEntity podcast = publishedPodcast();
+        service = serviceWithRecommendationEvents(true);
+
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+        when(podcastVoteRepository.findByIdUserProfileIdAndIdPodcastId(PROFILE_ID, PODCAST_ID))
+                .thenReturn(Optional.empty());
+        when(podcastRepository.saveAndFlush(podcast)).thenReturn(podcast);
+        when(outboxEventRepository.saveAndFlush(any(OutboxEventEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        VoteResponse response = service.vote(PODCAST_ID, USER_ID, new VoteRequest(VoteType.DISLIKE));
+
+        org.mockito.ArgumentCaptor<OutboxEventEntity> captor =
+                org.mockito.ArgumentCaptor.forClass(OutboxEventEntity.class);
+        verify(outboxEventRepository).saveAndFlush(captor.capture());
+
+        OutboxEventEntity outboxEvent = captor.getValue();
+        assertThat(response.currentUserVote()).isEqualTo(VoteType.DISLIKE);
+        assertThat(outboxEvent.getEventType()).isEqualTo(RecommendationEventTypes.PODCAST_DISLIKED);
+        assertThat(outboxEvent.getEventVersion()).isEqualTo(1);
+        assertThat(outboxEvent.getEventKey()).isEqualTo(USER_ID.toString());
+        assertThat(outboxEvent.getAggregateType()).isEqualTo("USER_ACTIVITY");
+        assertThat(outboxEvent.getAggregateId()).isEqualTo(USER_ID);
+        assertThat(outboxEvent.getPayload().get("payload").get("podcastId").asText()).isEqualTo(PODCAST_ID.toString());
+        assertThat(outboxEvent.getPayload().get("payload").get("userId").asText()).isEqualTo(USER_ID.toString());
     }
 
     @Test
@@ -166,7 +182,7 @@ class PodcastVoteServiceTest {
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage("Podcast not found");
 
-        verifyNoInteractions(outboxEventService);
+        verifyNoInteractions(outboxEventRepository);
         verify(podcastRepository, never()).saveAndFlush(any());
         verify(podcastVoteRepository, never()).save(any());
     }
@@ -227,5 +243,22 @@ class PodcastVoteServiceTest {
         vote.setUserProfile(userProfile());
         vote.setVoteType(voteType);
         return vote;
+    }
+
+    private PodcastVoteService serviceWithRecommendationEvents(boolean enabled) {
+        OutboxEventService outboxEventService = new OutboxEventService(
+                outboxEventRepository,
+                new JacksonConfig().objectMapper()
+        );
+        RecommendationOutboxEventService recommendationOutboxEventService = new RecommendationOutboxEventService(
+                outboxEventService,
+                new RecommendationEventsProperties(enabled)
+        );
+        return new PodcastVoteService(
+                podcastRepository,
+                podcastVoteRepository,
+                userProfileRepository,
+                recommendationOutboxEventService
+        );
     }
 }

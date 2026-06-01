@@ -11,6 +11,13 @@ import podcastService.author.repository.AuthorRepository;
 import podcastService.category.repository.CategoryRepository;
 import podcastService.common.exception.NotFoundException;
 import podcastService.common.exception.BusinessRuleException;
+import podcastService.infrastructure.config.JacksonConfig;
+import podcastService.infrastructure.outbox.OutboxEventService;
+import podcastService.infrastructure.outbox.RecommendationEventsProperties;
+import podcastService.infrastructure.outbox.entity.OutboxEventEntity;
+import podcastService.infrastructure.outbox.recommendation.RecommendationEventTypes;
+import podcastService.infrastructure.outbox.recommendation.RecommendationOutboxEventService;
+import podcastService.infrastructure.outbox.repository.OutboxEventRepository;
 import podcastService.podcast.dto.CreatePodcastRequest;
 import podcastService.podcast.dto.PodcastDetailResponse;
 import podcastService.podcast.dto.PodcastSpeakersResponse;
@@ -31,6 +38,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,23 +58,13 @@ class PodcastServiceTest {
     @Mock private PodcastVoteRepository podcastVoteRepository;
     @Mock private PodcastTranscriptRepository podcastTranscriptRepository;
     @Mock private PodcastSummaryRepository podcastSummaryRepository;
+    @Mock private OutboxEventRepository outboxEventRepository;
 
     private PodcastService service;
 
     @BeforeEach
     void setUp() {
-        service = new PodcastService(
-                podcastRepository,
-                authorRepository,
-                categoryRepository,
-                new PodcastMapper(),
-                userProfileRepository,
-                subscriptionRepository,
-                podcastVoteRepository,
-                podcastTranscriptRepository,
-                podcastSummaryRepository,
-                new PodcastMediaStatusTransitionPolicy()
-        );
+        service = serviceWithRecommendationEvents(false);
     }
 
     @Test
@@ -189,6 +187,39 @@ class PodcastServiceTest {
 
         assertThat(response.status()).isEqualTo(Status.PUBLISHED);
         assertThat(podcast.getStatus()).isEqualTo(Status.PUBLISHED);
+        verifyNoInteractions(outboxEventRepository);
+    }
+
+    @Test
+    void publishCreatesPodcastPublishedOutboxEventWhenRecommendationEventsEnabled() {
+        service = serviceWithRecommendationEvents(true);
+        PodcastEntity podcast = podcast(Status.PROCESSED);
+        podcast.setAudioUrl("https://cdn.example.local/hls/podcast/master.m3u8");
+        podcast.setDurationSeconds(2400L);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+        when(authorRepository.findByUserProfileUserId(USER_ID)).thenReturn(Optional.of(author()));
+        when(podcastRepository.saveAndFlush(podcast)).thenReturn(podcast);
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(author().getUserProfile()));
+        when(subscriptionRepository.findSubscribedAuthorIds(any(), any())).thenReturn(java.util.Set.of());
+        when(podcastTranscriptRepository.existsByIdPodcastIdAndContentIsNotNull(PODCAST_ID)).thenReturn(false);
+        when(podcastSummaryRepository.existsByIdPodcastId(PODCAST_ID)).thenReturn(false);
+        when(outboxEventRepository.saveAndFlush(any(OutboxEventEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PodcastDetailResponse response = service.publish(PODCAST_ID, USER_ID);
+
+        ArgumentCaptor<OutboxEventEntity> captor = ArgumentCaptor.forClass(OutboxEventEntity.class);
+        verify(outboxEventRepository).saveAndFlush(captor.capture());
+        OutboxEventEntity outboxEvent = captor.getValue();
+
+        assertThat(response.status()).isEqualTo(Status.PUBLISHED);
+        assertThat(outboxEvent.getAggregateType()).isEqualTo("PODCAST");
+        assertThat(outboxEvent.getAggregateId()).isEqualTo(PODCAST_ID);
+        assertThat(outboxEvent.getEventKey()).isEqualTo(PODCAST_ID.toString());
+        assertThat(outboxEvent.getEventType()).isEqualTo(RecommendationEventTypes.PODCAST_PUBLISHED);
+        assertThat(outboxEvent.getEventVersion()).isEqualTo(1);
+        assertThat(outboxEvent.getPayload().get("payload").get("podcastId").asText()).isEqualTo(PODCAST_ID.toString());
+        assertThat(outboxEvent.getPayload().get("payload").get("authorId").asText()).isEqualTo(AUTHOR_ID.toString());
     }
 
     @Test
@@ -224,5 +255,29 @@ class PodcastServiceTest {
         podcast.setStatus(status);
         podcast.setNumSpeakers(2);
         return podcast;
+    }
+
+    private PodcastService serviceWithRecommendationEvents(boolean enabled) {
+        OutboxEventService outboxEventService = new OutboxEventService(
+                outboxEventRepository,
+                new JacksonConfig().objectMapper()
+        );
+        RecommendationOutboxEventService recommendationOutboxEventService = new RecommendationOutboxEventService(
+                outboxEventService,
+                new RecommendationEventsProperties(enabled)
+        );
+        return new PodcastService(
+                podcastRepository,
+                authorRepository,
+                categoryRepository,
+                new PodcastMapper(),
+                userProfileRepository,
+                subscriptionRepository,
+                podcastVoteRepository,
+                podcastTranscriptRepository,
+                podcastSummaryRepository,
+                new PodcastMediaStatusTransitionPolicy(),
+                recommendationOutboxEventService
+        );
     }
 }

@@ -137,3 +137,27 @@ Consumer принимает только каноничные значения �
 | `timestamp` | datetime | время события producer-а |
 
 `duration_seconds` и `audio_file_size` приходят из `media.worker` после обработки файла и сохраняются в `podcasts.duration_seconds` и `podcasts.audio_size_file`.
+
+## Recommendation outbox envelope
+
+Recommendation MVP события не публикуются напрямую в Kafka на текущем этапе. При `PODCAST_RECOMMENDATION_EVENTS_ENABLED=true` они сохраняются в `outbox_events.payload` как общий envelope:
+
+```json
+{
+  "eventId": "550e8400-e29b-41d4-a716-446655440000",
+  "eventType": "podcast.liked.v1",
+  "eventVersion": 1,
+  "producer": "podcast-core",
+  "occurredAt": "2026-06-01T10:15:30Z",
+  "correlationId": null,
+  "causationId": null,
+  "userId": "550e8400-e29b-41d4-a716-446655440001",
+  "payload": {
+    "podcastId": "550e8400-e29b-41d4-a716-446655440002",
+    "userId": "550e8400-e29b-41d4-a716-446655440001",
+    "likedAt": "2026-06-01T10:15:30Z"
+  }
+}
+```
+
+Все recommendation event types версионированы суффиксом `.v1`. Поля `correlationId` и `causationId` остаются `null`, пока в Podcast Core нет общего request/correlation context.
