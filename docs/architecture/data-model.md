@@ -56,6 +56,8 @@
 
 `podcast_transcripts.content` является основным полем хранения текстового содержимого транскрипта. Kafka-события `media.subtitle` и `tts.start` также пишут результат в это поле: subtitle сохраняется как JSON-содержимое `content`, TTS сохраняет `content` как строку либо компактную JSON-строку для объекта или массива. `tts.failed` не пишет данные в transcript и отражает ошибку только через статус подкаста. Отдельные колонки для subtitle/TTS payload в схеме не используются.
 
+`podcast_summaries` хранит производный артефакт от transcript. Генерация через OpenRouter запускается только при `PODCAST_OPENROUTER_ENABLED=true`: автоматически after commit после сохранения transcript или вручную через `POST /podcasts/{podcastId}/summary/generate`. Ошибка генерации summary не откатывает сохранение transcript и не блокирует Kafka consumer.
+
 ## Outbox events
 
 `outbox_events` хранит контракт outbox pattern: тип агрегата, идентификатор агрегата, тип события, версию события, ключ, JSON payload/headers, статус отправки, retry metadata, timestamps и `processing_started_at` lease для recovery зависших отправок. Таблица не связана foreign key с доменными таблицами намеренно: outbox должен позволять фиксировать события разных агрегатов без изменения текущей бизнес-логики и без зависимости от доступности Kafka.

@@ -85,6 +85,27 @@ app:
   recommendation:
     events:
       enabled: ${PODCAST_RECOMMENDATION_EVENTS_ENABLED:false}
+  openrouter:
+    enabled: ${PODCAST_OPENROUTER_ENABLED:false}
+    api-key: ${PODCAST_OPENROUTER_API_KEY:}
+    base-url: ${PODCAST_OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
+    model: ${PODCAST_OPENROUTER_MODEL:openrouter/free}
+    site-url: ${PODCAST_OPENROUTER_SITE_URL:https://example.local}
+    app-title: ${PODCAST_OPENROUTER_APP_TITLE:Podcast Summary Bot}
+    temperature: ${PODCAST_OPENROUTER_TEMPERATURE:0.3}
+    max-tokens: ${PODCAST_OPENROUTER_MAX_TOKENS:500}
+    connect-timeout: ${PODCAST_OPENROUTER_CONNECT_TIMEOUT:3s}
+    read-timeout: ${PODCAST_OPENROUTER_READ_TIMEOUT:60s}
+    max-attempts: ${PODCAST_OPENROUTER_MAX_ATTEMPTS:3}
+    retry-backoff: ${PODCAST_OPENROUTER_RETRY_BACKOFF:500ms}
+  summary:
+    direct-max-chars: ${PODCAST_SUMMARY_DIRECT_MAX_CHARS:50000}
+    chunk-size-chars: ${PODCAST_SUMMARY_CHUNK_SIZE_CHARS:30000}
+    prompts:
+      system: ${PODCAST_SUMMARY_SYSTEM_PROMPT:}
+      direct-summary: ${PODCAST_SUMMARY_DIRECT_PROMPT:}
+      chunk-summary: ${PODCAST_SUMMARY_CHUNK_PROMPT:}
+      final-summary: ${PODCAST_SUMMARY_FINAL_PROMPT:}
 
 server:
   port: ${PODCAST_SERVER_PORT:8082}

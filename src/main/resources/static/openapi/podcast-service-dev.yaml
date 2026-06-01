@@ -1904,6 +1904,42 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /podcasts/{podcastId}/summary/generate:
+    post:
+      tags: [Podcast Media]
+      summary: Сгенерировать summary подкаста
+      description: |
+        Запускает генерацию summary из текущего transcript через OpenRouter.
+        По умолчанию `force=false`: если summary уже существует, оно возвращается без перезаписи.
+        При `force=true` summary перегенерируется и сохраняется заново.
+      operationId: generatePodcastSummary
+      parameters:
+        - $ref: '#/components/parameters/PathPodcastId'
+        - name: force
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Перегенерировать summary, если оно уже существует
+      responses:
+        '200':
+          description: Summary подкаста
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastSummaryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+
   # ── Podcast Votes ──────────────────────────────────────────
 
   /podcasts/{podcastId}/vote:

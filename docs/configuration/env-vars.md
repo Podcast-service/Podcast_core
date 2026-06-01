@@ -42,6 +42,24 @@
 | `PODCAST_OUTBOX_MAX_RETRY_ATTEMPTS` | `10` | нет | максимум попыток публикации outbox event |
 | `PODCAST_OUTBOX_PROCESSING_TIMEOUT_MS` | `600000` | нет | timeout stale `PROCESSING` lease перед recovery в `FAILED` |
 | `PODCAST_OUTBOX_SEND_TIMEOUT_MS` | `10000` | нет | timeout ожидания Kafka send вне DB-транзакции |
+| `PODCAST_OPENROUTER_ENABLED` | `false` | нет | включает генерацию podcast summary через OpenRouter |
+| `PODCAST_OPENROUTER_API_KEY` | пусто | да при включении OpenRouter | API key OpenRouter; хранить только в env/secret storage |
+| `PODCAST_OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | нет | base URL OpenRouter API |
+| `PODCAST_OPENROUTER_MODEL` | `openrouter/free` | нет | модель OpenRouter для summary |
+| `PODCAST_OPENROUTER_SITE_URL` | `https://example.local` | нет | значение header `HTTP-Referer` |
+| `PODCAST_OPENROUTER_APP_TITLE` | `Podcast Summary Bot` | нет | значение header `X-OpenRouter-Title` |
+| `PODCAST_OPENROUTER_TEMPERATURE` | `0.3` | нет | temperature для Chat Completions |
+| `PODCAST_OPENROUTER_MAX_TOKENS` | `500` | нет | max_tokens для Chat Completions |
+| `PODCAST_OPENROUTER_CONNECT_TIMEOUT` | `3s` | нет | timeout установки соединения с OpenRouter |
+| `PODCAST_OPENROUTER_READ_TIMEOUT` | `60s` | нет | timeout ожидания ответа OpenRouter |
+| `PODCAST_OPENROUTER_MAX_ATTEMPTS` | `3` | нет | максимум попыток для retryable OpenRouter ошибок |
+| `PODCAST_OPENROUTER_RETRY_BACKOFF` | `500ms` | нет | задержка между retry OpenRouter |
+| `PODCAST_SUMMARY_DIRECT_MAX_CHARS` | `50000` | нет | лимит прямой генерации summary без chunking |
+| `PODCAST_SUMMARY_CHUNK_SIZE_CHARS` | `30000` | нет | максимальный размер chunk для длинного transcript |
+| `PODCAST_SUMMARY_SYSTEM_PROMPT` | безопасный default в коде | нет | system prompt template |
+| `PODCAST_SUMMARY_DIRECT_PROMPT` | безопасный default в коде | нет | direct summary prompt template |
+| `PODCAST_SUMMARY_CHUNK_PROMPT` | безопасный default в коде | нет | chunk summary prompt template |
+| `PODCAST_SUMMARY_FINAL_PROMPT` | безопасный default в коде | нет | final summary prompt template |
 | `PODCAST_KAFKA_UI_PORT` | `8081` | нет | порт Kafka UI |
 | `PODCAST_AUTH_SERVICE_BASE_URL` | `http://localhost:8080`, `http://auth-service:8080` в docker | да | base URL auth-service для выдачи роли автора через `/auth/me/update-roles` |
 | `PODCAST_AUTH_SERVICE_CONNECT_TIMEOUT` | `2s` | нет | timeout установки соединения с auth-service |

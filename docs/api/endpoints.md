@@ -46,6 +46,7 @@
 | `POST` | `/podcasts/{podcastId}/progress` | JWT | `SaveProgressRequest` | `204` |
 | `GET` | `/podcasts/{podcastId}/transcript` | публичный | нет | `PodcastTranscriptResponse` |
 | `GET` | `/podcasts/{podcastId}/summary` | публичный | нет | `PodcastSummaryResponse` |
+| `POST` | `/podcasts/{podcastId}/summary/generate?force=false` | роль `author` | нет | `PodcastSummaryResponse` |
 | `POST` | `/podcasts/{podcastId}/vote` | JWT | `VoteRequest` | `VoteResponse` |
 | `DELETE` | `/podcasts/{podcastId}/vote` | JWT | нет | `VoteResponse` |
 | `GET` | `/playlists` | публичный, токен опционален | нет | `PageOfPlaylistCard` |
@@ -387,6 +388,10 @@ curl http://localhost:8082/podcast/v1/podcasts/22222222-2222-2222-2222-222222222
 ### `GET /podcasts/{podcastId}/summary`
 
 Возвращает краткое содержание выпуска. Коды: `200`, `404`.
+
+### `POST /podcasts/{podcastId}/summary/generate`
+
+Запускает ручную генерацию или перегенерацию summary из текущего transcript через OpenRouter. Query parameter `force=false` возвращает существующее summary без перезаписи, если оно уже есть. `force=true` перегенерирует summary. Коды: `200`, `401`, `403`, `404`, `422`, `502`.
 
 ### `POST /podcasts/{podcastId}/progress`
 
