@@ -140,7 +140,7 @@ Consumer принимает только каноничные значения �
 
 ## Recommendation outbox envelope
 
-Recommendation MVP события не публикуются напрямую в Kafka на текущем этапе. При `PODCAST_RECOMMENDATION_EVENTS_ENABLED=true` они сохраняются в `outbox_events.payload` как общий envelope:
+Recommendation MVP события сначала сохраняются в `outbox_events.payload` как общий envelope при `PODCAST_RECOMMENDATION_EVENTS_ENABLED=true`. Kafka-публикация выполняется только через outbox publisher и только при `PODCAST_OUTBOX_PUBLISHER_ENABLED=true` вместе с `PODCAST_KAFKA_PRODUCER_ENABLED=true`:
 
 ```json
 {

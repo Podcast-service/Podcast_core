@@ -13,7 +13,9 @@
 
 ## Внутренние продюсеры
 
-Доменные операции микросервиса подкастов не публикуют бизнес-события напрямую в Kafka. Для recommendation MVP событий Podcast Core только записывает события в `outbox_events`, если включён `PODCAST_RECOMMENDATION_EVENTS_ENABLED=true`; отдельный Kafka publisher в текущем этапе не добавлен.
+Доменные операции микросервиса подкастов не публикуют бизнес-события напрямую в Kafka. Для recommendation MVP событий Podcast Core записывает события в `outbox_events`, если включён `PODCAST_RECOMMENDATION_EVENTS_ENABLED=true`.
+
+Outbox publisher выключен по умолчанию и отправляет события только если одновременно включены `PODCAST_OUTBOX_PUBLISHER_ENABLED=true` и `PODCAST_KAFKA_PRODUCER_ENABLED=true`. Publisher выбирает `NEW`/`FAILED` записи через `FOR UPDATE SKIP LOCKED`, не удаляет outbox rows и переводит их в `SENT` или `FAILED` с retry metadata.
 
 | Event type | Trigger | aggregate_type | event_key |
 |---|---|---|---|
@@ -31,7 +33,15 @@
 
 `podcast.deleted.v1` привязан к существующему `archive` use case, потому что hard delete подкастов в текущем публичном API отсутствует.
 
-Единственная исходящая Kafka-запись сейчас выполняется инфраструктурным `DeadLetterPublishingRecoverer` при отправке необработанных сообщений в DLT.
+### Routing recommendation events
+
+| Event types | Topic |
+|---|---|
+| `podcast.play_finished.v1`, `podcast.liked.v1`, `podcast.disliked.v1`, `author.followed.v1`, `author.unfollowed.v1` | `podcast.activity.events.v1` |
+| `podcast.published.v1`, `podcast.updated.v1`, `podcast.deleted.v1`, `playlist.created.v1`, `playlist.updated.v1`, `playlist.deleted.v1` | `podcast.content.events.v1` |
+| future `podcast.search.*.v1` | `podcast.search.events.v1` |
+
+Неконтрактные event types не отправляются в произвольный topic: outbox publisher помечает такую запись как `FAILED`, чтобы ошибка была видна через retry metadata.
 
 ## Producer DLT
 

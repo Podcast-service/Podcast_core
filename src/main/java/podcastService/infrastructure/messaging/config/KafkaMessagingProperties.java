@@ -21,6 +21,8 @@ public class KafkaMessagingProperties {
 
     private Dlt dlt = new Dlt();
 
+    private Producer producer = new Producer();
+
     @Getter
     @Setter
     public static class Retry {
@@ -32,5 +34,14 @@ public class KafkaMessagingProperties {
     @Setter
     public static class Dlt {
         private String suffix = ".DLT";
+        private String podcastActivityEvents = "podcast.activity.events.v1.DLT";
+        private String podcastContentEvents = "podcast.content.events.v1.DLT";
+        private String podcastSearchEvents = "podcast.search.events.v1.DLT";
+    }
+
+    @Getter
+    @Setter
+    public static class Producer {
+        private boolean enabled = false;
     }
 }

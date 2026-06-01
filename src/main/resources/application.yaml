@@ -61,11 +61,25 @@ app:
       media-subtitle: ${PODCAST_KAFKA_TOPIC_MEDIA_SUBTITLE:media.subtitle}
       tts-start: ${PODCAST_KAFKA_TOPIC_TTS_START:tts.start}
       tts-failed: ${PODCAST_KAFKA_TOPIC_TTS_FAILED:tts.failed}
+      podcast-activity-events: ${PODCAST_KAFKA_TOPIC_PODCAST_ACTIVITY_EVENTS:podcast.activity.events.v1}
+      podcast-content-events: ${PODCAST_KAFKA_TOPIC_PODCAST_CONTENT_EVENTS:podcast.content.events.v1}
+      podcast-search-events: ${PODCAST_KAFKA_TOPIC_PODCAST_SEARCH_EVENTS:podcast.search.events.v1}
     retry:
       backoff-ms: ${PODCAST_KAFKA_RETRY_BACKOFF_MS:1000}
       max-attempts: ${PODCAST_KAFKA_RETRY_MAX_ATTEMPTS:3}
     dlt:
       suffix: ${PODCAST_KAFKA_DLT_SUFFIX:.DLT}
+      podcast-activity-events: ${PODCAST_KAFKA_DLT_TOPIC_PODCAST_ACTIVITY_EVENTS:podcast.activity.events.v1.DLT}
+      podcast-content-events: ${PODCAST_KAFKA_DLT_TOPIC_PODCAST_CONTENT_EVENTS:podcast.content.events.v1.DLT}
+      podcast-search-events: ${PODCAST_KAFKA_DLT_TOPIC_PODCAST_SEARCH_EVENTS:podcast.search.events.v1.DLT}
+    producer:
+      enabled: ${PODCAST_KAFKA_PRODUCER_ENABLED:false}
+  outbox:
+    publisher:
+      enabled: ${PODCAST_OUTBOX_PUBLISHER_ENABLED:false}
+      batch-size: ${PODCAST_OUTBOX_BATCH_SIZE:100}
+      publish-delay-ms: ${PODCAST_OUTBOX_PUBLISH_DELAY_MS:3000}
+      max-retry-attempts: ${PODCAST_OUTBOX_MAX_RETRY_ATTEMPTS:10}
   recommendation:
     events:
       enabled: ${PODCAST_RECOMMENDATION_EVENTS_ENABLED:false}
