@@ -2,6 +2,7 @@ package podcastService.media.messaging.contract;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -10,7 +11,7 @@ import java.util.UUID;
 public record TtsStartEventDto(
         @JsonProperty("podcast_id")
         UUID podcastId,
-        String content,
+        JsonNode content,
         OffsetDateTime timestamp
 ) {
 }

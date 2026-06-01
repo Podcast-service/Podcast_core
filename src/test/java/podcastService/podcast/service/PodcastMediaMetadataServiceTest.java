@@ -221,6 +221,42 @@ class PodcastMediaMetadataServiceTest {
         verify(podcastRepository).saveAndFlush(podcast);
     }
 
+    @Test
+    void ttsEventStoresJsonArrayAndMarksPodcastUploading() throws Exception {
+        PodcastEntity podcast = podcast(Status.DRAFT);
+        PodcastTranscriptEntity transcript = new PodcastTranscriptEntity();
+        transcript.setId(new PodcastTranscriptId(PODCAST_ID, "RU"));
+        transcript.setPodcast(podcast);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+        when(podcastTranscriptRepository.findByIdPodcastIdAndIdLanguage(PODCAST_ID, "RU"))
+                .thenReturn(Optional.of(transcript));
+
+        service.saveTtsContentAndMarkUploading(
+                PODCAST_ID,
+                JsonMapper.builder().addModule(new JavaTimeModule()).build().readTree("""
+                        [
+                          {
+                            "text": "Привет, как у тебя дела?",
+                            "voice": "aidar"
+                          },
+                          {
+                            "text": "У меня всё хорошо, а у тебя?",
+                            "voice": "kseniya"
+                          }
+                        ]
+                        """),
+                OffsetDateTime.parse("2026-06-01T00:17:22Z")
+        );
+
+        assertThat(transcript.getContent())
+                .contains("\"text\":\"Привет, как у тебя дела?\"")
+                .contains("\"voice\":\"aidar\"")
+                .contains("\"voice\":\"kseniya\"");
+        assertThat(podcast.getStatus()).isEqualTo(Status.UPLOADING);
+        verify(podcastTranscriptRepository).saveAndFlush(transcript);
+        verify(podcastRepository).saveAndFlush(podcast);
+    }
+
     private PodcastEntity podcast(Status status) {
         PodcastEntity podcast = new PodcastEntity();
         podcast.setId(PODCAST_ID);
