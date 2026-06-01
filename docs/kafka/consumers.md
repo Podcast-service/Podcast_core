@@ -50,7 +50,7 @@
 
 ## `TtsStartConsumer`
 
-Читает `tts.start`, валидирует `podcast_id` и текстовый `content`, после чего сохраняет текст в `podcast_transcripts.content` и переводит подкаст в `UPLOADING`.
+Читает `tts.start`, валидирует `podcast_id` и непустой `content`, после чего сохраняет содержимое в `podcast_transcripts.content` и переводит подкаст в `UPLOADING`. `content` может быть строкой, JSON-объектом или JSON-массивом.
 
 ## `TtsFailedConsumer`
 

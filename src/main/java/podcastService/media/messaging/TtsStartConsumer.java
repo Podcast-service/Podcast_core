@@ -35,7 +35,10 @@ public class TtsStartConsumer {
         if (event.podcastId() == null) {
             throw new KafkaMessageValidationException("tts.start event has missing podcast_id");
         }
-        if (event.content() == null || event.content().isBlank()) {
+        if (event.content() == null
+                || event.content().isNull()
+                || (event.content().isTextual() && event.content().asText().isBlank())
+                || (event.content().isContainerNode() && event.content().size() == 0)) {
             throw new KafkaMessageValidationException("tts.start event has missing content");
         }
     }

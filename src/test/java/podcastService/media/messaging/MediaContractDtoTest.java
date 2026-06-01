@@ -13,6 +13,7 @@ import podcastService.media.messaging.contract.MediaUploadEventDto;
 import podcastService.media.messaging.contract.MediaUploadEventType;
 import podcastService.media.messaging.contract.MediaWorkerEventDto;
 import podcastService.media.messaging.contract.MediaWorkerEventType;
+import podcastService.media.messaging.contract.TtsStartEventDto;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -188,5 +189,30 @@ class MediaContractDtoTest {
         assertThat(event.objectId()).isEqualTo(UUID.fromString("00000000-0000-0000-0000-000000000301"));
         assertThat(event.event()).isEqualTo("error");
         assertThat(event.error()).isEqualTo("processing failed");
+    }
+
+    @Test
+    void readsTtsStartContentArray() {
+        TtsStartEventDto event = reader.read("""
+                {
+                  "podcast_id": "00000000-0000-0000-0000-000000000301",
+                  "content": [
+                    {
+                      "text": "Привет, как у тебя дела?",
+                      "voice": "aidar"
+                    },
+                    {
+                      "text": "У меня всё хорошо, а у тебя?",
+                      "voice": "kseniya"
+                    }
+                  ],
+                  "timestamp": "2026-06-01T00:17:22Z"
+                }
+                """, TtsStartEventDto.class, CONTEXT);
+
+        assertThat(event.podcastId()).isEqualTo(UUID.fromString("00000000-0000-0000-0000-000000000301"));
+        assertThat(event.content().isArray()).isTrue();
+        assertThat(event.content()).hasSize(2);
+        assertThat(event.content().get(0).get("voice").asText()).isEqualTo("aidar");
     }
 }

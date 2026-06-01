@@ -144,6 +144,18 @@ public class PodcastMediaMetadataService {
                 podcastId, timestamp);
     }
 
+    @Transactional
+    public void saveTtsContentAndMarkUploading(UUID podcastId, JsonNode content, OffsetDateTime timestamp) {
+        PodcastEntity podcast = findForUpdate(podcastId);
+        PodcastTranscriptEntity transcript = findTranscriptOrNew(podcast);
+        transcript.setContent(normalizeTranscriptContent(serializeContentNode(content), "tts content"));
+        podcastTranscriptRepository.saveAndFlush(transcript);
+        persistMediaState(podcast, Status.UPLOADING, timestamp, "tts started", ignored -> {
+        });
+        log.info("Podcast TTS content saved and upload lifecycle started, podcastId={}, timestamp={}",
+                podcastId, timestamp);
+    }
+
     private void persistMediaState(
             PodcastEntity podcast,
             Status target,
