@@ -146,6 +146,33 @@ class PlaylistServiceMutationTest {
     }
 
     @Test
+    void addPodcastCreatesPlaylistSnapshotEventWhenRecommendationEventsEnabled() {
+        service = serviceWithRecommendationEvents(true);
+        PlaylistEntity playlist = playlist();
+        PodcastEntity podcast = podcast(PODCAST_ONE_ID, Status.PUBLISHED);
+        stubOwnerMutation(playlist);
+        stubDetailAfterMutation(playlist);
+        when(podcastRepository.findDetailedById(PODCAST_ONE_ID)).thenReturn(Optional.of(podcast));
+        when(playlistPodcastRepository.existsByIdPlaylistIdAndIdPodcastId(PLAYLIST_ID, PODCAST_ONE_ID))
+                .thenReturn(false);
+        when(playlistPodcastRepository.findMaxPosition(PLAYLIST_ID)).thenReturn(0);
+        when(playlistPodcastRepository.saveAndFlush(any(PlaylistPodcastEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(playlistPodcastRepository.findPodcastIdsByPlaylistIdOrderByPositionAsc(PLAYLIST_ID))
+                .thenReturn(List.of(PODCAST_ONE_ID));
+        when(outboxEventRepository.saveAndFlush(any(OutboxEventEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.addPodcast(PLAYLIST_ID, USER_ID, new AddPodcastToPlaylistRequest(PODCAST_ONE_ID));
+
+        ArgumentCaptor<OutboxEventEntity> captor = ArgumentCaptor.forClass(OutboxEventEntity.class);
+        verify(outboxEventRepository).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getEventType()).isEqualTo(RecommendationEventTypes.PLAYLIST_UPDATED);
+        assertThat(captor.getValue().getPayload().get("payload").get("podcastIds").get(0).asText())
+                .isEqualTo(PODCAST_ONE_ID.toString());
+    }
+
+    @Test
     void reorderOffsetsPositionsBeforeApplyingRequestedOrder() {
         PlaylistEntity playlist = playlist();
         List<PlaylistPodcastEntity> existingItems = List.of(

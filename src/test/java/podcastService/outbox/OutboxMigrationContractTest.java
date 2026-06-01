@@ -37,4 +37,16 @@ class OutboxMigrationContractTest {
         assertThat(migration).contains("idx_outbox_events_event_type");
         assertThat(migration).contains("ON outbox_events (event_type)");
     }
+
+    @Test
+    void hardeningMigrationAddsProcessingLeaseRecoveryColumn() throws Exception {
+        String migration = Files.readString(Path.of(
+                "src/main/resources/db/migration/V9__harden_outbox_publisher.sql"
+        ));
+
+        assertThat(migration).contains("ADD COLUMN IF NOT EXISTS processing_started_at timestamptz");
+        assertThat(migration).contains("SET processing_started_at = created_at");
+        assertThat(migration).contains("WHERE status = 'PROCESSING'");
+        assertThat(migration).contains("idx_outbox_events_processing_started_at");
+    }
 }

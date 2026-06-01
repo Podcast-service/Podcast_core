@@ -143,6 +143,8 @@ public class PodcastVoteService {
                     PodcastActivityEventFactory.liked(
                             podcast.getId(),
                             currentUserId,
+                            podcast.getAuthor().getId(),
+                            podcast.getCategory() == null ? null : podcast.getCategory().getId(),
                             occurredAt,
                             null,
                             null
@@ -156,6 +158,8 @@ public class PodcastVoteService {
                     PodcastActivityEventFactory.disliked(
                             podcast.getId(),
                             currentUserId,
+                            podcast.getAuthor().getId(),
+                            podcast.getCategory() == null ? null : podcast.getCategory().getId(),
                             occurredAt,
                             null,
                             null

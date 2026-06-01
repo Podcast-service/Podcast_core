@@ -6,6 +6,7 @@ import java.util.UUID;
 public record AuthorUnfollowedPayload(
         UUID authorId,
         UUID userId,
+        Instant occurredAt,
         Instant unfollowedAt
 ) {
 }

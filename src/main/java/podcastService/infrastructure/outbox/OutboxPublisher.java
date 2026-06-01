@@ -8,14 +8,13 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import podcastService.infrastructure.messaging.config.KafkaMessagingProperties;
 import podcastService.infrastructure.outbox.entity.OutboxEventEntity;
 import podcastService.infrastructure.outbox.repository.OutboxEventRepository;
 
 import java.time.Duration;
-import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -25,6 +24,7 @@ public class OutboxPublisher {
     private static final int MAX_ERROR_LENGTH = 1_000;
 
     private final OutboxEventRepository outboxEventRepository;
+    private final OutboxPublisherTransactionService transactionService;
     private final KafkaOperations<Object, Object> kafkaOperations;
     private final KafkaMessagingProperties kafkaMessagingProperties;
     private final OutboxPublisherProperties properties;
@@ -32,9 +32,11 @@ public class OutboxPublisher {
     private final Counter sentCounter;
     private final Counter failedCounter;
     private final Counter retryCounter;
+    private final Counter processingRecoveredCounter;
 
     public OutboxPublisher(
             OutboxEventRepository outboxEventRepository,
+            OutboxPublisherTransactionService transactionService,
             KafkaOperations<Object, Object> kafkaOperations,
             KafkaMessagingProperties kafkaMessagingProperties,
             OutboxPublisherProperties properties,
@@ -42,6 +44,7 @@ public class OutboxPublisher {
             MeterRegistry meterRegistry
     ) {
         this.outboxEventRepository = outboxEventRepository;
+        this.transactionService = transactionService;
         this.kafkaOperations = kafkaOperations;
         this.kafkaMessagingProperties = kafkaMessagingProperties;
         this.properties = properties;
@@ -49,6 +52,7 @@ public class OutboxPublisher {
         this.sentCounter = Counter.builder("outbox.events.sent").register(meterRegistry);
         this.failedCounter = Counter.builder("outbox.events.failed").register(meterRegistry);
         this.retryCounter = Counter.builder("outbox.events.retry").register(meterRegistry);
+        this.processingRecoveredCounter = Counter.builder("outbox.events.processing.recovered").register(meterRegistry);
         Gauge.builder("outbox.events.pending", outboxEventRepository,
                         repository -> repository.countPublishable(properties.maxRetryAttempts()))
                 .register(meterRegistry);
@@ -59,19 +63,20 @@ public class OutboxPublisher {
         publishBatch();
     }
 
-    @Transactional
     public int publishBatch() {
         if (!properties.enabled()) {
             log.debug("Outbox publisher disabled; skipping batch");
             return 0;
         }
 
+        recoverStaleProcessing();
+
         if (!kafkaMessagingProperties.getProducer().isEnabled()) {
             log.debug("Kafka producer disabled; skipping outbox batch");
             return 0;
         }
 
-        List<OutboxEventEntity> events = outboxEventRepository.lockNextPublishBatch(
+        List<OutboxEventEntity> events = transactionService.claimNextPublishBatch(
                 properties.batchSize(),
                 properties.maxRetryAttempts()
         );
@@ -83,17 +88,18 @@ public class OutboxPublisher {
         int sent = 0;
         log.info("Outbox publisher batch started: size={}", events.size());
         for (OutboxEventEntity event : events) {
-            event.setStatus(OutboxEventStatus.PROCESSING);
-            outboxEventRepository.saveAndFlush(event);
             try {
                 publish(event);
-                markSent(event);
-                sentCounter.increment();
-                sent++;
+                if (transactionService.markSent(event.getId())) {
+                    sentCounter.increment();
+                    sent++;
+                    log.info("Outbox event sent: eventId={}, eventType={}", event.getId(), event.getEventType());
+                } else {
+                    log.warn("Outbox event success ignored after lease loss: eventId={}, eventType={}",
+                            event.getId(), event.getEventType());
+                }
             } catch (Exception exception) {
                 markFailed(event, exception);
-                failedCounter.increment();
-                retryCounter.increment();
             }
         }
         log.info("Outbox publisher batch finished: locked={}, sent={}", events.size(), sent);
@@ -113,31 +119,43 @@ public class OutboxPublisher {
                 event.getRetryCount()
         );
 
-        kafkaOperations.send(topic, event.getEventKey(), payload).get();
-    }
-
-    private void markSent(OutboxEventEntity event) {
-        event.setStatus(OutboxEventStatus.SENT);
-        event.setSentAt(OffsetDateTime.now());
-        event.setLastError(null);
-        outboxEventRepository.saveAndFlush(event);
-        log.info("Outbox event sent: eventId={}, eventType={}", event.getId(), event.getEventType());
+        kafkaOperations.send(topic, event.getEventKey(), payload)
+                .get(properties.sendTimeoutMs(), TimeUnit.MILLISECONDS);
     }
 
     private void markFailed(OutboxEventEntity event, Exception exception) {
-        event.setStatus(OutboxEventStatus.FAILED);
-        event.setRetryCount(event.getRetryCount() + 1);
-        event.setLastError(shortError(exception));
-        event.setAvailableAt(OffsetDateTime.now().plus(Duration.ofMillis(properties.publishDelayMs())));
-        outboxEventRepository.saveAndFlush(event);
+        String lastError = shortError(exception);
+        boolean markedFailed = transactionService.markFailed(
+                event.getId(),
+                lastError,
+                Duration.ofMillis(properties.publishDelayMs())
+        );
+        if (!markedFailed) {
+            log.warn("Outbox event failure ignored after lease loss: eventId={}, eventType={}, error={}",
+                    event.getId(), event.getEventType(), lastError);
+            return;
+        }
+
+        failedCounter.increment();
+        retryCounter.increment();
         log.warn(
-                "Outbox event publish failed: eventId={}, eventType={}, retryCount={}, availableAt={}, error={}",
+                "Outbox event publish failed: eventId={}, eventType={}, retryCount={}, error={}",
                 event.getId(),
                 event.getEventType(),
-                event.getRetryCount(),
-                event.getAvailableAt(),
-                event.getLastError()
+                event.getRetryCount() + 1,
+                lastError
         );
+    }
+
+    private void recoverStaleProcessing() {
+        int recovered = transactionService.recoverStaleProcessing(
+                Duration.ofMillis(properties.processingTimeoutMs())
+        );
+        if (recovered == 0) {
+            return;
+        }
+        processingRecoveredCounter.increment(recovered);
+        log.warn("Recovered stale outbox processing events: count={}", recovered);
     }
 
     private String shortError(Exception exception) {

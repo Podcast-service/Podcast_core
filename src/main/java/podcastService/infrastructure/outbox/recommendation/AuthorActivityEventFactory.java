@@ -26,7 +26,7 @@ public final class AuthorActivityEventFactory {
                 correlationId,
                 causationId,
                 userId,
-                new AuthorFollowedPayload(authorId, userId, eventTime)
+                new AuthorFollowedPayload(authorId, userId, eventTime, eventTime)
         );
     }
 
@@ -44,7 +44,7 @@ public final class AuthorActivityEventFactory {
                 correlationId,
                 causationId,
                 userId,
-                new AuthorUnfollowedPayload(authorId, userId, eventTime)
+                new AuthorUnfollowedPayload(authorId, userId, eventTime, eventTime)
         );
     }
 }

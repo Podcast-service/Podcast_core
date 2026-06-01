@@ -80,6 +80,8 @@ app:
       batch-size: ${PODCAST_OUTBOX_BATCH_SIZE:100}
       publish-delay-ms: ${PODCAST_OUTBOX_PUBLISH_DELAY_MS:3000}
       max-retry-attempts: ${PODCAST_OUTBOX_MAX_RETRY_ATTEMPTS:10}
+      processing-timeout-ms: ${PODCAST_OUTBOX_PROCESSING_TIMEOUT_MS:600000}
+      send-timeout-ms: ${PODCAST_OUTBOX_SEND_TIMEOUT_MS:10000}
   recommendation:
     events:
       enabled: ${PODCAST_RECOMMENDATION_EVENTS_ENABLED:false}

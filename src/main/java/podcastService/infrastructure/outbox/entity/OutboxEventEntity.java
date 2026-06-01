@@ -67,4 +67,7 @@ public class OutboxEventEntity {
 
     @Column(name = "sent_at")
     private OffsetDateTime sentAt;
+
+    @Column(name = "processing_started_at")
+    private OffsetDateTime processingStartedAt;
 }

@@ -25,6 +25,7 @@
 | `V6__require_podcast_duration_for_publication.sql` | требование duration для публикации |
 | `V7__add_saved_playlists.sql` | сохранённые плейлисты пользователей |
 | `V8__create_outbox_events.sql` | таблица `outbox_events` для асинхронной публикации событий |
+| `V9__harden_outbox_publisher.sql` | lease timestamp и индекс recovery для stale `PROCESSING` outbox events |
 
 ## Outbox events
 

@@ -8,6 +8,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import podcastService.author.entity.AuthorEntity;
 import podcastService.author.repository.AuthorRepository;
+import podcastService.category.entity.CategoryEntity;
 import podcastService.category.repository.CategoryRepository;
 import podcastService.common.exception.NotFoundException;
 import podcastService.common.exception.BusinessRuleException;
@@ -49,6 +50,7 @@ class PodcastServiceTest {
     private static final UUID PROFILE_ID = UUID.fromString("00000000-0000-0000-0000-000000000101");
     private static final UUID AUTHOR_ID = UUID.fromString("00000000-0000-0000-0000-000000000201");
     private static final UUID PODCAST_ID = UUID.fromString("00000000-0000-0000-0000-000000000301");
+    private static final UUID CATEGORY_ID = UUID.fromString("00000000-0000-0000-0000-000000000401");
 
     @Mock private PodcastRepository podcastRepository;
     @Mock private AuthorRepository authorRepository;
@@ -220,6 +222,30 @@ class PodcastServiceTest {
         assertThat(outboxEvent.getEventVersion()).isEqualTo(1);
         assertThat(outboxEvent.getPayload().get("payload").get("podcastId").asText()).isEqualTo(PODCAST_ID.toString());
         assertThat(outboxEvent.getPayload().get("payload").get("authorId").asText()).isEqualTo(AUTHOR_ID.toString());
+        assertThat(outboxEvent.getPayload().get("payload").get("categoryId").asText()).isEqualTo(CATEGORY_ID.toString());
+        assertThat(outboxEvent.getPayload().get("payload").get("durationSeconds").asLong()).isEqualTo(2400L);
+        assertThat(outboxEvent.getPayload().get("payload").get("status").asText()).isEqualTo("PUBLISHED");
+    }
+
+    @Test
+    void publishWithoutCategoryDoesNotCreatePoisonRecommendationEvent() {
+        service = serviceWithRecommendationEvents(true);
+        PodcastEntity podcast = podcast(Status.PROCESSED);
+        podcast.setCategory(null);
+        podcast.setAudioUrl("https://cdn.example.local/hls/podcast/master.m3u8");
+        podcast.setDurationSeconds(2400L);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+        when(authorRepository.findByUserProfileUserId(USER_ID)).thenReturn(Optional.of(author()));
+        when(podcastRepository.saveAndFlush(podcast)).thenReturn(podcast);
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(author().getUserProfile()));
+        when(subscriptionRepository.findSubscribedAuthorIds(any(), any())).thenReturn(java.util.Set.of());
+        when(podcastTranscriptRepository.existsByIdPodcastIdAndContentIsNotNull(PODCAST_ID)).thenReturn(false);
+        when(podcastSummaryRepository.existsByIdPodcastId(PODCAST_ID)).thenReturn(false);
+
+        PodcastDetailResponse response = service.publish(PODCAST_ID, USER_ID);
+
+        assertThat(response.status()).isEqualTo(Status.PUBLISHED);
+        verifyNoInteractions(outboxEventRepository);
     }
 
     @Test
@@ -251,10 +277,18 @@ class PodcastServiceTest {
         PodcastEntity podcast = new PodcastEntity();
         podcast.setId(PODCAST_ID);
         podcast.setAuthor(author());
+        podcast.setCategory(category());
         podcast.setTitle("Интервью");
         podcast.setStatus(status);
         podcast.setNumSpeakers(2);
         return podcast;
+    }
+
+    private CategoryEntity category() {
+        CategoryEntity category = new CategoryEntity();
+        category.setId(CATEGORY_ID);
+        category.setName("Backend");
+        return category;
     }
 
     private PodcastService serviceWithRecommendationEvents(boolean enabled) {

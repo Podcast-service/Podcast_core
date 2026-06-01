@@ -6,6 +6,7 @@ import podcastService.infrastructure.outbox.recommendation.payload.PodcastPublis
 import podcastService.infrastructure.outbox.recommendation.payload.PodcastUpdatedPayload;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public final class PodcastContentEventFactory {
@@ -18,6 +19,13 @@ public final class PodcastContentEventFactory {
             UUID authorId,
             UUID categoryId,
             String title,
+            String description,
+            Long durationSeconds,
+            Instant publishedAt,
+            String language,
+            List<String> tags,
+            String status,
+            Boolean isExplicit,
             Instant occurredAt,
             UUID userId,
             String correlationId,
@@ -30,7 +38,19 @@ public final class PodcastContentEventFactory {
                 correlationId,
                 causationId,
                 userId,
-                new PodcastPublishedPayload(podcastId, authorId, categoryId, title, eventTime)
+                new PodcastPublishedPayload(
+                        podcastId,
+                        authorId,
+                        categoryId,
+                        title,
+                        description,
+                        durationSeconds,
+                        publishedAt,
+                        language,
+                        tags,
+                        status,
+                        isExplicit
+                )
         );
     }
 
@@ -39,6 +59,14 @@ public final class PodcastContentEventFactory {
             UUID authorId,
             UUID categoryId,
             String title,
+            String description,
+            Long durationSeconds,
+            Instant publishedAt,
+            String language,
+            List<String> tags,
+            String status,
+            Boolean isExplicit,
+            Instant updatedAt,
             Instant occurredAt,
             UUID userId,
             String correlationId,
@@ -51,13 +79,27 @@ public final class PodcastContentEventFactory {
                 correlationId,
                 causationId,
                 userId,
-                new PodcastUpdatedPayload(podcastId, authorId, categoryId, title, eventTime)
+                new PodcastUpdatedPayload(
+                        podcastId,
+                        authorId,
+                        categoryId,
+                        title,
+                        description,
+                        durationSeconds,
+                        publishedAt,
+                        language,
+                        tags,
+                        status,
+                        isExplicit,
+                        updatedAt
+                )
         );
     }
 
     public static DomainEventEnvelope deleted(
             UUID podcastId,
             UUID authorId,
+            UUID categoryId,
             Instant occurredAt,
             UUID userId,
             String correlationId,
@@ -70,7 +112,13 @@ public final class PodcastContentEventFactory {
                 correlationId,
                 causationId,
                 userId,
-                new PodcastDeletedPayload(podcastId, authorId, eventTime)
+                new PodcastDeletedPayload(
+                        podcastId,
+                        authorId,
+                        categoryId,
+                        eventTime,
+                        RecommendationEventPayloadValues.DELETED_STATUS
+                )
         );
     }
 }

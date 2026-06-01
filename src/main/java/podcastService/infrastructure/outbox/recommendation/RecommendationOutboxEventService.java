@@ -20,6 +20,10 @@ public class RecommendationOutboxEventService {
     private final OutboxEventService outboxEventService;
     private final RecommendationEventsProperties properties;
 
+    public boolean enabled() {
+        return properties.enabled();
+    }
+
     public void savePodcastContentEvent(UUID podcastId, DomainEventEnvelope envelope) {
         save(AGGREGATE_PODCAST, podcastId, podcastId, envelope);
     }

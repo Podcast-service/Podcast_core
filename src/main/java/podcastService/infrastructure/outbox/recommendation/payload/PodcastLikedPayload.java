@@ -6,6 +6,9 @@ import java.util.UUID;
 public record PodcastLikedPayload(
         UUID podcastId,
         UUID userId,
+        UUID authorId,
+        UUID categoryId,
+        Instant occurredAt,
         Instant likedAt
 ) {
 }

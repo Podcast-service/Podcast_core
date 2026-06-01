@@ -18,6 +18,7 @@ import podcastService.history.dto.SaveProgressRequest;
 import podcastService.history.entity.ListenHistoryEntity;
 import podcastService.history.repository.ListenHistoryRepository;
 import podcastService.infrastructure.outbox.recommendation.PodcastActivityEventFactory;
+import podcastService.infrastructure.outbox.recommendation.RecommendationEventPayloadValues;
 import podcastService.infrastructure.outbox.recommendation.RecommendationOutboxEventService;
 import podcastService.podcast.dto.PodcastCard;
 import podcastService.podcast.entity.PodcastEntity;
@@ -123,7 +124,11 @@ public class ListenHistoryService {
                     PodcastActivityEventFactory.playFinished(
                             podcastId,
                             currentUserId,
+                            podcast.getAuthor().getId(),
+                            podcast.getCategory() == null ? null : podcast.getCategory().getId(),
+                            podcast.getDurationSeconds(),
                             progressSeconds,
+                            RecommendationEventPayloadValues.LISTEN_HISTORY_SOURCE,
                             Instant.now(),
                             null,
                             null

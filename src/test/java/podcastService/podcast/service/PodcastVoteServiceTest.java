@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import podcastService.author.entity.AuthorEntity;
+import podcastService.category.entity.CategoryEntity;
 import podcastService.common.exception.NotFoundException;
 import podcastService.infrastructure.config.JacksonConfig;
 import podcastService.infrastructure.outbox.OutboxEventService;
@@ -43,6 +45,8 @@ class PodcastVoteServiceTest {
     private static final UUID USER_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
     private static final UUID PROFILE_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440001");
     private static final UUID PODCAST_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+    private static final UUID AUTHOR_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440020");
+    private static final UUID CATEGORY_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440030");
 
     @Mock
     private PodcastRepository podcastRepository;
@@ -138,6 +142,8 @@ class PodcastVoteServiceTest {
         assertThat(payload.get("userId").asText()).isEqualTo(USER_ID.toString());
         assertThat(payload.get("payload").get("podcastId").asText()).isEqualTo(PODCAST_ID.toString());
         assertThat(payload.get("payload").get("userId").asText()).isEqualTo(USER_ID.toString());
+        assertThat(payload.get("payload").get("authorId").asText()).isEqualTo(AUTHOR_ID.toString());
+        assertThat(payload.get("payload").get("categoryId").asText()).isEqualTo(CATEGORY_ID.toString());
     }
 
     @Test
@@ -233,6 +239,12 @@ class PodcastVoteServiceTest {
         PodcastEntity podcast = new PodcastEntity();
         podcast.setId(PODCAST_ID);
         podcast.setStatus(Status.PUBLISHED);
+        AuthorEntity author = new AuthorEntity();
+        author.setId(AUTHOR_ID);
+        podcast.setAuthor(author);
+        CategoryEntity category = new CategoryEntity();
+        category.setId(CATEGORY_ID);
+        podcast.setCategory(category);
         return podcast;
     }
 

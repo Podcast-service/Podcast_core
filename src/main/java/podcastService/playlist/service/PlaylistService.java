@@ -56,6 +56,7 @@ import podcastService.vote.dto.VoteResponse;
 import podcastService.vote.dto.VoteType;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Comparator;
@@ -260,14 +261,18 @@ public class PlaylistService {
         entity.setPublicPlaylist(Boolean.TRUE.equals(request.isPublic()));
 
         PlaylistEntity saved = playlistRepository.saveAndFlush(entity);
+        Instant eventTime = Instant.now();
         recommendationOutboxEventService.savePlaylistEvent(
                 saved.getId(),
                 PlaylistContentEventFactory.created(
                         saved.getId(),
                         currentUserId,
                         saved.getTitle(),
+                        saved.getDescription(),
                         saved.isPublicPlaylist(),
-                        Instant.now(),
+                        List.of(),
+                        toInstant(saved.getCreatedAt(), eventTime),
+                        eventTime,
                         null,
                         null
                 )
@@ -326,18 +331,7 @@ public class PlaylistService {
         }
 
         playlistRepository.saveAndFlush(playlist);
-        recommendationOutboxEventService.savePlaylistEvent(
-                playlist.getId(),
-                PlaylistContentEventFactory.updated(
-                        playlist.getId(),
-                        currentUserId,
-                        playlist.getTitle(),
-                        playlist.isPublicPlaylist(),
-                        Instant.now(),
-                        null,
-                        null
-                )
-        );
+        savePlaylistUpdatedOutboxEvent(playlist, currentUserId);
 
         log.info(
                 "Playlist updated: playlistId={}, userId={}, titleChanged={}, descriptionChanged={}, coverChanged={}, publicChanged={}",
@@ -416,6 +410,7 @@ public class PlaylistService {
             );
             throw new ConflictException("Podcast already exists in playlist");
         }
+        savePlaylistUpdatedOutboxEvent(playlist, currentUserId);
 
         log.info(
                 "Podcast added to playlist: playlistId={}, podcastId={}, userId={}, position={}",
@@ -445,6 +440,7 @@ public class PlaylistService {
         playlistPodcastRepository.flush();
         playlistPodcastRepository.closeGapAfterDelete(playlistId, removedPosition);
         playlistPodcastRepository.flush();
+        savePlaylistUpdatedOutboxEvent(playlist, currentUserId);
 
         log.info(
                 "Podcast removed from playlist: playlistId={}, podcastId={}, userId={}, oldPosition={}",
@@ -477,6 +473,7 @@ public class PlaylistService {
                         reorderItem.position()
                 ));
         playlistPodcastRepository.flush();
+        savePlaylistUpdatedOutboxEvent(playlist, currentUserId);
 
         log.info("Playlist reordered: playlistId={}, userId={}, items={}", playlistId, currentUserId, items.size());
 
@@ -677,6 +674,34 @@ public class PlaylistService {
         if (!playlist.getOwner().getId().equals(currentUserProfileId)) {
             throw new ForbiddenOperationException("You don't have permission to modify this resource");
         }
+    }
+
+    private void savePlaylistUpdatedOutboxEvent(PlaylistEntity playlist, UUID ownerUserId) {
+        if (!recommendationOutboxEventService.enabled()) {
+            return;
+        }
+
+        Instant eventTime = Instant.now();
+        recommendationOutboxEventService.savePlaylistEvent(
+                playlist.getId(),
+                PlaylistContentEventFactory.updated(
+                        playlist.getId(),
+                        ownerUserId,
+                        playlist.getTitle(),
+                        playlist.getDescription(),
+                        playlist.isPublicPlaylist(),
+                        playlistPodcastRepository.findPodcastIdsByPlaylistIdOrderByPositionAsc(playlist.getId()),
+                        toInstant(playlist.getCreatedAt(), eventTime),
+                        eventTime,
+                        eventTime,
+                        null,
+                        null
+                )
+        );
+    }
+
+    private Instant toInstant(OffsetDateTime value, Instant fallback) {
+        return value == null ? fallback : value.toInstant();
     }
 
     private void validateUpdateRequest(UpdatePlaylistRequest request) {

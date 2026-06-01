@@ -6,6 +6,8 @@ import java.util.UUID;
 public record PodcastDeletedPayload(
         UUID podcastId,
         UUID authorId,
-        Instant deletedAt
+        UUID categoryId,
+        Instant deletedAt,
+        String status
 ) {
 }

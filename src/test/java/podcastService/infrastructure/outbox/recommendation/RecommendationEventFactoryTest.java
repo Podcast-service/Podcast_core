@@ -21,6 +21,7 @@ import podcastService.infrastructure.outbox.recommendation.payload.PodcastPublis
 import podcastService.infrastructure.outbox.recommendation.payload.PodcastUpdatedPayload;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -96,6 +97,45 @@ class RecommendationEventFactoryTest {
         assertThat(json.get("payload").get(payloadIdField).asText()).isNotBlank();
     }
 
+    @Test
+    void factoriesExposeBackwardCompatibleRecommendationEnrichments() {
+        JsonNode published = payload(podcastPublished());
+        assertThat(published.fieldNames()).toIterable().contains(
+                "podcastId", "authorId", "categoryId", "title", "description", "durationSeconds",
+                "publishedAt", "language", "tags", "status", "isExplicit"
+        );
+
+        JsonNode updated = payload(podcastUpdated());
+        assertThat(updated.fieldNames()).toIterable().contains("updatedAt");
+
+        JsonNode deleted = payload(podcastDeleted());
+        assertThat(deleted.get("status").asText()).isEqualTo(RecommendationEventPayloadValues.DELETED_STATUS);
+
+        JsonNode playFinished = payload(podcastPlayFinished());
+        assertThat(playFinished.fieldNames()).toIterable().contains(
+                "podcastId", "userId", "authorId", "categoryId", "durationSeconds", "progressSeconds",
+                "progressPercent", "source", "occurredAt", "finishedAt"
+        );
+        assertThat(playFinished.get("progressPercent").decimalValue()).isEqualByComparingTo("90.00");
+
+        JsonNode liked = payload(podcastLiked());
+        assertThat(liked.fieldNames()).toIterable().contains("podcastId", "userId", "authorId", "categoryId", "occurredAt", "likedAt");
+
+        JsonNode followed = payload(authorFollowed());
+        assertThat(followed.fieldNames()).toIterable().contains("authorId", "userId", "occurredAt", "followedAt");
+
+        JsonNode playlist = payload(playlistUpdated());
+        assertThat(playlist.fieldNames()).toIterable().contains(
+                "playlistId", "ownerUserId", "title", "description", "publicPlaylist", "podcastIds", "createdAt", "updatedAt"
+        );
+        assertThat(playlist.has("visibility")).isFalse();
+        assertThat(playlist.has("isPublic")).isFalse();
+    }
+
+    private JsonNode payload(DomainEventEnvelope envelope) {
+        return objectMapper.valueToTree(envelope.payload());
+    }
+
     private void assertEnvelope(
             DomainEventEnvelope envelope,
             String expectedEventType,
@@ -136,6 +176,13 @@ class RecommendationEventFactoryTest {
                 AUTHOR_ID,
                 CATEGORY_ID,
                 "Podcast title",
+                "Podcast description",
+                3_600L,
+                OCCURRED_AT,
+                "ru",
+                List.of("backend", "java"),
+                "PUBLISHED",
+                false,
                 OCCURRED_AT,
                 USER_ID,
                 "correlation-1",
@@ -149,6 +196,14 @@ class RecommendationEventFactoryTest {
                 AUTHOR_ID,
                 CATEGORY_ID,
                 "Updated podcast title",
+                "Updated description",
+                3_600L,
+                OCCURRED_AT,
+                "ru",
+                List.of("backend", "java"),
+                "PUBLISHED",
+                false,
+                OCCURRED_AT,
                 OCCURRED_AT,
                 USER_ID,
                 "correlation-1",
@@ -160,6 +215,7 @@ class RecommendationEventFactoryTest {
         return PodcastContentEventFactory.deleted(
                 PODCAST_ID,
                 AUTHOR_ID,
+                CATEGORY_ID,
                 OCCURRED_AT,
                 USER_ID,
                 "correlation-1",
@@ -171,7 +227,11 @@ class RecommendationEventFactoryTest {
         return PodcastActivityEventFactory.playFinished(
                 PODCAST_ID,
                 USER_ID,
+                AUTHOR_ID,
+                CATEGORY_ID,
+                2_000L,
                 1800,
+                RecommendationEventPayloadValues.LISTEN_HISTORY_SOURCE,
                 OCCURRED_AT,
                 "correlation-1",
                 "causation-1"
@@ -182,6 +242,8 @@ class RecommendationEventFactoryTest {
         return PodcastActivityEventFactory.liked(
                 PODCAST_ID,
                 USER_ID,
+                AUTHOR_ID,
+                CATEGORY_ID,
                 OCCURRED_AT,
                 "correlation-1",
                 "causation-1"
@@ -192,6 +254,8 @@ class RecommendationEventFactoryTest {
         return PodcastActivityEventFactory.disliked(
                 PODCAST_ID,
                 USER_ID,
+                AUTHOR_ID,
+                CATEGORY_ID,
                 OCCURRED_AT,
                 "correlation-1",
                 "causation-1"
@@ -223,7 +287,10 @@ class RecommendationEventFactoryTest {
                 PLAYLIST_ID,
                 USER_ID,
                 "Playlist title",
+                "Playlist description",
                 true,
+                List.of(PODCAST_ID),
+                OCCURRED_AT,
                 OCCURRED_AT,
                 "correlation-1",
                 "causation-1"
@@ -235,7 +302,11 @@ class RecommendationEventFactoryTest {
                 PLAYLIST_ID,
                 USER_ID,
                 "Updated playlist title",
+                "Updated playlist description",
                 false,
+                List.of(PODCAST_ID),
+                OCCURRED_AT,
+                OCCURRED_AT,
                 OCCURRED_AT,
                 "correlation-1",
                 "causation-1"
