@@ -1,6 +1,7 @@
 package podcastService.infrastructure.outbox.recommendation.payload;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record PodcastPublishedPayload(
@@ -8,6 +9,12 @@ public record PodcastPublishedPayload(
         UUID authorId,
         UUID categoryId,
         String title,
-        Instant publishedAt
+        String description,
+        Long durationSeconds,
+        Instant publishedAt,
+        String language,
+        List<String> tags,
+        String status,
+        Boolean isExplicit
 ) {
 }

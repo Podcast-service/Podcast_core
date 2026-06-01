@@ -58,7 +58,7 @@
 
 ## Outbox events
 
-`outbox_events` хранит контракт outbox pattern: тип агрегата, идентификатор агрегата, тип события, версию события, ключ, JSON payload/headers, статус отправки, retry metadata и timestamps. Таблица не связана foreign key с доменными таблицами намеренно: outbox должен позволять фиксировать события разных агрегатов без изменения текущей бизнес-логики и без зависимости от доступности Kafka.
+`outbox_events` хранит контракт outbox pattern: тип агрегата, идентификатор агрегата, тип события, версию события, ключ, JSON payload/headers, статус отправки, retry metadata, timestamps и `processing_started_at` lease для recovery зависших отправок. Таблица не связана foreign key с доменными таблицами намеренно: outbox должен позволять фиксировать события разных агрегатов без изменения текущей бизнес-логики и без зависимости от доступности Kafka.
 
 Java layer для таблицы расположен в `podcastService.infrastructure.outbox`. Он сериализует `DomainEventEnvelope` в JSON, сохраняет запись со статусом `NEW` и содержит выключенный по умолчанию publisher для отправки `NEW`/`FAILED` событий в Kafka.
 

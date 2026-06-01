@@ -6,6 +6,7 @@ import java.util.UUID;
 public record PlaylistDeletedPayload(
         UUID playlistId,
         UUID ownerUserId,
-        Instant deletedAt
+        Instant deletedAt,
+        String status
 ) {
 }

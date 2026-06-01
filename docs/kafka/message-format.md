@@ -161,3 +161,5 @@ Recommendation MVP события сначала сохраняются в `outb
 ```
 
 Все recommendation event types версионированы суффиксом `.v1`. Поля `correlationId` и `causationId` остаются `null`, пока в Podcast Core нет общего request/correlation context.
+
+Полный payload contract, topics, keys и rollout: [../recommendation-events.md](../recommendation-events.md).

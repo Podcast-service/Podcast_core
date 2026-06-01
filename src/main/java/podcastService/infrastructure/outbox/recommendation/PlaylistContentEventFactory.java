@@ -6,6 +6,7 @@ import podcastService.infrastructure.outbox.recommendation.payload.PlaylistDelet
 import podcastService.infrastructure.outbox.recommendation.payload.PlaylistUpdatedPayload;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public final class PlaylistContentEventFactory {
@@ -17,7 +18,10 @@ public final class PlaylistContentEventFactory {
             UUID playlistId,
             UUID ownerUserId,
             String title,
+            String description,
             boolean publicPlaylist,
+            List<UUID> podcastIds,
+            Instant createdAt,
             Instant occurredAt,
             String correlationId,
             String causationId
@@ -29,7 +33,15 @@ public final class PlaylistContentEventFactory {
                 correlationId,
                 causationId,
                 ownerUserId,
-                new PlaylistCreatedPayload(playlistId, ownerUserId, title, publicPlaylist, eventTime)
+                new PlaylistCreatedPayload(
+                        playlistId,
+                        ownerUserId,
+                        title,
+                        description,
+                        publicPlaylist,
+                        podcastIds,
+                        createdAt
+                )
         );
     }
 
@@ -37,7 +49,11 @@ public final class PlaylistContentEventFactory {
             UUID playlistId,
             UUID ownerUserId,
             String title,
+            String description,
             boolean publicPlaylist,
+            List<UUID> podcastIds,
+            Instant createdAt,
+            Instant updatedAt,
             Instant occurredAt,
             String correlationId,
             String causationId
@@ -49,7 +65,16 @@ public final class PlaylistContentEventFactory {
                 correlationId,
                 causationId,
                 ownerUserId,
-                new PlaylistUpdatedPayload(playlistId, ownerUserId, title, publicPlaylist, eventTime)
+                new PlaylistUpdatedPayload(
+                        playlistId,
+                        ownerUserId,
+                        title,
+                        description,
+                        publicPlaylist,
+                        podcastIds,
+                        createdAt,
+                        updatedAt
+                )
         );
     }
 
@@ -67,7 +92,12 @@ public final class PlaylistContentEventFactory {
                 correlationId,
                 causationId,
                 ownerUserId,
-                new PlaylistDeletedPayload(playlistId, ownerUserId, eventTime)
+                new PlaylistDeletedPayload(
+                        playlistId,
+                        ownerUserId,
+                        eventTime,
+                        RecommendationEventPayloadValues.DELETED_STATUS
+                )
         );
     }
 }

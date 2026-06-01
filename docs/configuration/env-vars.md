@@ -40,6 +40,8 @@
 | `PODCAST_OUTBOX_BATCH_SIZE` | `100` | нет | максимальный размер batch для outbox publisher |
 | `PODCAST_OUTBOX_PUBLISH_DELAY_MS` | `3000` | нет | fixed delay scheduler-а и базовый retry backoff publisher-а |
 | `PODCAST_OUTBOX_MAX_RETRY_ATTEMPTS` | `10` | нет | максимум попыток публикации outbox event |
+| `PODCAST_OUTBOX_PROCESSING_TIMEOUT_MS` | `600000` | нет | timeout stale `PROCESSING` lease перед recovery в `FAILED` |
+| `PODCAST_OUTBOX_SEND_TIMEOUT_MS` | `10000` | нет | timeout ожидания Kafka send вне DB-транзакции |
 | `PODCAST_KAFKA_UI_PORT` | `8081` | нет | порт Kafka UI |
 | `PODCAST_AUTH_SERVICE_BASE_URL` | `http://localhost:8080`, `http://auth-service:8080` в docker | да | base URL auth-service для выдачи роли автора через `/auth/me/update-roles` |
 | `PODCAST_AUTH_SERVICE_CONNECT_TIMEOUT` | `2s` | нет | timeout установки соединения с auth-service |
