@@ -1,7 +1,6 @@
 package podcastService.transcript.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -73,18 +72,18 @@ public class PodcastMediaService {
         }
     }
 
-    private JsonNode responseContent(String content) {
+    private Object responseContent(String content) {
         if (content == null || content.isBlank()) {
-            return objectMapper.getNodeFactory().textNode(content);
+            return content;
         }
         String normalized = content.trim();
         if (!normalized.startsWith("{") && !normalized.startsWith("[")) {
-            return objectMapper.getNodeFactory().textNode(content);
+            return content;
         }
         try {
-            return objectMapper.readTree(normalized);
+            return objectMapper.readValue(normalized, Object.class);
         } catch (JsonProcessingException exception) {
-            return objectMapper.getNodeFactory().textNode(content);
+            return content;
         }
     }
 }

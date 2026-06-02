@@ -7,6 +7,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 
 @Slf4j
 @Component
@@ -40,10 +41,14 @@ public class SubtitleObjectClient {
                     return uriBuilder.build();
                 });
             }
-            String content = request
+            byte[] contentBytes = request
                     .retrieve()
-                    .body(String.class);
-            if (content == null || content.isBlank()) {
+                    .body(byte[].class);
+            if (contentBytes == null || contentBytes.length == 0) {
+                throw new SubtitleObjectStorageException("Subtitle object is empty");
+            }
+            String content = new String(contentBytes, StandardCharsets.UTF_8);
+            if (content.isBlank()) {
                 throw new SubtitleObjectStorageException("Subtitle object is empty");
             }
             return content;
