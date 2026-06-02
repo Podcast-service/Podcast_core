@@ -25,6 +25,7 @@ import podcastService.podcast.service.PodcastVoteService;
 import podcastService.transcript.dto.PodcastSummaryResponse;
 import podcastService.transcript.dto.PodcastTranscriptResponse;
 import podcastService.transcript.service.PodcastMediaService;
+import podcastService.transcript.summary.SummaryGenerationService;
 import podcastService.vote.dto.VoteRequest;
 import podcastService.vote.dto.VoteResponse;
 
@@ -40,6 +41,7 @@ public class PodcastController {
     private final PodcastService podcastService;
     private final PodcastVoteService podcastVoteService;
     private final PodcastMediaService podcastMediaService;
+    private final SummaryGenerationService summaryGenerationService;
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
@@ -162,6 +164,19 @@ public class PodcastController {
     public PodcastSummaryResponse getPodcastSummary(@PathVariable UUID podcastId) {
         log.info("GET /podcasts/{}/summary", podcastId);
         return podcastMediaService.getSummary(podcastId);
+    }
+
+    @PostMapping("/{podcastId}/summary/generate")
+    @PreAuthorize("hasRole('AUTHOR')")
+    @ResponseStatus(HttpStatus.OK)
+    public PodcastSummaryResponse generatePodcastSummary(
+            @PathVariable UUID podcastId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @RequestParam(defaultValue = "false") boolean force
+    ) {
+        UUID currentUserId = currentUser.userId();
+        log.info("POST /podcasts/{}/summary/generate, currentUserId={}, force={}", podcastId, currentUserId, force);
+        return summaryGenerationService.generateForAuthor(podcastId, currentUserId, force);
     }
 
     @PostMapping("/{podcastId}/vote")

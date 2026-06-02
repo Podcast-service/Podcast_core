@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import podcastService.infrastructure.messaging.error.InvalidKafkaMessageException;
@@ -16,6 +17,7 @@ import podcastService.podcast.repository.PodcastRepository;
 import podcastService.transcript.entity.PodcastTranscriptEntity;
 import podcastService.transcript.entity.PodcastTranscriptId;
 import podcastService.transcript.repository.PodcastTranscriptRepository;
+import podcastService.transcript.summary.PodcastTranscriptSavedEvent;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -34,6 +36,7 @@ public class PodcastMediaMetadataService {
     private final PodcastTranscriptRepository podcastTranscriptRepository;
     private final ObjectMapper objectMapper;
     private final PodcastMediaStatusTransitionPolicy transitionPolicy;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Transactional
     public void markFileUploadStarted(UUID podcastId, OffsetDateTime eventTimestamp) {
@@ -110,6 +113,7 @@ public class PodcastMediaMetadataService {
         String srt = normalizeMediaPath(srtObjectKey, "srt_object_key");
         transcript.setContent(serializeSubtitleContent(vtt, srt, readyAt));
         podcastTranscriptRepository.saveAndFlush(transcript);
+        publishTranscriptSavedEvent(podcastId, "media.subtitle");
         log.info("Podcast subtitle content saved, podcastId={}, readyAt={}", podcastId, readyAt);
     }
 
@@ -119,6 +123,7 @@ public class PodcastMediaMetadataService {
         PodcastTranscriptEntity transcript = findTranscriptOrNew(podcast);
         transcript.setContent(normalizeTranscriptContent(serializeContentNode(content), source + " content"));
         podcastTranscriptRepository.saveAndFlush(transcript);
+        publishTranscriptSavedEvent(podcastId, source);
         log.info("Podcast transcript content saved from Kafka, podcastId={}, source={}, timestamp={}",
                 podcastId, source, timestamp);
     }
@@ -129,6 +134,7 @@ public class PodcastMediaMetadataService {
         PodcastTranscriptEntity transcript = findTranscriptOrNew(podcast);
         transcript.setContent(normalizeTranscriptContent(content, "tts content"));
         podcastTranscriptRepository.saveAndFlush(transcript);
+        publishTranscriptSavedEvent(podcastId, "tts.start");
         log.info("Podcast TTS content saved, podcastId={}, timestamp={}", podcastId, timestamp);
     }
 
@@ -138,6 +144,7 @@ public class PodcastMediaMetadataService {
         PodcastTranscriptEntity transcript = findTranscriptOrNew(podcast);
         transcript.setContent(normalizeTranscriptContent(content, "tts content"));
         podcastTranscriptRepository.saveAndFlush(transcript);
+        publishTranscriptSavedEvent(podcastId, "tts.start");
         persistMediaState(podcast, Status.UPLOADING, timestamp, "tts started", ignored -> {
         });
         log.info("Podcast TTS content saved and upload lifecycle started, podcastId={}, timestamp={}",
@@ -150,6 +157,7 @@ public class PodcastMediaMetadataService {
         PodcastTranscriptEntity transcript = findTranscriptOrNew(podcast);
         transcript.setContent(normalizeTranscriptContent(serializeContentNode(content), "tts content"));
         podcastTranscriptRepository.saveAndFlush(transcript);
+        publishTranscriptSavedEvent(podcastId, "tts.start");
         persistMediaState(podcast, Status.UPLOADING, timestamp, "tts started", ignored -> {
         });
         log.info("Podcast TTS content saved and upload lifecycle started, podcastId={}, timestamp={}",
@@ -201,6 +209,14 @@ public class PodcastMediaMetadataService {
                     transcript.setPodcast(podcast);
                     return transcript;
                 });
+    }
+
+    private void publishTranscriptSavedEvent(UUID podcastId, String source) {
+        applicationEventPublisher.publishEvent(new PodcastTranscriptSavedEvent(
+                podcastId,
+                DEFAULT_LANGUAGE,
+                source
+        ));
     }
 
     private String normalizeMediaPath(String value, String fieldName) {

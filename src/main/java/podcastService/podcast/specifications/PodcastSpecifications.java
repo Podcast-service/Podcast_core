@@ -50,6 +50,14 @@ public final class PodcastSpecifications {
         return (root, query, cb) -> cb.equal(root.get("status"), status);
     }
 
+    public static Specification<PodcastEntity> withoutStatus(Status status) {
+        if (status == null) {
+            return noOp();
+        }
+
+        return (root, query, cb) -> cb.notEqual(root.get("status"), status);
+    }
+
     public static Specification<PodcastEntity> searchByText(String queryText) {
         if (queryText == null || queryText.trim().isEmpty()) {
             return noOp();

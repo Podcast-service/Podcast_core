@@ -31,6 +31,6 @@ public class PodcastSummaryEntity {
     @Column(name = "content", nullable = false, columnDefinition = "text")
     private String content;
 
-    @Column(name = "generated_at", nullable = false, insertable = false, updatable = false)
+    @Column(name = "generated_at", nullable = false)
     private OffsetDateTime generatedAt;
 }

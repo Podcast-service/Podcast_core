@@ -5,6 +5,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.context.ApplicationEventPublisher;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -15,6 +16,7 @@ import podcastService.infrastructure.messaging.error.InvalidKafkaMessageExceptio
 import podcastService.transcript.entity.PodcastTranscriptEntity;
 import podcastService.transcript.entity.PodcastTranscriptId;
 import podcastService.transcript.repository.PodcastTranscriptRepository;
+import podcastService.transcript.summary.PodcastTranscriptSavedEvent;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -38,6 +40,9 @@ class PodcastMediaMetadataServiceTest {
     @Mock
     private PodcastTranscriptRepository podcastTranscriptRepository;
 
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
+
     private PodcastMediaMetadataService service;
 
     @BeforeEach
@@ -46,7 +51,8 @@ class PodcastMediaMetadataServiceTest {
                 podcastRepository,
                 podcastTranscriptRepository,
                 JsonMapper.builder().addModule(new JavaTimeModule()).build(),
-                new PodcastMediaStatusTransitionPolicy()
+                new PodcastMediaStatusTransitionPolicy(),
+                applicationEventPublisher
         );
     }
 
@@ -181,6 +187,7 @@ class PodcastMediaMetadataServiceTest {
                 .contains("\"vtt_object_key\":\"media/podcast/subtitles.vtt\"")
                 .contains("\"srt_object_key\":\"media/podcast/subtitles.srt\"")
                 .contains("\"ready_at\"");
+        verify(applicationEventPublisher).publishEvent(any(PodcastTranscriptSavedEvent.class));
     }
 
     @Test
@@ -197,6 +204,7 @@ class PodcastMediaMetadataServiceTest {
 
         assertThat(transcript.getContent()).isEqualTo("Текст для генерации аудио");
         verify(podcastTranscriptRepository).saveAndFlush(transcript);
+        verify(applicationEventPublisher).publishEvent(any(PodcastTranscriptSavedEvent.class));
     }
 
     @Test
@@ -219,6 +227,7 @@ class PodcastMediaMetadataServiceTest {
         assertThat(podcast.getStatus()).isEqualTo(Status.UPLOADING);
         verify(podcastTranscriptRepository).saveAndFlush(transcript);
         verify(podcastRepository).saveAndFlush(podcast);
+        verify(applicationEventPublisher).publishEvent(any(PodcastTranscriptSavedEvent.class));
     }
 
     @Test
@@ -255,6 +264,7 @@ class PodcastMediaMetadataServiceTest {
         assertThat(podcast.getStatus()).isEqualTo(Status.UPLOADING);
         verify(podcastTranscriptRepository).saveAndFlush(transcript);
         verify(podcastRepository).saveAndFlush(podcast);
+        verify(applicationEventPublisher).publishEvent(any(PodcastTranscriptSavedEvent.class));
     }
 
     private PodcastEntity podcast(Status status) {
