@@ -60,6 +60,7 @@ public class SecurityConfiguration {
                                 "/openapi/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/categories").permitAll()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/podcasts",

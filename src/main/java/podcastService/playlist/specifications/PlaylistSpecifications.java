@@ -27,6 +27,15 @@ public final class PlaylistSpecifications {
         return (root, query, cb) -> cb.isTrue(root.get("publicPlaylist"));
     }
 
+    public static Specification<PlaylistEntity> withPublicStatus(Boolean isPublic) {
+        if (isPublic == null) {
+            return noOp();
+        }
+        return (root, query, cb) -> isPublic
+                ? cb.isTrue(root.get("publicPlaylist"))
+                : cb.isFalse(root.get("publicPlaylist"));
+    }
+
     public static Specification<PlaylistEntity> withOwnerUserId(UUID userId) {
         if (userId == null) {
             return noOp();

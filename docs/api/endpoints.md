@@ -36,6 +36,16 @@
 | `POST` | `/categories` | роль `admin` | `CreateCategoryRequest` | `CategoryResponse` |
 | `PUT` | `/categories/{categoryId}` | роль `admin` | `UpdateCategoryRequest` | `CategoryResponse` |
 | `DELETE` | `/categories/{categoryId}` | роль `admin` | нет | `204` |
+| `GET` | `/admin/podcasts` | роль `admin` | нет | `AdminPageResponse<AdminPodcastResponse>` |
+| `GET` | `/admin/podcasts/{podcastId}` | роль `admin` | нет | `AdminPodcastResponse` |
+| `DELETE` | `/admin/podcasts/{podcastId}` | роль `admin` | нет | `204` |
+| `GET` | `/admin/playlists` | роль `admin` | нет | `AdminPageResponse<AdminPlaylistResponse>` |
+| `GET` | `/admin/playlists/{playlistId}` | роль `admin` | нет | `AdminPlaylistDetailResponse` |
+| `DELETE` | `/admin/playlists/{playlistId}` | роль `admin` | нет | `204` |
+| `GET` | `/admin/users` | роль `admin` | нет | `AdminPageResponse<AdminUserResponse>` |
+| `GET` | `/admin/users/{userId}` | роль `admin` | нет | `AdminUserResponse` |
+| `POST` | `/admin/users/{userId}/roles` | роль `admin` | `AdminRoleRequest` | `AdminRoleMutationResponse` |
+| `DELETE` | `/admin/users/{userId}/roles/admin` | роль `admin` | нет | `AdminRoleMutationResponse` |
 | `GET` | `/podcasts` | публичный, токен опционален | нет | `PageOfPodcastCard` |
 | `POST` | `/podcasts` | роль `author` | `CreatePodcastRequest` | `PodcastDetailResponse` |
 | `GET` | `/podcasts/{podcastId}` | публичный, токен опционален | нет | `PodcastDetailResponse` |
@@ -73,6 +83,9 @@
 | `GET /podcasts` | `q`, `categoryId`, `authorId`, `sort`, `page`, `size` |
 | `GET /authors` | `q`, `sort`, `page`, `size` |
 | `GET /authors/me/podcasts` | `status`, `q`, `sort`, `page`, `size` |
+| `GET /admin/podcasts` | `q`, `status`, `authorId`, `categoryId`, `sort`, `page`, `size` |
+| `GET /admin/playlists` | `q`, `ownerProfileId`, `isPublic`, `sort`, `page`, `size` |
+| `GET /admin/users` | `q`, `role`, `emailVerified`, `sort`, `page`, `size` |
 | `GET /authors/{authorId}/podcasts` | `q`, `sort`, `page`, `size` |
 | `GET /playlists` | `q`, `sort`, `page`, `size` |
 | `GET /users/me/playlists` | `page`, `size` |
