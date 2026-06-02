@@ -5,8 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import podcastService.transcript.service.VttSpeakerBlockParser;
-import podcastService.transcript.service.VttSpeakerBlockParser.SpeakerBlock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +24,6 @@ public class TranscriptTextResolver {
 
     private final ObjectMapper objectMapper;
     private final SubtitleObjectClient subtitleObjectClient;
-    private final VttSpeakerBlockParser vttSpeakerBlockParser;
 
     public String resolve(String content) {
         if (content == null || content.isBlank()) {
@@ -38,13 +35,9 @@ public class TranscriptTextResolver {
         }
         try {
             JsonNode root = objectMapper.readTree(normalized);
-            String vttObjectKey = subtitleObjectKey(root, "vtt_object_key");
-            if (vttObjectKey != null) {
-                return resolveVttSubtitle(vttObjectKey);
-            }
-            String srtObjectKey = subtitleObjectKey(root, "srt_object_key");
-            if (srtObjectKey != null) {
-                return cleanSubtitleText(subtitleObjectClient.fetch(srtObjectKey));
+            String objectKey = preferredSubtitleObjectKey(root);
+            if (objectKey != null) {
+                return cleanSubtitleText(subtitleObjectClient.fetch(objectKey));
             }
             return extractTextFromJson(root);
         } catch (JsonProcessingException exception) {
@@ -52,24 +45,19 @@ public class TranscriptTextResolver {
         }
     }
 
-    private String subtitleObjectKey(JsonNode root, String fieldName) {
+    private String preferredSubtitleObjectKey(JsonNode root) {
         if (root == null || !root.isObject()) {
             return null;
         }
-        JsonNode objectKey = root.get(fieldName);
-        if (objectKey != null && objectKey.isTextual() && !objectKey.asText().isBlank()) {
-            return objectKey.asText();
+        JsonNode srtObjectKey = root.get("srt_object_key");
+        if (srtObjectKey != null && srtObjectKey.isTextual() && !srtObjectKey.asText().isBlank()) {
+            return srtObjectKey.asText();
+        }
+        JsonNode vttObjectKey = root.get("vtt_object_key");
+        if (vttObjectKey != null && vttObjectKey.isTextual() && !vttObjectKey.asText().isBlank()) {
+            return vttObjectKey.asText();
         }
         return null;
-    }
-
-    private String resolveVttSubtitle(String objectKey) {
-        String subtitleContent = subtitleObjectClient.fetch(objectKey);
-        List<SpeakerBlock> speakerBlocks = vttSpeakerBlockParser.parse(subtitleContent);
-        if (!speakerBlocks.isEmpty()) {
-            return objectMapper.valueToTree(speakerBlocks).toString();
-        }
-        return cleanSubtitleText(subtitleContent);
     }
 
     private String extractTextFromJson(JsonNode root) {
