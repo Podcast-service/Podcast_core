@@ -2,6 +2,7 @@ package podcastService.transcript.summary;
 
 import org.junit.jupiter.api.Test;
 import podcastService.infrastructure.config.JacksonConfig;
+import podcastService.transcript.service.VttSpeakerBlockParser;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -13,7 +14,8 @@ class TranscriptTextResolverTest {
     private final SubtitleObjectClient subtitleObjectClient = mock(SubtitleObjectClient.class);
     private final TranscriptTextResolver resolver = new TranscriptTextResolver(
             new JacksonConfig().objectMapper(),
-            subtitleObjectClient
+            subtitleObjectClient,
+            new VttSpeakerBlockParser()
     );
 
     @Test
@@ -39,7 +41,40 @@ class TranscriptTextResolverTest {
     }
 
     @Test
-    void subtitlePointerJsonFetchesPreferredSrtObjectAndCleansTimings() {
+    void subtitlePointerJsonFetchesVttAndBuildsConsecutiveSpeakerBlocks() {
+        when(subtitleObjectClient.fetch("media/uuid/subtitles.vtt"))
+                .thenReturn("""
+                        WEBVTT
+
+                        00:00:00.000 --> 00:00:02.000
+                        SPEAKER_00: Первая часть.
+
+                        00:00:02.000 --> 00:00:04.000
+                        SPEAKER_00: Продолжение.
+
+                        00:00:04.000 --> 00:00:06.000
+                        SPEAKER_01: Ответ.
+
+                        00:00:06.000 --> 00:00:08.000
+                        SPEAKER_00: Новый блок первого спикера.
+                        """);
+
+        String result = resolver.resolve("""
+                {
+                  "vtt_object_key": "media/uuid/subtitles.vtt",
+                  "srt_object_key": "media/uuid/subtitles.srt",
+                  "ready_at": "2026-06-01T00:00:00Z"
+                }
+                """);
+
+        assertThat(result).isEqualTo("""
+                [{"text":"Первая часть. Продолжение.","voice":"speaker_00"},{"text":"Ответ.","voice":"speaker_01"},{"text":"Новый блок первого спикера.","voice":"speaker_00"}]\
+                """);
+        verify(subtitleObjectClient).fetch("media/uuid/subtitles.vtt");
+    }
+
+    @Test
+    void subtitlePointerJsonFallsBackToSrtObjectAndCleansTimings() {
         when(subtitleObjectClient.fetch("media/uuid/subtitles.srt"))
                 .thenReturn("""
                         1
@@ -53,7 +88,6 @@ class TranscriptTextResolverTest {
 
         String result = resolver.resolve("""
                 {
-                  "vtt_object_key": "media/uuid/subtitles.vtt",
                   "srt_object_key": "media/uuid/subtitles.srt",
                   "ready_at": "2026-06-01T00:00:00Z"
                 }

@@ -60,7 +60,7 @@
 | `PODCAST_SUMMARY_DIRECT_PROMPT` | безопасный default в коде | нет | direct summary prompt template |
 | `PODCAST_SUMMARY_CHUNK_PROMPT` | безопасный default в коде | нет | chunk summary prompt template |
 | `PODCAST_SUMMARY_FINAL_PROMPT` | безопасный default в коде | нет | final summary prompt template |
-| `PODCAST_SUBTITLE_STORAGE_BASE_URL` | пусто | да для subtitle pointer JSON | HTTP/gateway base URL S3-compatible хранилища для чтения `vtt_object_key`/`srt_object_key` |
+| `PODCAST_SUBTITLE_STORAGE_BASE_URL` | пусто | да для относительных subtitle object keys | HTTP/gateway base URL S3-compatible хранилища; для абсолютного HTTP(S) `vtt_object_key` не требуется |
 | `PODCAST_SUBTITLE_STORAGE_CONNECT_TIMEOUT` | `3s` | нет | timeout установки соединения с subtitle storage |
 | `PODCAST_SUBTITLE_STORAGE_READ_TIMEOUT` | `20s` | нет | timeout чтения subtitle object |
 | `PODCAST_KAFKA_UI_PORT` | `8081` | нет | порт Kafka UI |
