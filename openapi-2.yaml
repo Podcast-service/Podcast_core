@@ -596,11 +596,27 @@ components:
           type: string
           example: RU
         content:
-          type: string
-          description: Полный текст транскрипта
+          description: Текст транскрипта либо массив объединённых subtitle-блоков
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                $ref: '#/components/schemas/TranscriptSpeakerBlock'
+            - type: object
+              additionalProperties: true
         generatedAt:
           type: string
           format: date-time
+
+    TranscriptSpeakerBlock:
+      type: object
+      required: [text, voice]
+      properties:
+        text:
+          type: string
+        voice:
+          type: string
+          example: speaker_00
 
     PodcastSummaryResponse:
       type: object

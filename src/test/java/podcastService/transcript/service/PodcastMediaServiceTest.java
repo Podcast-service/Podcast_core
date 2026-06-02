@@ -1,5 +1,6 @@
 package podcastService.transcript.service;
 
+import com.fasterxml.jackson.databind.node.TextNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,11 +43,19 @@ class PodcastMediaServiceTest {
     @Mock
     private PodcastSummaryRepository podcastSummaryRepository;
 
+    @Mock
+    private PodcastTranscriptContentResolver podcastTranscriptContentResolver;
+
     private PodcastMediaService service;
 
     @BeforeEach
     void setUp() {
-        service = new PodcastMediaService(podcastRepository, podcastTranscriptRepository, podcastSummaryRepository);
+        service = new PodcastMediaService(
+                podcastRepository,
+                podcastTranscriptRepository,
+                podcastSummaryRepository,
+                podcastTranscriptContentResolver
+        );
     }
 
     @Test
@@ -55,12 +64,14 @@ class PodcastMediaServiceTest {
         when(podcastRepository.findById(PODCAST_ID)).thenReturn(Optional.of(podcast(Status.PUBLISHED)));
         when(podcastTranscriptRepository.findByIdPodcastIdAndIdLanguage(PODCAST_ID, "RU"))
                 .thenReturn(Optional.of(transcript));
+        when(podcastTranscriptContentResolver.resolve("Расшифровка выпуска"))
+                .thenReturn(TextNode.valueOf("Расшифровка выпуска"));
 
         PodcastTranscriptResponse response = service.getTranscript(PODCAST_ID);
 
         assertThat(response.podcastId()).isEqualTo(PODCAST_ID);
         assertThat(response.language()).isEqualTo("RU");
-        assertThat(response.content()).isEqualTo("Расшифровка выпуска");
+        assertThat(response.content().asText()).isEqualTo("Расшифровка выпуска");
     }
 
     @Test

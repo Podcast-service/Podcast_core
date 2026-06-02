@@ -27,6 +27,7 @@ public class PodcastMediaService {
     private final PodcastRepository podcastRepository;
     private final PodcastTranscriptRepository podcastTranscriptRepository;
     private final PodcastSummaryRepository podcastSummaryRepository;
+    private final PodcastTranscriptContentResolver podcastTranscriptContentResolver;
 
     @Transactional(readOnly = true)
     public PodcastTranscriptResponse getTranscript(UUID podcastId) {
@@ -40,7 +41,7 @@ public class PodcastMediaService {
         return new PodcastTranscriptResponse(
                 transcript.getId().getPodcastId(),
                 transcript.getId().getLanguage(),
-                transcript.getContent(),
+                podcastTranscriptContentResolver.resolve(transcript.getContent()),
                 transcript.getGeneratedAt()
         );
     }

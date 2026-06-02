@@ -89,9 +89,7 @@ Consumer принимает только каноничные значения �
 }
 ```
 
-Поле `content` сохраняется в `podcast_transcripts.content` в исходном виде. Если producer присылает строку, сохраняется строка. Если producer присылает JSON-объект или массив, сохраняется компактная JSON-строка. `vtt_object_key` и `srt_object_key` являются ссылками на subtitle objects в storage, а не текстом transcript.
-
-Перед отправкой transcript в OpenRouter summary generation скачивает VTT по абсолютному HTTP(S) URL или относительному object key через `PODCAST_SUBTITLE_STORAGE_BASE_URL`. Соседние cue одного спикера объединяются в блоки `text`/`voice`.
+Поле `content` сохраняется в `podcast_transcripts.content` в исходном виде. Если producer присылает строку, сохраняется строка. Если producer присылает JSON-объект или массив, сохраняется компактная JSON-строка. `vtt_object_key` и `srt_object_key` являются ссылками на subtitle objects в storage, а не текстом transcript. Summary generation читает соответствующий `.srt`/`.vtt` объект перед построением prompt. `GET /podcasts/{podcastId}/transcript` читает VTT и возвращает соседние cue одного спикера в виде объединённых блоков `text`/`voice`.
 
 ## `tts.start`
 
