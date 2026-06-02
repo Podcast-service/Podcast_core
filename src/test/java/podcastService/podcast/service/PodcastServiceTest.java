@@ -1,8 +1,16 @@
 package podcastService.podcast.service;
 
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -33,6 +41,7 @@ import podcastService.transcript.repository.PodcastTranscriptRepository;
 import podcastService.user.entity.UserProfileEntity;
 import podcastService.user.repository.UserProfileRepository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,6 +49,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -246,6 +256,41 @@ class PodcastServiceTest {
 
         assertThat(response.status()).isEqualTo(Status.PUBLISHED);
         verifyNoInteractions(outboxEventRepository);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    @Test
+    void listMineAsAuthorExcludesArchivedPodcasts() {
+        when(authorRepository.findByUserProfileUserId(USER_ID)).thenReturn(Optional.of(author()));
+        when(podcastRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        service.listMineAsAuthor(USER_ID, null, null, null, 1, 20);
+
+        ArgumentCaptor<Specification<PodcastEntity>> captor = ArgumentCaptor.forClass(Specification.class);
+        verify(podcastRepository).findAll(captor.capture(), any(Pageable.class));
+
+        Root<PodcastEntity> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        CriteriaBuilder criteriaBuilder = mock(CriteriaBuilder.class);
+        Path<Object> authorPath = mock(Path.class);
+        Path<Object> authorIdPath = mock(Path.class);
+        Path<Object> statusPath = mock(Path.class);
+        Predicate conjunction = mock(Predicate.class);
+        Predicate authorPredicate = mock(Predicate.class);
+        Predicate notArchivedPredicate = mock(Predicate.class);
+
+        when(query.getResultType()).thenReturn((Class) Long.class);
+        when(criteriaBuilder.conjunction()).thenReturn(conjunction);
+        when(root.get("author")).thenReturn(authorPath);
+        when(authorPath.get("id")).thenReturn(authorIdPath);
+        when(root.get("status")).thenReturn(statusPath);
+        when(criteriaBuilder.equal(authorIdPath, AUTHOR_ID)).thenReturn(authorPredicate);
+        when(criteriaBuilder.notEqual(statusPath, Status.ARCHIVED)).thenReturn(notArchivedPredicate);
+
+        captor.getValue().toPredicate(root, query, criteriaBuilder);
+
+        verify(criteriaBuilder).notEqual(statusPath, Status.ARCHIVED);
     }
 
     @Test

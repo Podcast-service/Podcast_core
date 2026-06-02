@@ -159,6 +159,7 @@ public class PodcastService {
         Specification<PodcastEntity> specification = Specification
                 .where(PodcastSpecifications.fetchRelations())
                 .and(PodcastSpecifications.withAuthorId(author.getId()))
+                .and(PodcastSpecifications.withoutStatus(Status.ARCHIVED))
                 .and(PodcastSpecifications.withStatus(status))
                 .and(PodcastSpecifications.searchByText(query));
 

@@ -217,7 +217,7 @@ Podcast-service передаёт текущий `Authorization: Bearer <access_t
 
 ### `GET /authors/me/podcasts`
 
-Возвращает все подкасты текущего автора, включая `DRAFT`, `UPLOADING`, `PROCESSING`, `FAILED`, `PUBLISHED` и `ARCHIVED`.
+Возвращает подкасты текущего автора, кроме архивных записей (`ARCHIVED`). После удаления подкаст переводится в `ARCHIVED` и больше не отображается в авторском списке, даже при явном фильтре `status=ARCHIVED`.
 
 Query параметры:
 
