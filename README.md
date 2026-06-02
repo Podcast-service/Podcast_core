@@ -1,6 +1,6 @@
 # Podcast Core
 
-`Podcast Core` — микросервис доменной части подкаст-платформы. Он предоставляет REST API для подкастов, авторов, пользователей, категорий, плейлистов, голосов, подписок, истории прослушивания и поиска. Сервис хранит данные в PostgreSQL и принимает события пользователей из Kafka от сервиса аутентификации.
+`Podcast Core` — микросервис доменной части подкаст-платформы. Он предоставляет REST API для подкастов, авторов, пользователей, категорий, плейлистов, голосов, подписок, истории прослушивания и поиска. Сервис хранит данные в PostgreSQL и принимает события пользователей из Kafka от сервиса аутентификации.  
 
 ## Быстрый старт
 
@@ -31,6 +31,7 @@ http://localhost:8082/podcast/v1/swagger
 | Архитектура | [docs/architecture/overview.md](docs/architecture/overview.md) |
 | REST API | [docs/api/README.md](docs/api/README.md) |
 | Kafka | [docs/kafka/overview.md](docs/kafka/overview.md) |
+| Recommendation events | [docs/recommendation-events.md](docs/recommendation-events.md) |
 | Конфигурация | [docs/configuration/environments.md](docs/configuration/environments.md) |
 | Локальная разработка | [docs/development/local-setup.md](docs/development/local-setup.md) |
 | Эксплуатация | [docs/operations/deployment.md](docs/operations/deployment.md) |

@@ -9,6 +9,13 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import podcastService.author.repository.AuthorRepository;
+import podcastService.infrastructure.config.JacksonConfig;
+import podcastService.infrastructure.outbox.OutboxEventService;
+import podcastService.infrastructure.outbox.RecommendationEventsProperties;
+import podcastService.infrastructure.outbox.entity.OutboxEventEntity;
+import podcastService.infrastructure.outbox.recommendation.RecommendationEventTypes;
+import podcastService.infrastructure.outbox.recommendation.RecommendationOutboxEventService;
+import podcastService.infrastructure.outbox.repository.OutboxEventRepository;
 import podcastService.playlist.dto.AddPodcastToPlaylistRequest;
 import podcastService.playlist.dto.PlaylistDetailResponse;
 import podcastService.playlist.dto.PlaylistOwnerResponse;
@@ -36,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -57,22 +65,13 @@ class PlaylistServiceMutationTest {
     @Mock private AuthorRepository authorRepository;
     @Mock private PlaylistMapper playlistMapper;
     @Mock private EntityManager entityManager;
+    @Mock private OutboxEventRepository outboxEventRepository;
 
     private PlaylistService service;
 
     @BeforeEach
     void setUp() {
-        service = new PlaylistService(
-                playlistRepository,
-                playlistPodcastRepository,
-                playlistVoteRepository,
-                savedPlaylistRepository,
-                podcastRepository,
-                userProfileRepository,
-                authorRepository,
-                playlistMapper,
-                entityManager
-        );
+        service = serviceWithRecommendationEvents(false);
     }
 
     @Test
@@ -91,6 +90,37 @@ class PlaylistServiceMutationTest {
         assertThat(playlist.isPublicPlaylist()).isFalse();
         assertThat(playlist.getTitle()).isEqualTo("Original title");
         verify(playlistRepository).saveAndFlush(playlist);
+        verifyNoInteractions(outboxEventRepository);
+    }
+
+    @Test
+    void updatePlaylistCreatesOutboxEventWhenRecommendationEventsEnabled() {
+        service = serviceWithRecommendationEvents(true);
+        PlaylistEntity playlist = playlist();
+        UpdatePlaylistRequest request = new UpdatePlaylistRequest();
+        request.setTitle("  Новое название  ");
+        request.setIsPublic(false);
+        stubOwnerMutation(playlist);
+        stubDetailAfterMutation(playlist);
+        when(outboxEventRepository.saveAndFlush(any(OutboxEventEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PlaylistDetailResponse response = service.update(PLAYLIST_ID, USER_ID, request);
+
+        ArgumentCaptor<OutboxEventEntity> captor = ArgumentCaptor.forClass(OutboxEventEntity.class);
+        verify(outboxEventRepository).saveAndFlush(captor.capture());
+        OutboxEventEntity outboxEvent = captor.getValue();
+
+        assertThat(response.id()).isEqualTo(PLAYLIST_ID);
+        assertThat(playlist.getTitle()).isEqualTo("Новое название");
+        assertThat(outboxEvent.getAggregateType()).isEqualTo("PLAYLIST");
+        assertThat(outboxEvent.getAggregateId()).isEqualTo(PLAYLIST_ID);
+        assertThat(outboxEvent.getEventKey()).isEqualTo(PLAYLIST_ID.toString());
+        assertThat(outboxEvent.getEventType()).isEqualTo(RecommendationEventTypes.PLAYLIST_UPDATED);
+        assertThat(outboxEvent.getEventVersion()).isEqualTo(1);
+        assertThat(outboxEvent.getPayload().get("payload").get("playlistId").asText()).isEqualTo(PLAYLIST_ID.toString());
+        assertThat(outboxEvent.getPayload().get("payload").get("ownerUserId").asText()).isEqualTo(USER_ID.toString());
+        assertThat(outboxEvent.getPayload().get("payload").get("title").asText()).isEqualTo("Новое название");
     }
 
     @Test
@@ -113,6 +143,33 @@ class PlaylistServiceMutationTest {
         assertThat(captor.getValue().getId().getPlaylistId()).isEqualTo(PLAYLIST_ID);
         assertThat(captor.getValue().getId().getPodcastId()).isEqualTo(PODCAST_ONE_ID);
         assertThat(captor.getValue().getPosition()).isEqualTo(3);
+    }
+
+    @Test
+    void addPodcastCreatesPlaylistSnapshotEventWhenRecommendationEventsEnabled() {
+        service = serviceWithRecommendationEvents(true);
+        PlaylistEntity playlist = playlist();
+        PodcastEntity podcast = podcast(PODCAST_ONE_ID, Status.PUBLISHED);
+        stubOwnerMutation(playlist);
+        stubDetailAfterMutation(playlist);
+        when(podcastRepository.findDetailedById(PODCAST_ONE_ID)).thenReturn(Optional.of(podcast));
+        when(playlistPodcastRepository.existsByIdPlaylistIdAndIdPodcastId(PLAYLIST_ID, PODCAST_ONE_ID))
+                .thenReturn(false);
+        when(playlistPodcastRepository.findMaxPosition(PLAYLIST_ID)).thenReturn(0);
+        when(playlistPodcastRepository.saveAndFlush(any(PlaylistPodcastEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(playlistPodcastRepository.findPodcastIdsByPlaylistIdOrderByPositionAsc(PLAYLIST_ID))
+                .thenReturn(List.of(PODCAST_ONE_ID));
+        when(outboxEventRepository.saveAndFlush(any(OutboxEventEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.addPodcast(PLAYLIST_ID, USER_ID, new AddPodcastToPlaylistRequest(PODCAST_ONE_ID));
+
+        ArgumentCaptor<OutboxEventEntity> captor = ArgumentCaptor.forClass(OutboxEventEntity.class);
+        verify(outboxEventRepository).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getEventType()).isEqualTo(RecommendationEventTypes.PLAYLIST_UPDATED);
+        assertThat(captor.getValue().getPayload().get("payload").get("podcastIds").get(0).asText())
+                .isEqualTo(PODCAST_ONE_ID.toString());
     }
 
     @Test
@@ -198,5 +255,28 @@ class PlaylistServiceMutationTest {
         entity.setId(new PlaylistPodcastId(PLAYLIST_ID, podcastId));
         entity.setPosition(position);
         return entity;
+    }
+
+    private PlaylistService serviceWithRecommendationEvents(boolean enabled) {
+        OutboxEventService outboxEventService = new OutboxEventService(
+                outboxEventRepository,
+                new JacksonConfig().objectMapper()
+        );
+        RecommendationOutboxEventService recommendationOutboxEventService = new RecommendationOutboxEventService(
+                outboxEventService,
+                new RecommendationEventsProperties(enabled)
+        );
+        return new PlaylistService(
+                playlistRepository,
+                playlistPodcastRepository,
+                playlistVoteRepository,
+                savedPlaylistRepository,
+                podcastRepository,
+                userProfileRepository,
+                authorRepository,
+                playlistMapper,
+                entityManager,
+                recommendationOutboxEventService
+        );
     }
 }

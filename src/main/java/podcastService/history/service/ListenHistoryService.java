@@ -17,6 +17,9 @@ import podcastService.history.dto.ListenHistoryItem;
 import podcastService.history.dto.SaveProgressRequest;
 import podcastService.history.entity.ListenHistoryEntity;
 import podcastService.history.repository.ListenHistoryRepository;
+import podcastService.infrastructure.outbox.recommendation.PodcastActivityEventFactory;
+import podcastService.infrastructure.outbox.recommendation.RecommendationEventPayloadValues;
+import podcastService.infrastructure.outbox.recommendation.RecommendationOutboxEventService;
 import podcastService.podcast.dto.PodcastCard;
 import podcastService.podcast.entity.PodcastEntity;
 import podcastService.podcast.entity.PodcastVoteEntity;
@@ -29,7 +32,9 @@ import podcastService.user.entity.UserProfileEntity;
 import podcastService.user.repository.UserProfileRepository;
 import podcastService.vote.dto.VoteType;
 
+import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -48,6 +53,7 @@ public class ListenHistoryService {
     private final SubscriptionRepository subscriptionRepository;
     private final AuthorRepository authorRepository;
     private final PodcastMapper podcastMapper;
+    private final RecommendationOutboxEventService recommendationOutboxEventService;
 
     @Transactional(readOnly = true)
     public PageResponse<ListenHistoryItem> listMine(UUID currentUserId, int page, int size) {
@@ -107,8 +113,28 @@ public class ListenHistoryService {
 
         int progressSeconds = normalizeProgress(request.progressSeconds(), podcast.getDurationSeconds());
         boolean completed = isCompleted(progressSeconds, podcast.getDurationSeconds());
+        Optional<ListenHistoryEntity> previousHistory = listenHistoryRepository
+                .findByIdUserProfileIdAndIdPodcastId(currentUser.getId(), podcastId);
+        boolean newlyCompleted = completed && previousHistory.map(item -> !item.isCompleted()).orElse(true);
 
         listenHistoryRepository.upsertProgress(currentUser.getId(), podcastId, progressSeconds, completed);
+        if (newlyCompleted) {
+            recommendationOutboxEventService.saveUserActivityEvent(
+                    currentUserId,
+                    PodcastActivityEventFactory.playFinished(
+                            podcastId,
+                            currentUserId,
+                            podcast.getAuthor().getId(),
+                            podcast.getCategory() == null ? null : podcast.getCategory().getId(),
+                            podcast.getDurationSeconds(),
+                            progressSeconds,
+                            RecommendationEventPayloadValues.LISTEN_HISTORY_SOURCE,
+                            Instant.now(),
+                            null,
+                            null
+                    )
+            );
+        }
 
         log.info(
                 "Listen progress saved: podcastId={}, currentUserId={}, progressSeconds={}, completed={}",

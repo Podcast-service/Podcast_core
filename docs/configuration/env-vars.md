@@ -21,13 +21,48 @@
 | `PODCAST_KAFKA_TOPIC_MEDIA_SUBTITLE` | `media.subtitle` | да | topic результатов субтитров |
 | `PODCAST_KAFKA_TOPIC_TTS_START` | `tts.start` | да | topic старта TTS-flow |
 | `PODCAST_KAFKA_TOPIC_TTS_FAILED` | `tts.failed` | да | topic ошибок TTS-flow |
+| `PODCAST_KAFKA_TOPIC_PODCAST_ACTIVITY_EVENTS` | `podcast.activity.events.v1` | нет | исходящий topic recommendation activity events из outbox publisher |
+| `PODCAST_KAFKA_TOPIC_PODCAST_CONTENT_EVENTS` | `podcast.content.events.v1` | нет | исходящий topic recommendation content events из outbox publisher |
+| `PODCAST_KAFKA_TOPIC_PODCAST_SEARCH_EVENTS` | `podcast.search.events.v1` | нет | зарезервированный исходящий topic search events |
 | `PODCAST_KAFKA_RETRY_BACKOFF_MS` | `1000` | нет | задержка между retry Kafka |
 | `PODCAST_KAFKA_RETRY_MAX_ATTEMPTS` | `3` | нет | количество retry перед DLT для retryable ошибок |
 | `PODCAST_KAFKA_DLT_SUFFIX` | `.DLT` | нет | суффикс DLT topic |
+| `PODCAST_KAFKA_DLT_TOPIC_PODCAST_ACTIVITY_EVENTS` | `podcast.activity.events.v1.DLT` | нет | имя DLT topic для activity events; на текущем этапе outbox publisher туда не публикует |
+| `PODCAST_KAFKA_DLT_TOPIC_PODCAST_CONTENT_EVENTS` | `podcast.content.events.v1.DLT` | нет | имя DLT topic для content events; на текущем этапе outbox publisher туда не публикует |
+| `PODCAST_KAFKA_DLT_TOPIC_PODCAST_SEARCH_EVENTS` | `podcast.search.events.v1.DLT` | нет | имя DLT topic для search events; на текущем этапе outbox publisher туда не публикует |
+| `PODCAST_KAFKA_PRODUCER_ENABLED` | `false` | нет | второй выключатель Kafka producer для outbox publisher; без него publisher не отправляет сообщения |
 | `PODCAST_KAFKA_INTERNAL_PORT` | `9092` | нет | local port Kafka internal listener |
 | `PODCAST_KAFKA_EXTERNAL_PORT` | `9094` | нет | local port Kafka external listener |
 | `PODCAST_KAFKA_EXTERNAL_HOST` | `host.docker.internal` | нет | advertised host external listener |
 | `PODCAST_KAFKA_AUTO_CREATE_TOPICS_ENABLE` | `true` | нет | auto-create topics в local Kafka |
+| `PODCAST_RECOMMENDATION_EVENTS_ENABLED` | `false` | нет | запись recommendation MVP events в `outbox_events`; Kafka publisher не включает |
+| `PODCAST_OUTBOX_PUBLISHER_ENABLED` | `false` | нет | включает scheduled outbox publisher для `NEW`/`FAILED` событий |
+| `PODCAST_OUTBOX_BATCH_SIZE` | `100` | нет | максимальный размер batch для outbox publisher |
+| `PODCAST_OUTBOX_PUBLISH_DELAY_MS` | `3000` | нет | fixed delay scheduler-а и базовый retry backoff publisher-а |
+| `PODCAST_OUTBOX_MAX_RETRY_ATTEMPTS` | `10` | нет | максимум попыток публикации outbox event |
+| `PODCAST_OUTBOX_PROCESSING_TIMEOUT_MS` | `600000` | нет | timeout stale `PROCESSING` lease перед recovery в `FAILED` |
+| `PODCAST_OUTBOX_SEND_TIMEOUT_MS` | `10000` | нет | timeout ожидания Kafka send вне DB-транзакции |
+| `PODCAST_OPENROUTER_ENABLED` | `false` | нет | включает генерацию podcast summary через OpenRouter |
+| `PODCAST_OPENROUTER_API_KEY` | пусто | да при включении OpenRouter | API key OpenRouter; хранить только в env/secret storage |
+| `PODCAST_OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | нет | base URL OpenRouter API |
+| `PODCAST_OPENROUTER_MODEL` | `openrouter/free` | нет | модель OpenRouter для summary |
+| `PODCAST_OPENROUTER_SITE_URL` | `https://example.local` | нет | значение header `HTTP-Referer` |
+| `PODCAST_OPENROUTER_APP_TITLE` | `Podcast Summary Bot` | нет | значение header `X-OpenRouter-Title` |
+| `PODCAST_OPENROUTER_TEMPERATURE` | `0.3` | нет | temperature для Chat Completions |
+| `PODCAST_OPENROUTER_MAX_TOKENS` | `500` | нет | max_tokens для Chat Completions |
+| `PODCAST_OPENROUTER_CONNECT_TIMEOUT` | `3s` | нет | timeout установки соединения с OpenRouter |
+| `PODCAST_OPENROUTER_READ_TIMEOUT` | `60s` | нет | timeout ожидания ответа OpenRouter |
+| `PODCAST_OPENROUTER_MAX_ATTEMPTS` | `3` | нет | максимум попыток для retryable OpenRouter ошибок |
+| `PODCAST_OPENROUTER_RETRY_BACKOFF` | `500ms` | нет | задержка между retry OpenRouter |
+| `PODCAST_SUMMARY_DIRECT_MAX_CHARS` | `50000` | нет | лимит прямой генерации summary без chunking |
+| `PODCAST_SUMMARY_CHUNK_SIZE_CHARS` | `30000` | нет | максимальный размер chunk для длинного transcript |
+| `PODCAST_SUMMARY_SYSTEM_PROMPT` | безопасный default в коде | нет | system prompt template |
+| `PODCAST_SUMMARY_DIRECT_PROMPT` | безопасный default в коде | нет | direct summary prompt template |
+| `PODCAST_SUMMARY_CHUNK_PROMPT` | безопасный default в коде | нет | chunk summary prompt template |
+| `PODCAST_SUMMARY_FINAL_PROMPT` | безопасный default в коде | нет | final summary prompt template |
+| `PODCAST_SUBTITLE_STORAGE_BASE_URL` | пусто | да для subtitle pointer JSON | HTTP/gateway base URL S3-compatible хранилища для чтения `vtt_object_key`/`srt_object_key` |
+| `PODCAST_SUBTITLE_STORAGE_CONNECT_TIMEOUT` | `3s` | нет | timeout установки соединения с subtitle storage |
+| `PODCAST_SUBTITLE_STORAGE_READ_TIMEOUT` | `20s` | нет | timeout чтения subtitle object |
 | `PODCAST_KAFKA_UI_PORT` | `8081` | нет | порт Kafka UI |
 | `PODCAST_AUTH_SERVICE_BASE_URL` | `http://localhost:8080`, `http://auth-service:8080` в docker | да | base URL auth-service для выдачи роли автора через `/auth/me/update-roles` |
 | `PODCAST_AUTH_SERVICE_CONNECT_TIMEOUT` | `2s` | нет | timeout установки соединения с auth-service |

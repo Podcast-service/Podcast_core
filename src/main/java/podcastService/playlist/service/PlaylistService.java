@@ -21,6 +21,8 @@ import podcastService.common.exception.ConflictException;
 import podcastService.common.exception.ForbiddenOperationException;
 import podcastService.common.exception.NotFoundException;
 import podcastService.common.exception.PlaylistNotFoundException;
+import podcastService.infrastructure.outbox.recommendation.PlaylistContentEventFactory;
+import podcastService.infrastructure.outbox.recommendation.RecommendationOutboxEventService;
 import podcastService.playlist.dto.AddPodcastToPlaylistRequest;
 import podcastService.playlist.dto.CreatePlaylistRequest;
 import podcastService.playlist.dto.PlaylistCard;
@@ -53,6 +55,8 @@ import podcastService.vote.dto.VoteRequest;
 import podcastService.vote.dto.VoteResponse;
 import podcastService.vote.dto.VoteType;
 
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Comparator;
@@ -81,6 +85,7 @@ public class PlaylistService {
     private final AuthorRepository authorRepository;
     private final PlaylistMapper playlistMapper;
     private final EntityManager entityManager;
+    private final RecommendationOutboxEventService recommendationOutboxEventService;
 
     @Transactional(readOnly = true)
     public PageResponse<PlaylistCard> listPublic(PlaylistFilter filter, UUID currentUserId) {
@@ -256,6 +261,22 @@ public class PlaylistService {
         entity.setPublicPlaylist(Boolean.TRUE.equals(request.isPublic()));
 
         PlaylistEntity saved = playlistRepository.saveAndFlush(entity);
+        Instant eventTime = Instant.now();
+        recommendationOutboxEventService.savePlaylistEvent(
+                saved.getId(),
+                PlaylistContentEventFactory.created(
+                        saved.getId(),
+                        currentUserId,
+                        saved.getTitle(),
+                        saved.getDescription(),
+                        saved.isPublicPlaylist(),
+                        List.of(),
+                        toInstant(saved.getCreatedAt(), eventTime),
+                        eventTime,
+                        null,
+                        null
+                )
+        );
 
         log.info(
                 "Playlist created: playlistId={}, ownerProfileId={}, userId={}, public={}",
@@ -310,6 +331,7 @@ public class PlaylistService {
         }
 
         playlistRepository.saveAndFlush(playlist);
+        savePlaylistUpdatedOutboxEvent(playlist, currentUserId);
 
         log.info(
                 "Playlist updated: playlistId={}, userId={}, titleChanged={}, descriptionChanged={}, coverChanged={}, publicChanged={}",
@@ -334,6 +356,16 @@ public class PlaylistService {
 
         playlistRepository.delete(playlist);
         playlistRepository.flush();
+        recommendationOutboxEventService.savePlaylistEvent(
+                playlistId,
+                PlaylistContentEventFactory.deleted(
+                        playlistId,
+                        currentUserId,
+                        Instant.now(),
+                        null,
+                        null
+                )
+        );
 
         log.info("Playlist deleted: playlistId={}, userId={}", playlistId, currentUserId);
     }
@@ -378,6 +410,7 @@ public class PlaylistService {
             );
             throw new ConflictException("Podcast already exists in playlist");
         }
+        savePlaylistUpdatedOutboxEvent(playlist, currentUserId);
 
         log.info(
                 "Podcast added to playlist: playlistId={}, podcastId={}, userId={}, position={}",
@@ -407,6 +440,7 @@ public class PlaylistService {
         playlistPodcastRepository.flush();
         playlistPodcastRepository.closeGapAfterDelete(playlistId, removedPosition);
         playlistPodcastRepository.flush();
+        savePlaylistUpdatedOutboxEvent(playlist, currentUserId);
 
         log.info(
                 "Podcast removed from playlist: playlistId={}, podcastId={}, userId={}, oldPosition={}",
@@ -439,6 +473,7 @@ public class PlaylistService {
                         reorderItem.position()
                 ));
         playlistPodcastRepository.flush();
+        savePlaylistUpdatedOutboxEvent(playlist, currentUserId);
 
         log.info("Playlist reordered: playlistId={}, userId={}, items={}", playlistId, currentUserId, items.size());
 
@@ -639,6 +674,34 @@ public class PlaylistService {
         if (!playlist.getOwner().getId().equals(currentUserProfileId)) {
             throw new ForbiddenOperationException("You don't have permission to modify this resource");
         }
+    }
+
+    private void savePlaylistUpdatedOutboxEvent(PlaylistEntity playlist, UUID ownerUserId) {
+        if (!recommendationOutboxEventService.enabled()) {
+            return;
+        }
+
+        Instant eventTime = Instant.now();
+        recommendationOutboxEventService.savePlaylistEvent(
+                playlist.getId(),
+                PlaylistContentEventFactory.updated(
+                        playlist.getId(),
+                        ownerUserId,
+                        playlist.getTitle(),
+                        playlist.getDescription(),
+                        playlist.isPublicPlaylist(),
+                        playlistPodcastRepository.findPodcastIdsByPlaylistIdOrderByPositionAsc(playlist.getId()),
+                        toInstant(playlist.getCreatedAt(), eventTime),
+                        eventTime,
+                        eventTime,
+                        null,
+                        null
+                )
+        );
+    }
+
+    private Instant toInstant(OffsetDateTime value, Instant fallback) {
+        return value == null ? fallback : value.toInstant();
     }
 
     private void validateUpdateRequest(UpdatePlaylistRequest request) {

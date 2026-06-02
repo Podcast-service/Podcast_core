@@ -20,6 +20,9 @@ import podcastService.common.exception.BadRequestException;
 import podcastService.common.exception.BusinessRuleException;
 import podcastService.common.exception.ForbiddenOperationException;
 import podcastService.common.exception.NotFoundException;
+import podcastService.infrastructure.outbox.recommendation.PodcastContentEventFactory;
+import podcastService.infrastructure.outbox.recommendation.RecommendationEventTypes;
+import podcastService.infrastructure.outbox.recommendation.RecommendationOutboxEventService;
 import podcastService.podcast.dto.CreatePodcastRequest;
 import podcastService.podcast.dto.LikedPodcastsSort;
 import podcastService.podcast.dto.PodcastCard;
@@ -43,6 +46,8 @@ import podcastService.user.entity.UserProfileEntity;
 import podcastService.user.repository.UserProfileRepository;
 import podcastService.vote.dto.VoteType;
 
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -63,6 +68,7 @@ public class PodcastService {
     private final PodcastTranscriptRepository podcastTranscriptRepository;
     private final PodcastSummaryRepository podcastSummaryRepository;
     private final PodcastMediaStatusTransitionPolicy mediaStatusTransitionPolicy;
+    private final RecommendationOutboxEventService recommendationOutboxEventService;
 
     @Transactional(readOnly = true)
     public PageResponse<PodcastCard> list(PodcastFilter filter, UUID currentUserId) {
@@ -153,6 +159,7 @@ public class PodcastService {
         Specification<PodcastEntity> specification = Specification
                 .where(PodcastSpecifications.fetchRelations())
                 .and(PodcastSpecifications.withAuthorId(author.getId()))
+                .and(PodcastSpecifications.withoutStatus(Status.ARCHIVED))
                 .and(PodcastSpecifications.withStatus(status))
                 .and(PodcastSpecifications.searchByText(query));
 
@@ -332,6 +339,9 @@ public class PodcastService {
 
         PodcastEntity saved = podcastRepository.saveAndFlush(podcast);
         UUID currentUserProfileId = resolveUserProfileId(currentUserId);
+        if (saved.getStatus() == Status.PUBLISHED) {
+            savePublishedPodcastUpdateEvent(saved, currentUserId);
+        }
 
         log.info(
                 "Podcast updated: podcastId={}, currentUserId={}, status={}, titleChanged={}, descriptionChanged={}, categoryChanged={}, coverChanged={}",
@@ -373,6 +383,18 @@ public class PodcastService {
 
         podcast.setStatus(Status.ARCHIVED);
         podcastRepository.saveAndFlush(podcast);
+        recommendationOutboxEventService.savePodcastContentEvent(
+                podcast.getId(),
+                PodcastContentEventFactory.deleted(
+                        podcast.getId(),
+                        podcast.getAuthor().getId(),
+                        podcast.getCategory() == null ? null : podcast.getCategory().getId(),
+                        Instant.now(),
+                        currentUserId,
+                        null,
+                        null
+                )
+        );
 
         log.info(
                 "Podcast archived: podcastId={}, currentUserId={}, ownerAuthorId={}",
@@ -418,6 +440,7 @@ public class PodcastService {
 
         PodcastEntity saved = podcastRepository.saveAndFlush(podcast);
         UUID currentUserProfileId = resolveUserProfileId(currentUserId);
+        savePodcastPublishedEvent(saved, currentUserId);
 
         log.info(
                 "Podcast sent to processing: podcastId={}, currentUserId={}, ownerAuthorId={}, status={}",
@@ -682,6 +705,103 @@ public class PodcastService {
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private void savePodcastPublishedEvent(PodcastEntity podcast, UUID currentUserId) {
+        if (!canWriteRecommendationCatalogEvent(podcast, RecommendationEventTypes.PODCAST_PUBLISHED)) {
+            return;
+        }
+
+        Instant eventTime = Instant.now();
+        recommendationOutboxEventService.savePodcastContentEvent(
+                podcast.getId(),
+                PodcastContentEventFactory.published(
+                        podcast.getId(),
+                        podcast.getAuthor().getId(),
+                        podcast.getCategory().getId(),
+                        podcast.getTitle(),
+                        podcast.getDescription(),
+                        podcast.getDurationSeconds(),
+                        toInstant(podcast.getPublishedAt(), eventTime),
+                        null,
+                        null,
+                        podcast.getStatus().name(),
+                        null,
+                        eventTime,
+                        currentUserId,
+                        null,
+                        null
+                )
+        );
+    }
+
+    private void savePublishedPodcastUpdateEvent(PodcastEntity podcast, UUID currentUserId) {
+        if (!recommendationOutboxEventService.enabled()) {
+            return;
+        }
+
+        if (podcast.getCategory() == null) {
+            log.warn(
+                    "Recommendation podcast update emitted as tombstone: podcastId={}, reason=missingCategoryId",
+                    podcast.getId()
+            );
+            recommendationOutboxEventService.savePodcastContentEvent(
+                    podcast.getId(),
+                    PodcastContentEventFactory.deleted(
+                            podcast.getId(),
+                            podcast.getAuthor().getId(),
+                            null,
+                            Instant.now(),
+                            currentUserId,
+                            null,
+                            null
+                    )
+            );
+            return;
+        }
+
+        Instant eventTime = Instant.now();
+        recommendationOutboxEventService.savePodcastContentEvent(
+                podcast.getId(),
+                PodcastContentEventFactory.updated(
+                        podcast.getId(),
+                        podcast.getAuthor().getId(),
+                        podcast.getCategory().getId(),
+                        podcast.getTitle(),
+                        podcast.getDescription(),
+                        podcast.getDurationSeconds(),
+                        toInstant(podcast.getPublishedAt(), eventTime),
+                        null,
+                        null,
+                        podcast.getStatus().name(),
+                        null,
+                        eventTime,
+                        eventTime,
+                        currentUserId,
+                        null,
+                        null
+                )
+        );
+    }
+
+    private boolean canWriteRecommendationCatalogEvent(PodcastEntity podcast, String eventType) {
+        if (!recommendationOutboxEventService.enabled()) {
+            return false;
+        }
+        if (podcast.getCategory() != null) {
+            return true;
+        }
+
+        log.warn(
+                "Recommendation podcast content event skipped: podcastId={}, eventType={}, reason=missingCategoryId",
+                podcast.getId(),
+                eventType
+        );
+        return false;
+    }
+
+    private Instant toInstant(OffsetDateTime value, Instant fallback) {
+        return value == null ? fallback : value.toInstant();
     }
 
     private record VisiblePodcast(

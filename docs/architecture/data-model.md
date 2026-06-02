@@ -18,6 +18,7 @@
 | `podcast_votes` | голоса за подкасты |
 | `playlist_votes` | голоса за плейлисты |
 | `listen_history` | прогресс прослушивания |
+| `outbox_events` | таблица outbox pattern для асинхронной публикации событий |
 
 ## Ключевые связи
 
@@ -54,6 +55,16 @@
 ## Данные транскриптов
 
 `podcast_transcripts.content` является основным полем хранения текстового содержимого транскрипта. Kafka-события `media.subtitle` и `tts.start` также пишут результат в это поле: subtitle сохраняется как JSON-содержимое `content`, TTS сохраняет `content` как строку либо компактную JSON-строку для объекта или массива. `tts.failed` не пишет данные в transcript и отражает ошибку только через статус подкаста. Отдельные колонки для subtitle/TTS payload в схеме не используются.
+
+`podcast_summaries` хранит производный артефакт от transcript. Генерация через OpenRouter запускается только при `PODCAST_OPENROUTER_ENABLED=true`: автоматически after commit после сохранения transcript или вручную через `POST /podcasts/{podcastId}/summary/generate`. Если transcript хранит subtitle pointer JSON (`srt_object_key`/`vtt_object_key`), сервис сначала читает объект из storage через `PODCAST_SUBTITLE_STORAGE_BASE_URL`, чистит SRT/VTT таймкоды и только затем строит prompt. Ошибка чтения storage или генерации summary не откатывает сохранение transcript и не блокирует Kafka consumer.
+
+## Outbox events
+
+`outbox_events` хранит контракт outbox pattern: тип агрегата, идентификатор агрегата, тип события, версию события, ключ, JSON payload/headers, статус отправки, retry metadata, timestamps и `processing_started_at` lease для recovery зависших отправок. Таблица не связана foreign key с доменными таблицами намеренно: outbox должен позволять фиксировать события разных агрегатов без изменения текущей бизнес-логики и без зависимости от доступности Kafka.
+
+Java layer для таблицы расположен в `podcastService.infrastructure.outbox`. Он сериализует `DomainEventEnvelope` в JSON, сохраняет запись со статусом `NEW` и содержит выключенный по умолчанию publisher для отправки `NEW`/`FAILED` событий в Kafka.
+
+Контракты recommendation events и factory-классы расположены в `podcastService.infrastructure.outbox.recommendation`. Все recommendation runtime paths защищены feature flags: запись событий требует `PODCAST_RECOMMENDATION_EVENTS_ENABLED=true`, публикация требует `PODCAST_OUTBOX_PUBLISHER_ENABLED=true` и `PODCAST_KAFKA_PRODUCER_ENABLED=true`.
 
 ## Статусы подкастов
 

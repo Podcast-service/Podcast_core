@@ -29,6 +29,7 @@ http://localhost:8082/podcast/v1/swagger
 | [Архитектура](architecture/overview.md) | зоны ответственности, слои, потоки запросов и данных |
 | [REST API](api/README.md) | HTTP контракт, авторизация, ошибки, модели, примеры |
 | [Kafka](kafka/overview.md) | топики, consumer, retry, DLT и формат событий |
+| [Recommendation events](recommendation-events.md) | outbox envelope, payload contracts, rollout и recovery |
 | [Конфигурация](configuration/environments.md) | окружения, переменные, БД, Kafka, JWT и observability |
 | [Разработка](development/local-setup.md) | локальный запуск, Docker, seed data, JWT tooling, отладка |
 | [Эксплуатация](operations/deployment.md) | развёртывание, healthcheck endpoints, мониторинг, логи и восстановление |

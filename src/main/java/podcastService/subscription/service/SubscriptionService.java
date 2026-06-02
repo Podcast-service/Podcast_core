@@ -15,6 +15,8 @@ import podcastService.common.exception.BusinessRuleException;
 import podcastService.common.exception.ConflictException;
 import podcastService.common.exception.ForbiddenOperationException;
 import podcastService.common.exception.NotFoundException;
+import podcastService.infrastructure.outbox.recommendation.AuthorActivityEventFactory;
+import podcastService.infrastructure.outbox.recommendation.RecommendationOutboxEventService;
 import podcastService.podcast.dto.PodcastCard;
 import podcastService.podcast.dto.SortPodcasts;
 import podcastService.podcast.entity.PodcastEntity;
@@ -33,6 +35,7 @@ import podcastService.user.entity.UserProfileEntity;
 import podcastService.user.repository.UserProfileRepository;
 import podcastService.vote.dto.VoteType;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -49,6 +52,7 @@ public class SubscriptionService {
     private final PodcastRepository podcastRepository;
     private final PodcastVoteRepository podcastVoteRepository;
     private final PodcastMapper podcastMapper;
+    private final RecommendationOutboxEventService recommendationOutboxEventService;
 
     @Transactional(readOnly = true)
     public PageResponse<SubscriptionResponse> listMine(UUID currentUserId, int page, int size) {
@@ -149,6 +153,16 @@ public class SubscriptionService {
 
             author.setSubscribersCount(author.getSubscribersCount() + 1);
             authorRepository.saveAndFlush(author);
+            recommendationOutboxEventService.saveAuthorEvent(
+                    authorId,
+                    AuthorActivityEventFactory.followed(
+                            authorId,
+                            currentUserId,
+                            Instant.now(),
+                            null,
+                            null
+                    )
+            );
         }
 
         log.info(
@@ -176,6 +190,16 @@ public class SubscriptionService {
             subscriptionRepository.flush();
             author.setSubscribersCount(Math.max(0, author.getSubscribersCount() - 1));
             authorRepository.saveAndFlush(author);
+            recommendationOutboxEventService.saveAuthorEvent(
+                    authorId,
+                    AuthorActivityEventFactory.unfollowed(
+                            authorId,
+                            currentUserId,
+                            Instant.now(),
+                            null,
+                            null
+                    )
+            );
         }
 
         log.info(

@@ -36,6 +36,14 @@ public interface PlaylistPodcastRepository extends JpaRepository<PlaylistPodcast
     @Query("select coalesce(max(pp.position), 0) from PlaylistPodcastEntity pp where pp.id.playlistId = :playlistId")
     int findMaxPosition(UUID playlistId);
 
+    @Query("""
+            select pp.id.podcastId
+              from PlaylistPodcastEntity pp
+             where pp.id.playlistId = :playlistId
+             order by pp.position asc
+            """)
+    List<UUID> findPodcastIdsByPlaylistIdOrderByPositionAsc(@Param("playlistId") UUID playlistId);
+
     Optional<PlaylistPodcastEntity> findByIdPlaylistIdAndIdPodcastId(UUID playlistId, UUID podcastId);
 
     @Modifying

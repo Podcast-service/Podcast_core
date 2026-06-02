@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import podcastService.common.exception.ForbiddenOperationException;
 import podcastService.common.exception.NotFoundException;
+import podcastService.infrastructure.outbox.recommendation.PodcastActivityEventFactory;
+import podcastService.infrastructure.outbox.recommendation.RecommendationOutboxEventService;
 import podcastService.podcast.entity.PodcastEntity;
 import podcastService.podcast.entity.PodcastVoteEntity;
 import podcastService.podcast.entity.PodcastVoteId;
@@ -18,6 +20,7 @@ import podcastService.vote.dto.VoteRequest;
 import podcastService.vote.dto.VoteResponse;
 import podcastService.vote.dto.VoteType;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Slf4j
@@ -28,6 +31,7 @@ public class PodcastVoteService {
     private final PodcastRepository podcastRepository;
     private final PodcastVoteRepository podcastVoteRepository;
     private final UserProfileRepository userProfileRepository;
+    private final RecommendationOutboxEventService recommendationOutboxEventService;
 
     @Transactional
     public VoteResponse vote(UUID podcastId, UUID currentUserId, VoteRequest request) {
@@ -38,6 +42,8 @@ public class PodcastVoteService {
                 .findByIdUserProfileIdAndIdPodcastId(currentUser.getId(), podcastId)
                 .orElse(null);
 
+        boolean changedToLike = false;
+        boolean changedToDislike = false;
         if (vote == null) {
             vote = new PodcastVoteEntity();
             vote.setId(new PodcastVoteId(currentUser.getId(), podcastId));
@@ -46,14 +52,19 @@ public class PodcastVoteService {
             vote.setVoteType(request.voteType());
             applyVoteDelta(podcast, null, request.voteType());
             podcastVoteRepository.save(vote);
+            changedToLike = request.voteType() == VoteType.LIKE;
+            changedToDislike = request.voteType() == VoteType.DISLIKE;
         } else if (vote.getVoteType() != request.voteType()) {
             VoteType previousVote = vote.getVoteType();
             vote.setVoteType(request.voteType());
             applyVoteDelta(podcast, previousVote, request.voteType());
+            changedToLike = request.voteType() == VoteType.LIKE;
+            changedToDislike = request.voteType() == VoteType.DISLIKE;
         }
 
         PodcastEntity saved = podcastRepository.saveAndFlush(podcast);
         podcastVoteRepository.flush();
+        savePodcastVoteOutboxEvent(saved, currentUserId, changedToLike, changedToDislike);
 
         log.info(
                 "Podcast vote saved: podcastId={}, userId={}, voteType={}",
@@ -116,6 +127,44 @@ public class PodcastVoteService {
             podcast.setLikesCount(podcast.getLikesCount() + 1);
         } else if (nextVote == VoteType.DISLIKE) {
             podcast.setDislikesCount(podcast.getDislikesCount() + 1);
+        }
+    }
+
+    private void savePodcastVoteOutboxEvent(
+            PodcastEntity podcast,
+            UUID currentUserId,
+            boolean changedToLike,
+            boolean changedToDislike
+    ) {
+        Instant occurredAt = Instant.now();
+        if (changedToLike) {
+            recommendationOutboxEventService.saveUserActivityEvent(
+                    currentUserId,
+                    PodcastActivityEventFactory.liked(
+                            podcast.getId(),
+                            currentUserId,
+                            podcast.getAuthor().getId(),
+                            podcast.getCategory() == null ? null : podcast.getCategory().getId(),
+                            occurredAt,
+                            null,
+                            null
+                    )
+            );
+        }
+
+        if (changedToDislike) {
+            recommendationOutboxEventService.saveUserActivityEvent(
+                    currentUserId,
+                    PodcastActivityEventFactory.disliked(
+                            podcast.getId(),
+                            currentUserId,
+                            podcast.getAuthor().getId(),
+                            podcast.getCategory() == null ? null : podcast.getCategory().getId(),
+                            occurredAt,
+                            null,
+                            null
+                    )
+            );
         }
     }
 

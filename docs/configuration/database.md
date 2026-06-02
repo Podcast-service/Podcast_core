@@ -19,6 +19,17 @@
 |---|---|
 | `V1__init_schema.sql` | базовая схема, индексы, триггеры |
 | `V2__harden_author_profiles.sql` | усиление author profiles |
+| `V3__add_podcast_audio_file_and_speakers.sql` | поля исходного аудиофайла и числа спикеров |
+| `V4__add_podcast_upload_statuses.sql` | промежуточные статусы загрузки подкаста |
+| `V5__final_media_lifecycle_contracts.sql` | финализация media lifecycle статусов |
+| `V6__require_podcast_duration_for_publication.sql` | требование duration для публикации |
+| `V7__add_saved_playlists.sql` | сохранённые плейлисты пользователей |
+| `V8__create_outbox_events.sql` | таблица `outbox_events` для асинхронной публикации событий |
+| `V9__harden_outbox_publisher.sql` | lease timestamp и индекс recovery для stale `PROCESSING` outbox events |
+
+## Outbox events
+
+`outbox_events` хранит recommendation MVP events. Запись событий включается отдельно через `PODCAST_RECOMMENDATION_EVENTS_ENABLED=false` по умолчанию. Kafka-публикация выполняется только outbox publisher-ом и требует двух выключателей: `PODCAST_OUTBOX_PUBLISHER_ENABLED=true` и `PODCAST_KAFKA_PRODUCER_ENABLED=true`.
 
 ## Локальный доступ
 

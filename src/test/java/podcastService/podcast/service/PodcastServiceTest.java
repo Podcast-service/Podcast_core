@@ -1,16 +1,32 @@
 package podcastService.podcast.service;
 
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import podcastService.author.entity.AuthorEntity;
 import podcastService.author.repository.AuthorRepository;
+import podcastService.category.entity.CategoryEntity;
 import podcastService.category.repository.CategoryRepository;
 import podcastService.common.exception.NotFoundException;
 import podcastService.common.exception.BusinessRuleException;
+import podcastService.infrastructure.config.JacksonConfig;
+import podcastService.infrastructure.outbox.OutboxEventService;
+import podcastService.infrastructure.outbox.RecommendationEventsProperties;
+import podcastService.infrastructure.outbox.entity.OutboxEventEntity;
+import podcastService.infrastructure.outbox.recommendation.RecommendationEventTypes;
+import podcastService.infrastructure.outbox.recommendation.RecommendationOutboxEventService;
+import podcastService.infrastructure.outbox.repository.OutboxEventRepository;
 import podcastService.podcast.dto.CreatePodcastRequest;
 import podcastService.podcast.dto.PodcastDetailResponse;
 import podcastService.podcast.dto.PodcastSpeakersResponse;
@@ -25,12 +41,15 @@ import podcastService.transcript.repository.PodcastTranscriptRepository;
 import podcastService.user.entity.UserProfileEntity;
 import podcastService.user.repository.UserProfileRepository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,6 +60,7 @@ class PodcastServiceTest {
     private static final UUID PROFILE_ID = UUID.fromString("00000000-0000-0000-0000-000000000101");
     private static final UUID AUTHOR_ID = UUID.fromString("00000000-0000-0000-0000-000000000201");
     private static final UUID PODCAST_ID = UUID.fromString("00000000-0000-0000-0000-000000000301");
+    private static final UUID CATEGORY_ID = UUID.fromString("00000000-0000-0000-0000-000000000401");
 
     @Mock private PodcastRepository podcastRepository;
     @Mock private AuthorRepository authorRepository;
@@ -50,23 +70,13 @@ class PodcastServiceTest {
     @Mock private PodcastVoteRepository podcastVoteRepository;
     @Mock private PodcastTranscriptRepository podcastTranscriptRepository;
     @Mock private PodcastSummaryRepository podcastSummaryRepository;
+    @Mock private OutboxEventRepository outboxEventRepository;
 
     private PodcastService service;
 
     @BeforeEach
     void setUp() {
-        service = new PodcastService(
-                podcastRepository,
-                authorRepository,
-                categoryRepository,
-                new PodcastMapper(),
-                userProfileRepository,
-                subscriptionRepository,
-                podcastVoteRepository,
-                podcastTranscriptRepository,
-                podcastSummaryRepository,
-                new PodcastMediaStatusTransitionPolicy()
-        );
+        service = serviceWithRecommendationEvents(false);
     }
 
     @Test
@@ -189,6 +199,98 @@ class PodcastServiceTest {
 
         assertThat(response.status()).isEqualTo(Status.PUBLISHED);
         assertThat(podcast.getStatus()).isEqualTo(Status.PUBLISHED);
+        verifyNoInteractions(outboxEventRepository);
+    }
+
+    @Test
+    void publishCreatesPodcastPublishedOutboxEventWhenRecommendationEventsEnabled() {
+        service = serviceWithRecommendationEvents(true);
+        PodcastEntity podcast = podcast(Status.PROCESSED);
+        podcast.setAudioUrl("https://cdn.example.local/hls/podcast/master.m3u8");
+        podcast.setDurationSeconds(2400L);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+        when(authorRepository.findByUserProfileUserId(USER_ID)).thenReturn(Optional.of(author()));
+        when(podcastRepository.saveAndFlush(podcast)).thenReturn(podcast);
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(author().getUserProfile()));
+        when(subscriptionRepository.findSubscribedAuthorIds(any(), any())).thenReturn(java.util.Set.of());
+        when(podcastTranscriptRepository.existsByIdPodcastIdAndContentIsNotNull(PODCAST_ID)).thenReturn(false);
+        when(podcastSummaryRepository.existsByIdPodcastId(PODCAST_ID)).thenReturn(false);
+        when(outboxEventRepository.saveAndFlush(any(OutboxEventEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PodcastDetailResponse response = service.publish(PODCAST_ID, USER_ID);
+
+        ArgumentCaptor<OutboxEventEntity> captor = ArgumentCaptor.forClass(OutboxEventEntity.class);
+        verify(outboxEventRepository).saveAndFlush(captor.capture());
+        OutboxEventEntity outboxEvent = captor.getValue();
+
+        assertThat(response.status()).isEqualTo(Status.PUBLISHED);
+        assertThat(outboxEvent.getAggregateType()).isEqualTo("PODCAST");
+        assertThat(outboxEvent.getAggregateId()).isEqualTo(PODCAST_ID);
+        assertThat(outboxEvent.getEventKey()).isEqualTo(PODCAST_ID.toString());
+        assertThat(outboxEvent.getEventType()).isEqualTo(RecommendationEventTypes.PODCAST_PUBLISHED);
+        assertThat(outboxEvent.getEventVersion()).isEqualTo(1);
+        assertThat(outboxEvent.getPayload().get("payload").get("podcastId").asText()).isEqualTo(PODCAST_ID.toString());
+        assertThat(outboxEvent.getPayload().get("payload").get("authorId").asText()).isEqualTo(AUTHOR_ID.toString());
+        assertThat(outboxEvent.getPayload().get("payload").get("categoryId").asText()).isEqualTo(CATEGORY_ID.toString());
+        assertThat(outboxEvent.getPayload().get("payload").get("durationSeconds").asLong()).isEqualTo(2400L);
+        assertThat(outboxEvent.getPayload().get("payload").get("status").asText()).isEqualTo("PUBLISHED");
+    }
+
+    @Test
+    void publishWithoutCategoryDoesNotCreatePoisonRecommendationEvent() {
+        service = serviceWithRecommendationEvents(true);
+        PodcastEntity podcast = podcast(Status.PROCESSED);
+        podcast.setCategory(null);
+        podcast.setAudioUrl("https://cdn.example.local/hls/podcast/master.m3u8");
+        podcast.setDurationSeconds(2400L);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+        when(authorRepository.findByUserProfileUserId(USER_ID)).thenReturn(Optional.of(author()));
+        when(podcastRepository.saveAndFlush(podcast)).thenReturn(podcast);
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(author().getUserProfile()));
+        when(subscriptionRepository.findSubscribedAuthorIds(any(), any())).thenReturn(java.util.Set.of());
+        when(podcastTranscriptRepository.existsByIdPodcastIdAndContentIsNotNull(PODCAST_ID)).thenReturn(false);
+        when(podcastSummaryRepository.existsByIdPodcastId(PODCAST_ID)).thenReturn(false);
+
+        PodcastDetailResponse response = service.publish(PODCAST_ID, USER_ID);
+
+        assertThat(response.status()).isEqualTo(Status.PUBLISHED);
+        verifyNoInteractions(outboxEventRepository);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    @Test
+    void listMineAsAuthorExcludesArchivedPodcasts() {
+        when(authorRepository.findByUserProfileUserId(USER_ID)).thenReturn(Optional.of(author()));
+        when(podcastRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        service.listMineAsAuthor(USER_ID, null, null, null, 1, 20);
+
+        ArgumentCaptor<Specification<PodcastEntity>> captor = ArgumentCaptor.forClass(Specification.class);
+        verify(podcastRepository).findAll(captor.capture(), any(Pageable.class));
+
+        Root<PodcastEntity> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        CriteriaBuilder criteriaBuilder = mock(CriteriaBuilder.class);
+        Path<Object> authorPath = mock(Path.class);
+        Path<Object> authorIdPath = mock(Path.class);
+        Path<Object> statusPath = mock(Path.class);
+        Predicate conjunction = mock(Predicate.class);
+        Predicate authorPredicate = mock(Predicate.class);
+        Predicate notArchivedPredicate = mock(Predicate.class);
+
+        when(query.getResultType()).thenReturn((Class) Long.class);
+        when(criteriaBuilder.conjunction()).thenReturn(conjunction);
+        when(root.get("author")).thenReturn(authorPath);
+        when(authorPath.get("id")).thenReturn(authorIdPath);
+        when(root.get("status")).thenReturn(statusPath);
+        when(criteriaBuilder.equal(authorIdPath, AUTHOR_ID)).thenReturn(authorPredicate);
+        when(criteriaBuilder.notEqual(statusPath, Status.ARCHIVED)).thenReturn(notArchivedPredicate);
+
+        captor.getValue().toPredicate(root, query, criteriaBuilder);
+
+        verify(criteriaBuilder).notEqual(statusPath, Status.ARCHIVED);
     }
 
     @Test
@@ -220,9 +322,41 @@ class PodcastServiceTest {
         PodcastEntity podcast = new PodcastEntity();
         podcast.setId(PODCAST_ID);
         podcast.setAuthor(author());
+        podcast.setCategory(category());
         podcast.setTitle("Интервью");
         podcast.setStatus(status);
         podcast.setNumSpeakers(2);
         return podcast;
+    }
+
+    private CategoryEntity category() {
+        CategoryEntity category = new CategoryEntity();
+        category.setId(CATEGORY_ID);
+        category.setName("Backend");
+        return category;
+    }
+
+    private PodcastService serviceWithRecommendationEvents(boolean enabled) {
+        OutboxEventService outboxEventService = new OutboxEventService(
+                outboxEventRepository,
+                new JacksonConfig().objectMapper()
+        );
+        RecommendationOutboxEventService recommendationOutboxEventService = new RecommendationOutboxEventService(
+                outboxEventService,
+                new RecommendationEventsProperties(enabled)
+        );
+        return new PodcastService(
+                podcastRepository,
+                authorRepository,
+                categoryRepository,
+                new PodcastMapper(),
+                userProfileRepository,
+                subscriptionRepository,
+                podcastVoteRepository,
+                podcastTranscriptRepository,
+                podcastSummaryRepository,
+                new PodcastMediaStatusTransitionPolicy(),
+                recommendationOutboxEventService
+        );
     }
 }
