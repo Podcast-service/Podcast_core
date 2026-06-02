@@ -25,6 +25,9 @@ jobs:
             gradle:8.14.3-jdk21-alpine \
             gradle --no-daemon test jacocoTestReport
 
+      - name: Fix permissions after Docker
+        run: sudo chown -R $USER:$USER ${{ github.workspace }}
+
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@v6
         env:
@@ -47,7 +50,6 @@ jobs:
       - name: Set SHA tag
         id: vars
         run: echo "SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
-
 
       - name: Login to GHCR
         run: |
