@@ -96,6 +96,26 @@ class PodcastMediaMetadataServiceTest {
     }
 
     @Test
+    void uploadedBackfillsAudioUrlFileWhenProcessedEventWonTheRace() {
+        // media.worker "processed" arrived before media.upload "uploaded": status is already PROCESSED
+        // and audio_url_file is still missing because only the "uploaded" event carries it.
+        PodcastEntity podcast = podcast(Status.PROCESSED);
+        podcast.setAudioUrl("https://cdn.example.local/master.m3u8");
+        podcast.setAudioSizeFile(100L);
+        podcast.setDurationSeconds(1000L);
+        when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
+
+        service.markFileUploaded(PODCAST_ID, "/media/audio.mp3", null);
+
+        assertThat(podcast.getAudioUrlFile()).isEqualTo("/media/audio.mp3");
+        assertThat(podcast.getStatus()).isEqualTo(Status.PROCESSED);
+        assertThat(podcast.getAudioUrl()).isEqualTo("https://cdn.example.local/master.m3u8");
+        assertThat(podcast.getAudioSizeFile()).isEqualTo(100L);
+        assertThat(podcast.getDurationSeconds()).isEqualTo(1000L);
+        verify(podcastRepository).saveAndFlush(podcast);
+    }
+
+    @Test
     void uploadedStoresSourceAudioMetadataAndMarksUploaded() {
         PodcastEntity podcast = podcast(Status.UPLOADING);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));

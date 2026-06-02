@@ -50,9 +50,19 @@ public class PodcastMediaMetadataService {
             OffsetDateTime eventTimestamp
     ) {
         PodcastEntity podcast = findForUpdate(podcastId);
-        persistMediaState(podcast, Status.UPLOADED, eventTimestamp, "media uploaded", entity -> {
-            entity.setAudioUrlFile(normalizeMediaPath(audioUrlFile, "audio_url_file"));
-        });
+        String normalizedAudioUrlFile = normalizeMediaPath(audioUrlFile, "audio_url_file");
+        boolean transitioned = persistMediaState(podcast, Status.UPLOADED, eventTimestamp, "media uploaded",
+                entity -> entity.setAudioUrlFile(normalizedAudioUrlFile));
+        if (!transitioned && isBlank(podcast.getAudioUrlFile())) {
+            // audio_url_file is delivered only by the media.upload "uploaded" event; the media.worker
+            // "processed" event never carries it. If "processed" wins the race between the two topics
+            // and advances the status past UPLOADED, the forward-only transition guard above would
+            // otherwise drop the source file URL forever. Backfill it without touching the status.
+            podcast.setAudioUrlFile(normalizedAudioUrlFile);
+            podcastRepository.saveAndFlush(podcast);
+            log.info("Backfilled audio_url_file after skipped status transition, podcastId={}, status={}, eventTimestamp={}",
+                    podcastId, podcast.getStatus(), eventTimestamp);
+        }
     }
 
     @Transactional
@@ -150,7 +160,7 @@ public class PodcastMediaMetadataService {
                 podcastId, timestamp);
     }
 
-    private void persistMediaState(
+    private boolean persistMediaState(
             PodcastEntity podcast,
             Status target,
             OffsetDateTime eventTimestamp,
@@ -163,7 +173,7 @@ public class PodcastMediaMetadataService {
                     "Invalid media status transition ignored, podcastId={}, currentStatus={}, targetStatus={}, reason={}, eventTimestamp={}",
                     podcastId, podcast.getStatus(), target, reason, eventTimestamp
             );
-            return;
+            return false;
         }
 
         Status previous = podcast.getStatus();
@@ -172,6 +182,11 @@ public class PodcastMediaMetadataService {
         podcastRepository.saveAndFlush(podcast);
         log.info("Podcast media status changed, podcastId={}, from={}, to={}, reason={}, eventTimestamp={}",
                 podcastId, previous, target, reason, eventTimestamp);
+        return true;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private PodcastEntity findForUpdate(UUID podcastId) {
