@@ -9,17 +9,13 @@ on:
       - closed
 
 jobs:
-  fix-permissions:
+  build-check:
+    if: github.event.pull_request.merged == false
     runs-on: self-hosted
     steps:
       - name: Fix workspace permissions
         run: sudo chown -R $USER:$USER ${{ github.workspace }} || true
 
-  build-check:
-    needs: fix-permissions
-    if: github.event.pull_request.merged == false
-    runs-on: self-hosted
-    steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -42,10 +38,12 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
   deploy:
-    needs: fix-permissions
     if: github.event.pull_request.merged == true
     runs-on: self-hosted
     steps:
+      - name: Fix workspace permissions
+        run: sudo chown -R $USER:$USER ${{ github.workspace }} || true
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
