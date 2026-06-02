@@ -297,7 +297,8 @@ public class PlaylistService {
         UUID currentUserProfileId = resolveUserProfileId(currentUserId);
         ensureVisible(playlist, currentUserProfileId);
 
-        List<PlaylistPodcastEntity> items = playlistPodcastRepository.findByIdPlaylistIdOrderByPositionAsc(playlistId);
+        List<PlaylistPodcastEntity> items = playlistPodcastRepository
+                .findVisibleByIdPlaylistIdOrderByPositionAsc(playlistId, Status.PUBLISHED);
 
         return playlistMapper.toDetail(
                 playlist,
@@ -577,7 +578,7 @@ public class PlaylistService {
         PlaylistEntity freshPlaylist = playlistRepository.findWithOwnerById(playlistId)
                 .orElseThrow(() -> new NotFoundException("Playlist not found"));
         List<PlaylistPodcastEntity> freshItems =
-                playlistPodcastRepository.findByIdPlaylistIdOrderByPositionAsc(playlistId);
+                playlistPodcastRepository.findVisibleByIdPlaylistIdOrderByPositionAsc(playlistId, Status.PUBLISHED);
 
         return playlistMapper.toDetail(
                 freshPlaylist,

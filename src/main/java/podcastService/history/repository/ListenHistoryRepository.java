@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import podcastService.history.entity.ListenHistoryEntity;
 import podcastService.history.entity.ListenHistoryId;
+import podcastService.podcast.entity.Status;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -41,5 +42,24 @@ public interface ListenHistoryRepository extends JpaRepository<ListenHistoryEnti
             "podcast.author.userProfile",
             "podcast.category"
     })
-    Page<ListenHistoryEntity> findByIdUserProfileIdOrderByLastListenedAtDesc(UUID userProfileId, Pageable pageable);
+    @Query(
+            value = """
+                    select h
+                    from ListenHistoryEntity h
+                    where h.id.userProfileId = :userProfileId
+                      and h.podcast.status = :status
+                    order by h.lastListenedAt desc
+                    """,
+            countQuery = """
+                    select count(h)
+                    from ListenHistoryEntity h
+                    where h.id.userProfileId = :userProfileId
+                      and h.podcast.status = :status
+                    """
+    )
+    Page<ListenHistoryEntity> findVisibleByUserProfileId(
+            @Param("userProfileId") UUID userProfileId,
+            @Param("status") Status status,
+            Pageable pageable
+    );
 }

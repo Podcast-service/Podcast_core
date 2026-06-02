@@ -10,6 +10,7 @@ import podcastService.author.repository.AuthorRepository;
 import podcastService.common.exception.ForbiddenOperationException;
 import podcastService.common.exception.NotFoundException;
 import podcastService.podcast.entity.PodcastEntity;
+import podcastService.podcast.entity.Status;
 import podcastService.podcast.repository.PodcastRepository;
 import podcastService.transcript.dto.PodcastSummaryResponse;
 import podcastService.transcript.entity.PodcastSummaryEntity;
@@ -224,6 +225,19 @@ class SummaryGenerationServiceTest {
                 .isInstanceOf(SummaryGenerationException.class)
                 .hasMessage("Summary generation is disabled");
         verify(podcastTranscriptRepository, never()).findByIdPodcastIdAndIdLanguage(PODCAST_ID, "RU");
+    }
+
+    @Test
+    void generationReturnsNotFoundForArchivedPodcast() {
+        PodcastEntity podcast = podcast();
+        podcast.setStatus(Status.ARCHIVED);
+        when(podcastRepository.findById(PODCAST_ID)).thenReturn(Optional.of(podcast));
+
+        assertThatThrownBy(() -> service.generate(PODCAST_ID, false))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Podcast not found");
+        verify(podcastTranscriptRepository, never()).findByIdPodcastIdAndIdLanguage(PODCAST_ID, "RU");
+        verify(openRouterClient, never()).complete(anyList());
     }
 
     @Test

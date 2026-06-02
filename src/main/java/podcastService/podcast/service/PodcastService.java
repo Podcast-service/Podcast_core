@@ -300,6 +300,9 @@ public class PodcastService {
     public PodcastSpeakersResponse getSpeakersById(UUID podcastId, UUID currentUserId) {
         PodcastEntity podcast = podcastRepository.findDetailedById(podcastId)
                 .orElseThrow(() -> new NotFoundException("Podcast not found"));
+        if (podcast.getStatus() == Status.ARCHIVED) {
+            throw new NotFoundException("Podcast not found");
+        }
         return new PodcastSpeakersResponse(podcast.getId(), podcast.getNumSpeakers());
     }
 
@@ -684,8 +687,9 @@ public class PodcastService {
         UUID currentAuthorId = resolveAuthorIdByUserId(currentUserId);
         UUID currentUserProfileId = resolveUserProfileId(currentUserId);
 
-        boolean visible = podcast.getStatus() == Status.PUBLISHED
-                || (currentAuthorId != null && currentAuthorId.equals(podcast.getAuthor().getId()));
+        boolean visible = podcast.getStatus() != Status.ARCHIVED
+                && (podcast.getStatus() == Status.PUBLISHED
+                || (currentAuthorId != null && currentAuthorId.equals(podcast.getAuthor().getId())));
 
         if (!visible) {
             log.warn(

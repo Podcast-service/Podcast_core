@@ -62,8 +62,9 @@ public class ListenHistoryService {
         int normalizedSize = Math.min(Math.max(size, 1), 50);
 
         Page<ListenHistoryEntity> historyPage = listenHistoryRepository
-                .findByIdUserProfileIdOrderByLastListenedAtDesc(
+                .findVisibleByUserProfileId(
                         currentUser.getId(),
+                        Status.PUBLISHED,
                         PageRequest.of(normalizedPage - 1, normalizedSize)
                 );
 

@@ -98,6 +98,8 @@
 | `GET /search` | `q`, `type`, `categoryId`, `sort`, `page`, `size` |
 | `GET /search/suggest` | `q` |
 
+Удалённые автором или администратором подкасты переводятся в `ARCHIVED`. Такие подкасты не возвращаются user-facing endpoints: списками, поиском, подсказками, историей прослушивания, деталями плейлистов, прямыми podcast/transcript/summary/speakers ручками. Они доступны только через Admin API.
+
 ## Пользовательские профили
 
 ### `GET /users/me/profile`

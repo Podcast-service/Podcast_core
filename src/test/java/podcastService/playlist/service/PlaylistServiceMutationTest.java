@@ -198,6 +198,36 @@ class PlaylistServiceMutationTest {
         inOrder.verify(playlistPodcastRepository).flush();
     }
 
+    @Test
+    void getPlaylistLoadsOnlyPublishedPodcastItems() {
+        PlaylistEntity playlist = playlist();
+        List<PlaylistPodcastEntity> visibleItems = List.of(playlistItem(PODCAST_ONE_ID, 1));
+        when(playlistRepository.findWithOwnerById(PLAYLIST_ID)).thenReturn(Optional.of(playlist));
+        when(playlistPodcastRepository.findVisibleByIdPlaylistIdOrderByPositionAsc(PLAYLIST_ID, Status.PUBLISHED))
+                .thenReturn(visibleItems);
+        when(playlistMapper.toDetail(eq(playlist), eq(visibleItems), eq(null), eq(null)))
+                .thenReturn(new PlaylistDetailResponse(
+                        PLAYLIST_ID,
+                        playlist.getTitle(),
+                        playlist.getCoverImageUrl(),
+                        new PlaylistOwnerResponse(USER_PROFILE_ID, "dev-user"),
+                        playlist.isPublicPlaylist(),
+                        1L,
+                        playlist.getLikesCount(),
+                        playlist.getDislikesCount(),
+                        playlist.getCreatedAt(),
+                        null,
+                        playlist.getDescription(),
+                        playlist.getUpdatedAt(),
+                        List.of()
+                ));
+
+        PlaylistDetailResponse response = service.get(PLAYLIST_ID, null);
+
+        assertThat(response.id()).isEqualTo(PLAYLIST_ID);
+        verify(playlistPodcastRepository).findVisibleByIdPlaylistIdOrderByPositionAsc(PLAYLIST_ID, Status.PUBLISHED);
+    }
+
     private void stubOwnerMutation(PlaylistEntity playlist) {
         when(playlistRepository.findWithOwnerByIdForUpdate(PLAYLIST_ID)).thenReturn(Optional.of(playlist));
         when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
@@ -205,7 +235,8 @@ class PlaylistServiceMutationTest {
 
     private void stubDetailAfterMutation(PlaylistEntity playlist) {
         when(playlistRepository.findWithOwnerById(PLAYLIST_ID)).thenReturn(Optional.of(playlist));
-        when(playlistPodcastRepository.findByIdPlaylistIdOrderByPositionAsc(PLAYLIST_ID)).thenReturn(List.of());
+        when(playlistPodcastRepository.findVisibleByIdPlaylistIdOrderByPositionAsc(PLAYLIST_ID, Status.PUBLISHED))
+                .thenReturn(List.of());
         when(playlistMapper.toDetail(eq(playlist), any(), eq(USER_PROFILE_ID), any()))
                 .thenReturn(new PlaylistDetailResponse(
                         PLAYLIST_ID,

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import podcastService.playlist.entity.PlaylistPodcastEntity;
 import podcastService.playlist.entity.PlaylistPodcastId;
+import podcastService.podcast.entity.Status;
 
 import java.util.List;
 import java.util.Optional;
@@ -23,6 +24,24 @@ public interface PlaylistPodcastRepository extends JpaRepository<PlaylistPodcast
             "podcast.category"
     })
     List<PlaylistPodcastEntity> findByIdPlaylistIdOrderByPositionAsc(UUID playlistId);
+
+    @EntityGraph(attributePaths = {
+            "podcast",
+            "podcast.author",
+            "podcast.author.userProfile",
+            "podcast.category"
+    })
+    @Query("""
+            select pp
+            from PlaylistPodcastEntity pp
+            where pp.id.playlistId = :playlistId
+              and pp.podcast.status = :status
+            order by pp.position asc
+            """)
+    List<PlaylistPodcastEntity> findVisibleByIdPlaylistIdOrderByPositionAsc(
+            @Param("playlistId") UUID playlistId,
+            @Param("status") Status status
+    );
 
     @Query(value = """
             select *

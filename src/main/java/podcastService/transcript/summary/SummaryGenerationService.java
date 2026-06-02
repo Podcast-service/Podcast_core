@@ -9,6 +9,7 @@ import podcastService.author.repository.AuthorRepository;
 import podcastService.common.exception.ForbiddenOperationException;
 import podcastService.common.exception.NotFoundException;
 import podcastService.podcast.entity.PodcastEntity;
+import podcastService.podcast.entity.Status;
 import podcastService.podcast.repository.PodcastRepository;
 import podcastService.transcript.dto.PodcastSummaryResponse;
 import podcastService.transcript.entity.PodcastSummaryEntity;
@@ -48,6 +49,9 @@ public class SummaryGenerationService {
 
         PodcastEntity podcast = podcastRepository.findById(podcastId)
                 .orElseThrow(() -> new NotFoundException("Podcast not found"));
+        if (podcast.getStatus() == Status.ARCHIVED) {
+            throw new NotFoundException("Podcast not found");
+        }
 
         if (!force) {
             PodcastSummaryEntity existing = podcastSummaryRepository
@@ -75,6 +79,9 @@ public class SummaryGenerationService {
     public PodcastSummaryResponse generateForAuthor(UUID podcastId, UUID currentUserId, boolean force) {
         PodcastEntity podcast = podcastRepository.findDetailedById(podcastId)
                 .orElseThrow(() -> new NotFoundException("Podcast not found"));
+        if (podcast.getStatus() == Status.ARCHIVED) {
+            throw new NotFoundException("Podcast not found");
+        }
         UUID currentAuthorId = authorRepository.findByUserProfileUserId(currentUserId)
                 .map(AuthorEntity::getId)
                 .orElseThrow(() -> new ForbiddenOperationException("Current user does not have author profile"));
