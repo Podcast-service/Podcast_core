@@ -1,6 +1,6 @@
 package podcastService.transcript.service;
 
-import com.fasterxml.jackson.databind.node.TextNode;
+import podcastService.infrastructure.config.JacksonConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,9 +43,6 @@ class PodcastMediaServiceTest {
     @Mock
     private PodcastSummaryRepository podcastSummaryRepository;
 
-    @Mock
-    private PodcastTranscriptContentResolver podcastTranscriptContentResolver;
-
     private PodcastMediaService service;
 
     @BeforeEach
@@ -54,24 +51,41 @@ class PodcastMediaServiceTest {
                 podcastRepository,
                 podcastTranscriptRepository,
                 podcastSummaryRepository,
-                podcastTranscriptContentResolver
+                new JacksonConfig().objectMapper()
         );
     }
 
     @Test
     void getTranscriptReturnsPublishedPodcastTranscript() {
         PodcastTranscriptEntity transcript = transcript("Расшифровка выпуска");
-        when(podcastRepository.findById(PODCAST_ID)).thenReturn(Optional.of(podcast(Status.PUBLISHED)));
-        when(podcastTranscriptRepository.findByIdPodcastIdAndIdLanguage(PODCAST_ID, "RU"))
+        when(podcastTranscriptRepository.findByIdPodcastIdAndIdLanguageAndPodcastStatus(
+                PODCAST_ID, "RU", Status.PUBLISHED
+        ))
                 .thenReturn(Optional.of(transcript));
-        when(podcastTranscriptContentResolver.resolve("Расшифровка выпуска"))
-                .thenReturn(TextNode.valueOf("Расшифровка выпуска"));
-
         PodcastTranscriptResponse response = service.getTranscript(PODCAST_ID);
 
         assertThat(response.podcastId()).isEqualTo(PODCAST_ID);
         assertThat(response.language()).isEqualTo("RU");
         assertThat(response.content().asText()).isEqualTo("Расшифровка выпуска");
+    }
+
+    @Test
+    void getTranscriptReturnsStoredJsonSpeakerBlocks() {
+        PodcastTranscriptEntity transcript = transcript("""
+                [{"text":"Первая часть. Вторая часть.","voice":"speaker_00"},{"text":"Ответ.","voice":"speaker_01"}]
+                """);
+        when(podcastTranscriptRepository.findByIdPodcastIdAndIdLanguageAndPodcastStatus(
+                PODCAST_ID, "RU", Status.PUBLISHED
+        ))
+                .thenReturn(Optional.of(transcript));
+
+        PodcastTranscriptResponse response = service.getTranscript(PODCAST_ID);
+
+        assertThat(response.content().isArray()).isTrue();
+        assertThat(response.content()).hasSize(2);
+        assertThat(response.content().get(0).get("text").asText())
+                .isEqualTo("Первая часть. Вторая часть.");
+        assertThat(response.content().get(0).get("voice").asText()).isEqualTo("speaker_00");
     }
 
     @Test
@@ -90,13 +104,15 @@ class PodcastMediaServiceTest {
 
     @Test
     void getTranscriptDoesNotExposeUnpublishedPodcast() {
-        when(podcastRepository.findById(PODCAST_ID)).thenReturn(Optional.of(podcast(Status.PROCESSING)));
+        when(podcastTranscriptRepository.findByIdPodcastIdAndIdLanguageAndPodcastStatus(
+                PODCAST_ID, "RU", Status.PUBLISHED
+        )).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.getTranscript(PODCAST_ID))
                 .isInstanceOf(NotFoundException.class)
-                .hasMessage("Podcast not found");
+                .hasMessage("Podcast transcript not found");
 
-        verify(podcastTranscriptRepository, never()).findByIdPodcastIdAndIdLanguage(PODCAST_ID, "RU");
+        verify(podcastRepository, never()).findById(PODCAST_ID);
     }
 
     @Test

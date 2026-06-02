@@ -398,7 +398,7 @@ curl http://localhost:8082/podcast/v1/podcasts/22222222-2222-2222-2222-222222222
 
 ### `GET /podcasts/{podcastId}/transcript`
 
-Возвращает транскрипт выпуска. Если в БД хранится subtitle pointer JSON, сервис читает VTT object и возвращает в `content` массив последовательных блоков `text`/`voice`, объединяя соседние cue одного спикера. Коды: `200`, `404`, `502`.
+Возвращает сохранённый транскрипт выпуска. Для subtitle в `content` находится массив последовательных блоков `text`/`voice`, подготовленный при обработке Kafka-события. Коды: `200`, `404`.
 
 ### `GET /podcasts/{podcastId}/summary`
 

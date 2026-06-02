@@ -1,7 +1,5 @@
 package podcastService.podcast.service;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -103,18 +101,6 @@ public class PodcastMediaMetadataService {
         podcast.setCoverImageUrl(normalizeMediaPath(coverImageUrl, "podcast cover"));
         podcastRepository.saveAndFlush(podcast);
         log.info("Podcast cover updated from Kafka media event, podcastId={}, eventTimestamp={}", podcastId, eventTimestamp);
-    }
-
-    @Transactional
-    public void saveSubtitleContent(UUID podcastId, String vttObjectKey, String srtObjectKey, OffsetDateTime readyAt) {
-        PodcastEntity podcast = findForUpdate(podcastId);
-        PodcastTranscriptEntity transcript = findTranscriptOrNew(podcast);
-        String vtt = normalizeMediaPath(vttObjectKey, "vtt_object_key");
-        String srt = normalizeMediaPath(srtObjectKey, "srt_object_key");
-        transcript.setContent(serializeSubtitleContent(vtt, srt, readyAt));
-        podcastTranscriptRepository.saveAndFlush(transcript);
-        publishTranscriptSavedEvent(podcastId, "media.subtitle");
-        log.info("Podcast subtitle content saved, podcastId={}, readyAt={}", podcastId, readyAt);
     }
 
     @Transactional
@@ -268,14 +254,6 @@ public class PodcastMediaMetadataService {
         return errorMessage.length() > 500 ? errorMessage.substring(0, 500) : errorMessage;
     }
 
-    private String serializeSubtitleContent(String vttObjectKey, String srtObjectKey, OffsetDateTime readyAt) {
-        try {
-            return objectMapper.writeValueAsString(new SubtitleContent(vttObjectKey, srtObjectKey, readyAt));
-        } catch (JsonProcessingException exception) {
-            throw new InvalidKafkaMessageException("Failed to serialize subtitle content", exception);
-        }
-    }
-
     private String serializeContentNode(JsonNode content) {
         if (content == null || content.isNull()) {
             throw new InvalidKafkaMessageException("Received null content in Kafka event");
@@ -287,15 +265,5 @@ public class PodcastMediaMetadataService {
             return content.toString();
         }
         return content.asText();
-    }
-
-    private record SubtitleContent(
-            @JsonProperty("vtt_object_key")
-            String vttObjectKey,
-            @JsonProperty("srt_object_key")
-            String srtObjectKey,
-            @JsonProperty("ready_at")
-            OffsetDateTime readyAt
-    ) {
     }
 }

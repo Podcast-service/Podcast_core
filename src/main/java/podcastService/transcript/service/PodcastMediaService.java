@@ -1,5 +1,8 @@
 package podcastService.transcript.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,21 +30,19 @@ public class PodcastMediaService {
     private final PodcastRepository podcastRepository;
     private final PodcastTranscriptRepository podcastTranscriptRepository;
     private final PodcastSummaryRepository podcastSummaryRepository;
-    private final PodcastTranscriptContentResolver podcastTranscriptContentResolver;
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public PodcastTranscriptResponse getTranscript(UUID podcastId) {
-        requirePublishedPodcast(podcastId);
-
         PodcastTranscriptEntity transcript = podcastTranscriptRepository
-                .findByIdPodcastIdAndIdLanguage(podcastId, DEFAULT_LANGUAGE)
+                .findByIdPodcastIdAndIdLanguageAndPodcastStatus(podcastId, DEFAULT_LANGUAGE, Status.PUBLISHED)
                 .orElseThrow(() -> new NotFoundException("Podcast transcript not found"));
 
         log.debug("Podcast transcript loaded: podcastId={}, language={}", podcastId, transcript.getId().getLanguage());
         return new PodcastTranscriptResponse(
                 transcript.getId().getPodcastId(),
                 transcript.getId().getLanguage(),
-                podcastTranscriptContentResolver.resolve(transcript.getContent()),
+                responseContent(transcript.getContent()),
                 transcript.getGeneratedAt()
         );
     }
@@ -69,6 +70,21 @@ public class PodcastMediaService {
 
         if (podcast.getStatus() != Status.PUBLISHED) {
             throw new NotFoundException("Podcast not found");
+        }
+    }
+
+    private JsonNode responseContent(String content) {
+        if (content == null || content.isBlank()) {
+            return objectMapper.getNodeFactory().textNode(content);
+        }
+        String normalized = content.trim();
+        if (!normalized.startsWith("{") && !normalized.startsWith("[")) {
+            return objectMapper.getNodeFactory().textNode(content);
+        }
+        try {
+            return objectMapper.readTree(normalized);
+        } catch (JsonProcessingException exception) {
+            return objectMapper.getNodeFactory().textNode(content);
         }
     }
 }

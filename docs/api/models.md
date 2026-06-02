@@ -50,7 +50,7 @@ Enums: `Theme` = `DARK`, `LIGHT`; `Language` = `RU`, `EN`.
 | `PodcastTranscriptResponse` | `podcastId`, `language`, `content`, `generatedAt` |
 | `PodcastSummaryResponse` | `podcastId`, `language`, `content`, `generatedAt` |
 
-`PodcastTranscriptResponse.content` возвращает строку для обычного transcript, исходное JSON-значение для уже структурированного transcript или массив блоков `text`/`voice` для subtitle pointer JSON.
+`PodcastTranscriptResponse.content` возвращает строку для обычного transcript или сохранённый JSON-массив блоков `text`/`voice` для subtitle transcript.
 
 `PodcastStatus`: `DRAFT`, `UPLOADING`, `UPLOADED`, `PROCESSING`, `PROCESSED`, `PUBLISHED`, `FAILED`, `ARCHIVED`.
 

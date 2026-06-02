@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import podcastService.infrastructure.config.JacksonConfig;
+import podcastService.infrastructure.messaging.error.InvalidKafkaMessageException;
 import podcastService.transcript.summary.SubtitleObjectClient;
-import podcastService.transcript.summary.SubtitleObjectStorageException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -13,20 +13,20 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class PodcastTranscriptContentResolverTest {
+class SubtitleTranscriptServiceTest {
 
     private static final String VTT_URL = "https://storage.example/media/podcast/subtitles.vtt";
 
     private final ObjectMapper objectMapper = new JacksonConfig().objectMapper();
     private final SubtitleObjectClient subtitleObjectClient = mock(SubtitleObjectClient.class);
-    private final PodcastTranscriptContentResolver resolver = new PodcastTranscriptContentResolver(
-            objectMapper,
+    private final SubtitleTranscriptService service = new SubtitleTranscriptService(
             subtitleObjectClient,
-            new VttSpeakerBlockParser()
+            new VttSpeakerBlockParser(),
+            objectMapper
     );
 
     @Test
-    void subtitlePointerJsonReturnsConsecutiveSpeakerBlocks() throws Exception {
+    void subtitlePointerJsonIsConvertedToConsecutiveSpeakerBlocks() throws Exception {
         when(subtitleObjectClient.fetch(VTT_URL)).thenReturn("""
                 WEBVTT
 
@@ -43,12 +43,12 @@ class PodcastTranscriptContentResolverTest {
                 SPEAKER_00: Новый блок.
                 """);
 
-        JsonNode result = resolver.resolve("""
+        JsonNode result = service.buildSpeakerBlocks(objectMapper.readTree("""
                 {
                   "vtt_object_key": "https://storage.example/media/podcast/subtitles.vtt",
                   "srt_object_key": "https://storage.example/media/podcast/subtitles.srt"
                 }
-                """);
+                """));
 
         assertThat(result).isEqualTo(objectMapper.readTree("""
                 [
@@ -61,22 +61,16 @@ class PodcastTranscriptContentResolverTest {
     }
 
     @Test
-    void plainTextIsReturnedAsJsonString() {
-        assertThat(resolver.resolve("Расшифровка выпуска").asText())
-                .isEqualTo("Расшифровка выпуска");
+    void missingVttObjectKeyIsRejected() throws Exception {
+        assertThatThrownBy(() -> service.buildSpeakerBlocks(objectMapper.readTree("""
+                {"srt_object_key":"https://storage.example/media/podcast/subtitles.srt"}
+                """)))
+                .isInstanceOf(InvalidKafkaMessageException.class)
+                .hasMessage("media.subtitle content has missing vtt_object_key");
     }
 
     @Test
-    void existingJsonArrayIsReturnedWithoutChanges() throws Exception {
-        String content = """
-                [{"text":"Готовый блок","voice":"speaker_00"}]
-                """;
-
-        assertThat(resolver.resolve(content)).isEqualTo(objectMapper.readTree(content));
-    }
-
-    @Test
-    void subtitleWithoutSpeakerBlocksIsRejected() {
+    void subtitleWithoutSpeakerBlocksIsRejected() throws Exception {
         when(subtitleObjectClient.fetch(VTT_URL)).thenReturn("""
                 WEBVTT
 
@@ -84,10 +78,10 @@ class PodcastTranscriptContentResolverTest {
                 Текст без спикера.
                 """);
 
-        assertThatThrownBy(() -> resolver.resolve("""
+        assertThatThrownBy(() -> service.buildSpeakerBlocks(objectMapper.readTree("""
                 {"vtt_object_key":"https://storage.example/media/podcast/subtitles.vtt"}
-                """))
-                .isInstanceOf(SubtitleObjectStorageException.class)
-                .hasMessage("Subtitle object does not contain speaker blocks");
+                """)))
+                .isInstanceOf(InvalidKafkaMessageException.class)
+                .hasMessage("Subtitle VTT does not contain speaker blocks");
     }
 }
