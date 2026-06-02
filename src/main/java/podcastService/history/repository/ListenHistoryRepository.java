@@ -21,11 +21,12 @@ public interface ListenHistoryRepository extends JpaRepository<ListenHistoryEnti
     @Modifying
     @Query(
             value = """
-                    insert into listen_history (user_profile_id, podcast_id, progress_seconds, completed)
-                    values (:userProfileId, :podcastId, :progressSeconds, :completed)
+                    insert into listen_history (user_profile_id, podcast_id, progress_seconds, completed, view_counted)
+                    values (:userProfileId, :podcastId, :progressSeconds, :completed, false)
                     on conflict (user_profile_id, podcast_id) do update
                        set progress_seconds = excluded.progress_seconds,
-                           completed = excluded.completed
+                           completed = excluded.completed,
+                           view_counted = listen_history.view_counted
                     """,
             nativeQuery = true
     )
@@ -35,6 +36,34 @@ public interface ListenHistoryRepository extends JpaRepository<ListenHistoryEnti
             @Param("progressSeconds") int progressSeconds,
             @Param("completed") boolean completed
     );
+
+    @Modifying
+    @Query(
+            value = """
+                    update listen_history
+                       set view_counted = true
+                     where user_profile_id = :userProfileId
+                       and podcast_id = :podcastId
+                       and view_counted = false
+                       and progress_seconds > 0
+                    """,
+            nativeQuery = true
+    )
+    int markViewCountedIfFirstPositiveProgress(
+            @Param("userProfileId") UUID userProfileId,
+            @Param("podcastId") UUID podcastId
+    );
+
+    @Modifying
+    @Query(
+            value = """
+                    update podcasts
+                       set views_count = coalesce(views_count, 0) + 1
+                     where id = :podcastId
+                    """,
+            nativeQuery = true
+    )
+    int incrementPodcastViewsCount(@Param("podcastId") UUID podcastId);
 
     @EntityGraph(attributePaths = {
             "podcast",

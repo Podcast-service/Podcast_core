@@ -40,6 +40,9 @@ public class ListenHistoryEntity {
     @Column(name = "completed", nullable = false)
     private boolean completed;
 
+    @Column(name = "view_counted", nullable = false)
+    private boolean viewCounted;
+
     @Column(name = "last_listened_at", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime lastListenedAt;
 }

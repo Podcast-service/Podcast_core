@@ -13,6 +13,7 @@ import podcastService.author.repository.AuthorRepository;
 import podcastService.category.entity.CategoryEntity;
 import podcastService.history.dto.ListenHistoryItem;
 import podcastService.history.dto.SaveProgressRequest;
+import podcastService.history.entity.ListenHistoryEntity;
 import podcastService.history.repository.ListenHistoryRepository;
 import podcastService.infrastructure.config.JacksonConfig;
 import podcastService.infrastructure.outbox.OutboxEventService;
@@ -72,9 +73,12 @@ class ListenHistoryServiceTest {
         when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
         when(podcastRepository.findDetailedById(PODCAST_ID)).thenReturn(Optional.of(podcast(100L)));
         when(listenHistoryRepository.findByIdUserProfileIdAndIdPodcastId(PROFILE_ID, PODCAST_ID)).thenReturn(Optional.empty());
+        when(listenHistoryRepository.markViewCountedIfFirstPositiveProgress(PROFILE_ID, PODCAST_ID)).thenReturn(1);
+
         service.saveProgress(PODCAST_ID, USER_ID, new SaveProgressRequest(95));
 
         verify(listenHistoryRepository).upsertProgress(PROFILE_ID, PODCAST_ID, 95, true);
+        verify(listenHistoryRepository).incrementPodcastViewsCount(PODCAST_ID);
         verify(listenHistoryRepository, never()).saveAndFlush(any());
         verifyNoInteractions(outboxEventRepository);
     }
@@ -84,9 +88,85 @@ class ListenHistoryServiceTest {
         when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
         when(podcastRepository.findDetailedById(PODCAST_ID)).thenReturn(Optional.of(podcast(100L)));
         when(listenHistoryRepository.findByIdUserProfileIdAndIdPodcastId(PROFILE_ID, PODCAST_ID)).thenReturn(Optional.empty());
+        when(listenHistoryRepository.markViewCountedIfFirstPositiveProgress(PROFILE_ID, PODCAST_ID)).thenReturn(1);
+
         service.saveProgress(PODCAST_ID, USER_ID, new SaveProgressRequest(150));
 
         verify(listenHistoryRepository).upsertProgress(PROFILE_ID, PODCAST_ID, 100, true);
+        verify(listenHistoryRepository).incrementPodcastViewsCount(PODCAST_ID);
+    }
+
+    @Test
+    void saveProgressDoesNotIncrementViewsForZeroProgress() {
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
+        when(podcastRepository.findDetailedById(PODCAST_ID)).thenReturn(Optional.of(podcast(100L)));
+        when(listenHistoryRepository.findByIdUserProfileIdAndIdPodcastId(PROFILE_ID, PODCAST_ID)).thenReturn(Optional.empty());
+
+        service.saveProgress(PODCAST_ID, USER_ID, new SaveProgressRequest(0));
+
+        verify(listenHistoryRepository).upsertProgress(PROFILE_ID, PODCAST_ID, 0, false);
+        verify(listenHistoryRepository, never()).markViewCountedIfFirstPositiveProgress(PROFILE_ID, PODCAST_ID);
+        verify(listenHistoryRepository, never()).incrementPodcastViewsCount(PODCAST_ID);
+    }
+
+    @Test
+    void saveProgressDoesNotIncrementViewsAgainWhenAlreadyCounted() {
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
+        when(podcastRepository.findDetailedById(PODCAST_ID)).thenReturn(Optional.of(podcast(100L)));
+        when(listenHistoryRepository.findByIdUserProfileIdAndIdPodcastId(PROFILE_ID, PODCAST_ID))
+                .thenReturn(Optional.of(history(false, true)));
+        when(listenHistoryRepository.markViewCountedIfFirstPositiveProgress(PROFILE_ID, PODCAST_ID)).thenReturn(0);
+
+        service.saveProgress(PODCAST_ID, USER_ID, new SaveProgressRequest(20));
+
+        verify(listenHistoryRepository).upsertProgress(PROFILE_ID, PODCAST_ID, 20, false);
+        verify(listenHistoryRepository, never()).incrementPodcastViewsCount(PODCAST_ID);
+    }
+
+    @Test
+    void saveProgressCountsViewAfterPreviouslyZeroProgress() {
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
+        when(podcastRepository.findDetailedById(PODCAST_ID)).thenReturn(Optional.of(podcast(100L)));
+        when(listenHistoryRepository.findByIdUserProfileIdAndIdPodcastId(PROFILE_ID, PODCAST_ID))
+                .thenReturn(Optional.of(history(false, false)));
+        when(listenHistoryRepository.markViewCountedIfFirstPositiveProgress(PROFILE_ID, PODCAST_ID)).thenReturn(1);
+
+        service.saveProgress(PODCAST_ID, USER_ID, new SaveProgressRequest(12));
+
+        verify(listenHistoryRepository).upsertProgress(PROFILE_ID, PODCAST_ID, 12, false);
+        verify(listenHistoryRepository).incrementPodcastViewsCount(PODCAST_ID);
+    }
+
+    @Test
+    void saveProgressDoesNotSendPlayFinishedEventWhenAlreadyCompleted() {
+        service = serviceWithRecommendationEvents(true);
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
+        when(podcastRepository.findDetailedById(PODCAST_ID)).thenReturn(Optional.of(podcast(100L)));
+        when(listenHistoryRepository.findByIdUserProfileIdAndIdPodcastId(PROFILE_ID, PODCAST_ID))
+                .thenReturn(Optional.of(history(true, true)));
+        when(listenHistoryRepository.markViewCountedIfFirstPositiveProgress(PROFILE_ID, PODCAST_ID)).thenReturn(0);
+
+        service.saveProgress(PODCAST_ID, USER_ID, new SaveProgressRequest(95));
+
+        verify(listenHistoryRepository).upsertProgress(PROFILE_ID, PODCAST_ID, 95, true);
+        verifyNoInteractions(outboxEventRepository);
+    }
+
+    @Test
+    void saveProgressDoesNotPersistProgressForUnpublishedPodcast() {
+        PodcastEntity podcast = podcast(100L);
+        podcast.setStatus(Status.DRAFT);
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
+        when(podcastRepository.findDetailedById(PODCAST_ID)).thenReturn(Optional.of(podcast));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> service.saveProgress(PODCAST_ID, USER_ID, new SaveProgressRequest(12))
+                )
+                .isInstanceOf(podcastService.common.exception.NotFoundException.class)
+                .hasMessage("Podcast not found");
+
+        verify(listenHistoryRepository, never()).upsertProgress(any(), any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyBoolean());
+        verify(listenHistoryRepository, never()).incrementPodcastViewsCount(PODCAST_ID);
     }
 
     @Test
@@ -95,6 +175,7 @@ class ListenHistoryServiceTest {
         when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
         when(podcastRepository.findDetailedById(PODCAST_ID)).thenReturn(Optional.of(podcast(100L)));
         when(listenHistoryRepository.findByIdUserProfileIdAndIdPodcastId(PROFILE_ID, PODCAST_ID)).thenReturn(Optional.empty());
+        when(listenHistoryRepository.markViewCountedIfFirstPositiveProgress(PROFILE_ID, PODCAST_ID)).thenReturn(1);
         when(outboxEventRepository.saveAndFlush(any(OutboxEventEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -106,6 +187,7 @@ class ListenHistoryServiceTest {
         OutboxEventEntity outboxEvent = captor.getValue();
 
         verify(listenHistoryRepository).upsertProgress(PROFILE_ID, PODCAST_ID, 95, true);
+        verify(listenHistoryRepository).incrementPodcastViewsCount(PODCAST_ID);
         assertThat(outboxEvent.getAggregateType()).isEqualTo("USER_ACTIVITY");
         assertThat(outboxEvent.getAggregateId()).isEqualTo(USER_ID);
         assertThat(outboxEvent.getEventKey()).isEqualTo(USER_ID.toString());
@@ -151,6 +233,13 @@ class ListenHistoryServiceTest {
         category.setId(CATEGORY_ID);
         podcast.setCategory(category);
         return podcast;
+    }
+
+    private ListenHistoryEntity history(boolean completed, boolean viewCounted) {
+        ListenHistoryEntity history = new ListenHistoryEntity();
+        history.setCompleted(completed);
+        history.setViewCounted(viewCounted);
+        return history;
     }
 
     private ListenHistoryService serviceWithRecommendationEvents(boolean enabled) {
