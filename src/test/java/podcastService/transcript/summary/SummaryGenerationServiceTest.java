@@ -48,6 +48,7 @@ class SummaryGenerationServiceTest {
     @Mock private PodcastSummaryRepository podcastSummaryRepository;
     @Mock private OpenRouterClient openRouterClient;
     @Mock private TranscriptTextResolver transcriptTextResolver;
+    @Mock private PodcastSummaryPersistenceService podcastSummaryPersistenceService;
 
     private SummaryGenerationService service;
 
@@ -68,7 +69,8 @@ class SummaryGenerationServiceTest {
                 )),
                 new TranscriptChunkingService(),
                 openRouterClient,
-                transcriptTextResolver
+                transcriptTextResolver,
+                podcastSummaryPersistenceService
         );
     }
 
@@ -84,6 +86,7 @@ class SummaryGenerationServiceTest {
         assertThat(response.content()).isEqualTo("Existing summary");
         verify(openRouterClient, never()).complete(anyList());
         verify(podcastSummaryRepository, never()).saveAndFlush(any());
+        verify(podcastSummaryPersistenceService, never()).saveFinalSummary(any(), any(), any(), any(Boolean.class));
     }
 
     @Test
@@ -96,32 +99,31 @@ class SummaryGenerationServiceTest {
         when(transcriptTextResolver.resolve("Это достаточно длинный полезный transcript для генерации краткого summary."))
                 .thenReturn("Это достаточно длинный полезный transcript для генерации краткого summary.");
         when(openRouterClient.complete(anyList())).thenReturn("Generated summary");
-        when(podcastSummaryRepository.saveAndFlush(any(PodcastSummaryEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(podcastSummaryPersistenceService.saveFinalSummary(PODCAST_ID, "RU", "Generated summary", false))
+                .thenReturn(summaryResponse("Generated summary"));
 
         PodcastSummaryResponse response = service.generate(PODCAST_ID, false);
 
         assertThat(response.content()).isEqualTo("Generated summary");
-        verify(podcastSummaryRepository).saveAndFlush(any(PodcastSummaryEntity.class));
+        verify(podcastSummaryPersistenceService).saveFinalSummary(PODCAST_ID, "RU", "Generated summary", false);
     }
 
     @Test
     void regeneratesSummaryWhenForceTrue() {
         when(podcastRepository.findById(PODCAST_ID)).thenReturn(Optional.of(podcast()));
-        when(podcastSummaryRepository.findByIdPodcastIdAndIdLanguage(PODCAST_ID, "RU"))
-                .thenReturn(Optional.of(summary("Old summary")));
         when(podcastTranscriptRepository.findByIdPodcastIdAndIdLanguage(PODCAST_ID, "RU"))
                 .thenReturn(Optional.of(transcript("Это достаточно длинный полезный transcript для повторной генерации summary.")));
         when(transcriptTextResolver.resolve("Это достаточно длинный полезный transcript для повторной генерации summary."))
                 .thenReturn("Это достаточно длинный полезный transcript для повторной генерации summary.");
         when(openRouterClient.complete(anyList())).thenReturn("New summary");
-        when(podcastSummaryRepository.saveAndFlush(any(PodcastSummaryEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(podcastSummaryPersistenceService.saveFinalSummary(PODCAST_ID, "RU", "New summary", true))
+                .thenReturn(summaryResponse("New summary"));
 
         PodcastSummaryResponse response = service.generate(PODCAST_ID, true);
 
         assertThat(response.content()).isEqualTo("New summary");
         verify(openRouterClient).complete(anyList());
+        verify(podcastSummaryPersistenceService).saveFinalSummary(PODCAST_ID, "RU", "New summary", true);
     }
 
     @Test
@@ -172,8 +174,8 @@ class SummaryGenerationServiceTest {
                 .thenReturn("partial two")
                 .thenReturn("partial three")
                 .thenReturn("Final summary");
-        when(podcastSummaryRepository.saveAndFlush(any(PodcastSummaryEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(podcastSummaryPersistenceService.saveFinalSummary(PODCAST_ID, "RU", "Final summary", false))
+                .thenReturn(summaryResponse("Final summary"));
 
         PodcastSummaryResponse response = service.generate(PODCAST_ID, false);
 
@@ -218,7 +220,8 @@ class SummaryGenerationServiceTest {
                 new SummaryPromptBuilder(new SummaryPromptProperties(null, null, null, null)),
                 new TranscriptChunkingService(),
                 openRouterClient,
-                transcriptTextResolver
+                transcriptTextResolver,
+                podcastSummaryPersistenceService
         );
 
         assertThatThrownBy(() -> disabledService.generate(PODCAST_ID, false))
@@ -238,6 +241,7 @@ class SummaryGenerationServiceTest {
                 .hasMessage("Podcast not found");
         verify(podcastTranscriptRepository, never()).findByIdPodcastIdAndIdLanguage(PODCAST_ID, "RU");
         verify(openRouterClient, never()).complete(anyList());
+        verify(podcastSummaryPersistenceService, never()).saveFinalSummary(any(), any(), any(), any(Boolean.class));
     }
 
     @Test
@@ -313,5 +317,14 @@ class SummaryGenerationServiceTest {
         summary.setContent(content);
         summary.setGeneratedAt(OffsetDateTime.parse("2026-06-01T00:00:00Z"));
         return summary;
+    }
+
+    private PodcastSummaryResponse summaryResponse(String content) {
+        return new PodcastSummaryResponse(
+                PODCAST_ID,
+                "RU",
+                content,
+                OffsetDateTime.parse("2026-06-01T00:00:00Z")
+        );
     }
 }

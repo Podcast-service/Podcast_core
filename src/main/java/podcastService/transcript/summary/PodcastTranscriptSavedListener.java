@@ -20,8 +20,9 @@ public class PodcastTranscriptSavedListener {
                     event.podcastId(), event.language(), event.source());
             summaryGenerationService.generateIfMissing(event.podcastId(), event.language());
         } catch (Exception exception) {
+            // TODO: move failed summary generations to a retryable job/outbox when project has such infrastructure.
             log.warn("Podcast summary auto-generation failed, podcastId={}, language={}, reason={}",
-                    event.podcastId(), event.language(), safeReason(exception));
+                    event.podcastId(), event.language(), safeReason(exception), exception);
         }
     }
 
