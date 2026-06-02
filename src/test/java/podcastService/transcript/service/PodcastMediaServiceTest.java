@@ -66,7 +66,7 @@ class PodcastMediaServiceTest {
 
         assertThat(response.podcastId()).isEqualTo(PODCAST_ID);
         assertThat(response.language()).isEqualTo("RU");
-        assertThat(response.content().asText()).isEqualTo("Расшифровка выпуска");
+        assertThat(response.content()).isEqualTo("Расшифровка выпуска");
     }
 
     @Test
@@ -81,11 +81,12 @@ class PodcastMediaServiceTest {
 
         PodcastTranscriptResponse response = service.getTranscript(PODCAST_ID);
 
-        assertThat(response.content().isArray()).isTrue();
-        assertThat(response.content()).hasSize(2);
-        assertThat(response.content().get(0).get("text").asText())
-                .isEqualTo("Первая часть. Вторая часть.");
-        assertThat(response.content().get(0).get("voice").asText()).isEqualTo("speaker_00");
+        assertThat(response.content()).isInstanceOf(java.util.List.class);
+        assertThat((java.util.List<?>) response.content()).hasSize(2);
+        assertThat(response.content()).isEqualTo(java.util.List.of(
+                java.util.Map.of("text", "Первая часть. Вторая часть.", "voice", "speaker_00"),
+                java.util.Map.of("text", "Ответ.", "voice", "speaker_01")
+        ));
     }
 
     @Test

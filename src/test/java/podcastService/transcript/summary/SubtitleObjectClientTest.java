@@ -6,6 +6,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
+import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -47,6 +48,29 @@ class SubtitleObjectClientTest {
                 .andRespond(withSuccess("WEBVTT\n", MediaType.TEXT_PLAIN));
 
         assertThat(client.fetch("media/podcast/subtitles.vtt")).isEqualTo("WEBVTT\n");
+        server.verify();
+    }
+
+    @Test
+    void utf8SubtitleIsDecodedCorrectlyWhenResponseHasNoCharset() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        SubtitleObjectClient client = new SubtitleObjectClient(
+                builder.build(),
+                new SubtitleStorageProperties("", Duration.ofSeconds(1), Duration.ofSeconds(1))
+        );
+        String subtitle = """
+                WEBVTT
+
+                00:00:00.000 --> 00:00:01.000
+                SPEAKER_00: О чём идёт речь?
+                """;
+
+        server.expect(requestTo("https://storage.example/media/podcast/subtitles.vtt"))
+                .andRespond(withSuccess(subtitle.getBytes(StandardCharsets.UTF_8), MediaType.APPLICATION_OCTET_STREAM));
+
+        assertThat(client.fetch("https://storage.example/media/podcast/subtitles.vtt"))
+                .isEqualTo(subtitle);
         server.verify();
     }
 }
