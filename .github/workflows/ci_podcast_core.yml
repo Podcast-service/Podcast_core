@@ -9,7 +9,14 @@ on:
       - closed
 
 jobs:
+  fix-permissions:
+    runs-on: self-hosted
+    steps:
+      - name: Fix workspace permissions
+        run: sudo chown -R $USER:$USER ${{ github.workspace }} || true
+
   build-check:
+    needs: fix-permissions
     if: github.event.pull_request.merged == false
     runs-on: self-hosted
     steps:
@@ -33,13 +40,9 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        with:
-          args: >
-            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
-            -Dsonar.pullrequest.branch=${{ github.head_ref }}
-            -Dsonar.pullrequest.base=${{ github.base_ref }}
 
   deploy:
+    needs: fix-permissions
     if: github.event.pull_request.merged == true
     runs-on: self-hosted
     steps:
