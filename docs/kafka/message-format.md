@@ -89,7 +89,13 @@ Consumer принимает только каноничные значения �
 }
 ```
 
-Поле `content` сохраняется в `podcast_transcripts.content` в исходном виде. Если producer присылает строку, сохраняется строка. Если producer присылает JSON-объект или массив, сохраняется компактная JSON-строка. `vtt_object_key` и `srt_object_key` являются ссылками на subtitle objects в storage, а не текстом transcript. Summary generation читает соответствующий `.srt`/`.vtt` объект перед построением prompt. `GET /podcasts/{podcastId}/transcript` читает VTT и возвращает соседние cue одного спикера в виде объединённых блоков `text`/`voice`.
+`vtt_object_key` обязателен. Consumer скачивает VTT по абсолютному HTTP(S) URL или относительному object key через `PODCAST_SUBTITLE_STORAGE_BASE_URL`, последовательно объединяет соседние cue одного спикера и сохраняет в `podcast_transcripts.content` компактный JSON-массив:
+
+```json
+[{"text":"Первая реплика. Продолжение.","voice":"speaker_00"},{"text":"Ответ.","voice":"speaker_01"}]
+```
+
+`GET /podcasts/{podcastId}/transcript` возвращает сохранённый массив без обращения к subtitle storage. Summary generation также извлекает текст из сохранённых блоков без повторного чтения VTT.
 
 ## `tts.start`
 

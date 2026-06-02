@@ -54,9 +54,9 @@
 
 ## Данные транскриптов
 
-`podcast_transcripts.content` является основным полем хранения текстового содержимого транскрипта. Kafka-события `media.subtitle` и `tts.start` также пишут результат в это поле: subtitle сохраняется как исходное JSON-содержимое `content`, TTS сохраняет `content` как строку либо компактную JSON-строку для объекта или массива. `tts.failed` не пишет данные в transcript и отражает ошибку только через статус подкаста. Отдельные колонки для subtitle/TTS payload в схеме не используются.
+`podcast_transcripts.content` является основным полем хранения текстового содержимого транскрипта. Kafka-события `media.subtitle` и `tts.start` также пишут результат в это поле: subtitle сохраняется как компактный JSON-массив последовательных блоков `text`/`voice`, TTS сохраняет `content` как строку либо компактную JSON-строку для объекта или массива. `tts.failed` не пишет данные в transcript и отражает ошибку только через статус подкаста. Отдельные колонки для subtitle/TTS payload в схеме не используются.
 
-`podcast_summaries` хранит производный артефакт от transcript. Генерация через OpenRouter запускается только при `PODCAST_OPENROUTER_ENABLED=true`: автоматически after commit после сохранения transcript или вручную через `POST /podcasts/{podcastId}/summary/generate`. Если transcript хранит subtitle pointer JSON (`srt_object_key`/`vtt_object_key`), сервис сначала читает object из storage, чистит SRT/VTT таймкоды и только затем строит prompt. Ошибка чтения storage или генерации summary не откатывает сохранение transcript и не блокирует Kafka consumer.
+`podcast_summaries` хранит производный артефакт от transcript. Генерация через OpenRouter запускается только при `PODCAST_OPENROUTER_ENABLED=true`: автоматически after commit после сохранения transcript или вручную через `POST /podcasts/{podcastId}/summary/generate`. Для новых subtitle transcript сервис извлекает поля `text` из сохранённых блоков. Для старых записей с pointer JSON сохранён legacy fallback чтения `.srt`/`.vtt` из storage. Ошибка генерации summary не откатывает сохранение transcript и не блокирует Kafka consumer.
 
 ## Outbox events
 

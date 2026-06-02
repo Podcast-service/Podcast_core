@@ -6,6 +6,7 @@ import podcastService.infrastructure.config.JacksonConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class TranscriptTextResolverTest {
@@ -36,6 +37,24 @@ class TranscriptTextResolverTest {
                 .contains("Вторая реплика")
                 .doesNotContain("aidar")
                 .doesNotContain("kseniya");
+    }
+
+    @Test
+    void storedSubtitleSpeakerBlocksAreExtractedWithoutFetchingStorage() {
+        String result = resolver.resolve("""
+                [
+                  {"text":"Первая часть. Вторая часть.","voice":"speaker_00"},
+                  {"text":"Ответ.","voice":"speaker_01"},
+                  {"text":"Новый блок.","voice":"speaker_00"}
+                ]
+                """);
+
+        assertThat(result).isEqualTo("""
+                Первая часть. Вторая часть.
+                Ответ.
+                Новый блок.\
+                """);
+        verifyNoInteractions(subtitleObjectClient);
     }
 
     @Test

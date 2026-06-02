@@ -5,7 +5,7 @@
 | `podcast.user.register` | входящий | создание или обновление локального `user_profiles` |
 | `media.upload` | входящий | начало загрузки, успешная загрузка и ошибки загрузки |
 | `media.worker` | входящий | начало обработки, завершение обработки и ошибки обработки |
-| `media.subtitle` | входящий | сохранение subtitle `content` в `podcast_transcripts.content` |
+| `media.subtitle` | входящий | загрузка VTT и сохранение объединённых subtitle-блоков в `podcast_transcripts.content` |
 | `tts.start` | входящий | сохранение TTS `content` в `podcast_transcripts.content` и перевод подкаста в `UPLOADING` |
 | `tts.failed` | входящий | фиксация ошибки TTS-flow и перевод подкаста в `FAILED` |
 | `podcast.activity.events.v1` | исходящий | recommendation activity events из `outbox_events` |

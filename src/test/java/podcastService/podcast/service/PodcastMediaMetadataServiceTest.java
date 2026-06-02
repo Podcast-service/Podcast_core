@@ -168,25 +168,26 @@ class PodcastMediaMetadataServiceTest {
     }
 
     @Test
-    void subtitleEventStoresJsonContentInPodcastTranscriptContent() {
+    void subtitleEventStoresSpeakerBlocksInPodcastTranscriptContent() throws Exception {
         PodcastEntity podcast = podcast(Status.PROCESSED);
         when(podcastRepository.findDetailedByIdForUpdate(PODCAST_ID)).thenReturn(Optional.of(podcast));
         when(podcastTranscriptRepository.findByIdPodcastIdAndIdLanguage(PODCAST_ID, "RU"))
                 .thenReturn(Optional.empty());
 
-        service.saveSubtitleContent(
+        service.saveTranscriptContent(
                 PODCAST_ID,
-                "media/podcast/subtitles.vtt",
-                "media/podcast/subtitles.srt",
-                OffsetDateTime.parse("2026-03-22T12:35:56Z")
+                JsonMapper.builder().build().readTree("""
+                        [{"text":"Первая часть. Вторая часть.","voice":"speaker_00"},{"text":"Ответ.","voice":"speaker_01"}]
+                        """),
+                OffsetDateTime.parse("2026-03-22T12:35:56Z"),
+                "media.subtitle"
         );
 
         ArgumentCaptor<PodcastTranscriptEntity> captor = ArgumentCaptor.forClass(PodcastTranscriptEntity.class);
         verify(podcastTranscriptRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getContent())
-                .contains("\"vtt_object_key\":\"media/podcast/subtitles.vtt\"")
-                .contains("\"srt_object_key\":\"media/podcast/subtitles.srt\"")
-                .contains("\"ready_at\"");
+                .isEqualTo("[{\"text\":\"Первая часть. Вторая часть.\",\"voice\":\"speaker_00\"},"
+                        + "{\"text\":\"Ответ.\",\"voice\":\"speaker_01\"}]");
         verify(applicationEventPublisher).publishEvent(any(PodcastTranscriptSavedEvent.class));
     }
 
