@@ -135,6 +135,17 @@ class PodcastServiceTest {
     }
 
     @Test
+    void getByIdReturnsNotFoundForArchivedPodcastEvenForOwner() {
+        when(podcastRepository.findDetailedById(PODCAST_ID)).thenReturn(Optional.of(podcast(Status.ARCHIVED)));
+        when(authorRepository.findByUserProfileUserId(USER_ID)).thenReturn(Optional.of(author()));
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(author().getUserProfile()));
+
+        assertThatThrownBy(() -> service.getById(PODCAST_ID, USER_ID))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Podcast not found");
+    }
+
+    @Test
     void getSpeakersByIdReturnsNumSpeakersForPublishedPodcast() {
         PodcastEntity podcast = podcast(Status.PUBLISHED);
         podcast.setNumSpeakers(5);
@@ -158,6 +169,18 @@ class PodcastServiceTest {
 
         assertThat(response.podcastId()).isEqualTo(PODCAST_ID);
         assertThat(response.numSpeakers()).isEqualTo(3);
+    }
+
+    @Test
+    void getSpeakersByIdReturnsNotFoundForArchivedPodcast() {
+        PodcastEntity podcast = podcast(Status.ARCHIVED);
+        podcast.setNumSpeakers(3);
+
+        when(podcastRepository.findDetailedById(PODCAST_ID)).thenReturn(Optional.of(podcast));
+
+        assertThatThrownBy(() -> service.getSpeakersById(PODCAST_ID, null))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Podcast not found");
     }
 
     @Test

@@ -5,9 +5,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import podcastService.common.dto.PageResponse;
 import podcastService.author.entity.AuthorEntity;
 import podcastService.author.repository.AuthorRepository;
 import podcastService.category.entity.CategoryEntity;
+import podcastService.history.dto.ListenHistoryItem;
 import podcastService.history.dto.SaveProgressRequest;
 import podcastService.history.repository.ListenHistoryRepository;
 import podcastService.infrastructure.config.JacksonConfig;
@@ -27,10 +31,12 @@ import podcastService.user.entity.UserProfileEntity;
 import podcastService.user.repository.UserProfileRepository;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
@@ -111,6 +117,18 @@ class ListenHistoryServiceTest {
         assertThat(outboxEvent.getPayload().get("payload").get("authorId").asText()).isEqualTo(AUTHOR_ID.toString());
         assertThat(outboxEvent.getPayload().get("payload").get("categoryId").asText()).isEqualTo(CATEGORY_ID.toString());
         assertThat(outboxEvent.getPayload().get("payload").get("progressPercent").decimalValue()).isEqualByComparingTo("95.00");
+    }
+
+    @Test
+    void listMineLoadsOnlyPublishedPodcasts() {
+        when(userProfileRepository.findByUserId(USER_ID)).thenReturn(Optional.of(userProfile()));
+        when(listenHistoryRepository.findVisibleByUserProfileId(eq(PROFILE_ID), eq(Status.PUBLISHED), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        PageResponse<ListenHistoryItem> response = service.listMine(USER_ID, 1, 20);
+
+        assertThat(response.items()).isEmpty();
+        verify(listenHistoryRepository).findVisibleByUserProfileId(eq(PROFILE_ID), eq(Status.PUBLISHED), any(Pageable.class));
     }
 
     private UserProfileEntity userProfile() {

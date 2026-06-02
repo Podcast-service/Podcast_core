@@ -10,6 +10,8 @@ All endpoints require a valid JWT with role `admin`, mapped to `ROLE_ADMIN`. Pod
 
 Returns podcasts in all statuses. This endpoint intentionally does not reuse public podcast listing logic because public listing is `PUBLISHED` only.
 
+Archived podcasts are hidden from all user-facing endpoints and remain visible only through Admin API.
+
 Query parameters: `q`, `status`, `authorId`, `categoryId`, `page` default `0`, `size` default `20` max `100`, `sort` one of `DATE_DESC`, `DATE_ASC`, `VIEWS`, `RATING`.
 
 `GET /admin/podcasts/{podcastId}`
