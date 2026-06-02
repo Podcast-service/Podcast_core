@@ -6,6 +6,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.net.URI;
+
 @Slf4j
 @Component
 public class SubtitleObjectClient {
@@ -22,19 +24,23 @@ public class SubtitleObjectClient {
     }
 
     public String fetch(String objectKey) {
-        if (properties.baseUrl() == null || properties.baseUrl().isBlank()) {
-            throw new SubtitleObjectStorageException("Subtitle storage base URL is not configured");
-        }
         String normalizedKey = normalizeObjectKey(objectKey);
         try {
-            String content = subtitleStorageRestClient
-                    .get()
-                    .uri(uriBuilder -> {
-                        for (String segment : normalizedKey.split("/")) {
-                            uriBuilder.pathSegment(segment);
-                        }
-                        return uriBuilder.build();
-                    })
+            RestClient.RequestHeadersSpec<?> request;
+            if (isAbsoluteUrl(normalizedKey)) {
+                request = subtitleStorageRestClient.get().uri(URI.create(normalizedKey));
+            } else {
+                if (properties.baseUrl() == null || properties.baseUrl().isBlank()) {
+                    throw new SubtitleObjectStorageException("Subtitle storage base URL is not configured");
+                }
+                request = subtitleStorageRestClient.get().uri(uriBuilder -> {
+                    for (String segment : normalizedKey.split("/")) {
+                        uriBuilder.pathSegment(segment);
+                    }
+                    return uriBuilder.build();
+                });
+            }
+            String content = request
                     .retrieve()
                     .body(String.class);
             if (content == null || content.isBlank()) {
@@ -53,10 +59,27 @@ public class SubtitleObjectClient {
             throw new SummaryGenerationException("Subtitle object key is missing");
         }
         String normalized = objectKey.trim();
+        URI uri;
+        try {
+            uri = URI.create(normalized);
+        } catch (IllegalArgumentException exception) {
+            throw new SummaryGenerationException("Subtitle object key is invalid");
+        }
+        if (uri.isAbsolute()) {
+            if (!isAbsoluteUrl(normalized) || uri.getHost() == null) {
+                throw new SummaryGenerationException("Subtitle object URL is invalid");
+            }
+            return normalized;
+        }
         if (normalized.startsWith("/") || normalized.contains("..")) {
             throw new SummaryGenerationException("Subtitle object key is invalid");
         }
         return normalized;
+    }
+
+    private boolean isAbsoluteUrl(String value) {
+        URI uri = URI.create(value);
+        return "http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme());
     }
 
     private String safeReason(Exception exception) {
