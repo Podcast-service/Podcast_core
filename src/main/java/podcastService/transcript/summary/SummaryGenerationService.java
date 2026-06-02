@@ -2,7 +2,6 @@ package podcastService.transcript.summary;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import podcastService.author.entity.AuthorEntity;
 import podcastService.author.repository.AuthorRepository;
@@ -13,12 +12,10 @@ import podcastService.podcast.entity.Status;
 import podcastService.podcast.repository.PodcastRepository;
 import podcastService.transcript.dto.PodcastSummaryResponse;
 import podcastService.transcript.entity.PodcastSummaryEntity;
-import podcastService.transcript.entity.PodcastSummaryId;
 import podcastService.transcript.entity.PodcastTranscriptEntity;
 import podcastService.transcript.repository.PodcastSummaryRepository;
 import podcastService.transcript.repository.PodcastTranscriptRepository;
 
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -41,6 +38,7 @@ public class SummaryGenerationService {
     private final TranscriptChunkingService chunkingService;
     private final OpenRouterClient openRouterClient;
     private final TranscriptTextResolver transcriptTextResolver;
+    private final PodcastSummaryPersistenceService podcastSummaryPersistenceService;
 
     public PodcastSummaryResponse generate(UUID podcastId, boolean force) {
         if (!openRouterProperties.enabled()) {
@@ -73,7 +71,7 @@ public class SummaryGenerationService {
                 podcastId, DEFAULT_LANGUAGE, force, transcriptText.length());
 
         String content = generateContent(podcastId, DEFAULT_LANGUAGE, transcriptText);
-        return saveFinalSummary(podcast, content, force);
+        return podcastSummaryPersistenceService.saveFinalSummary(podcast.getId(), DEFAULT_LANGUAGE, content, force);
     }
 
     public PodcastSummaryResponse generateForAuthor(UUID podcastId, UUID currentUserId, boolean force) {
@@ -139,48 +137,6 @@ public class SummaryGenerationService {
         );
     }
 
-    private PodcastSummaryResponse saveFinalSummary(PodcastEntity podcast, String content, boolean force) {
-        String normalizedContent = normalizeSummary(content);
-        UUID podcastId = podcast.getId();
-
-        if (!force) {
-            PodcastSummaryEntity existing = podcastSummaryRepository
-                    .findByIdPodcastIdAndIdLanguage(podcastId, DEFAULT_LANGUAGE)
-                    .orElse(null);
-            if (existing != null) {
-                log.info("Podcast summary appeared during generation, podcastId={}, language={}",
-                        podcastId, DEFAULT_LANGUAGE);
-                return toResponse(existing);
-            }
-        }
-
-        PodcastSummaryEntity summary = podcastSummaryRepository
-                .findByIdPodcastIdAndIdLanguage(podcastId, DEFAULT_LANGUAGE)
-                .orElseGet(() -> {
-                    PodcastSummaryEntity created = new PodcastSummaryEntity();
-                    created.setId(new PodcastSummaryId(podcastId, DEFAULT_LANGUAGE));
-                    created.setPodcast(podcast);
-                    return created;
-                });
-
-        summary.setContent(normalizedContent);
-        summary.setGeneratedAt(OffsetDateTime.now());
-
-        try {
-            PodcastSummaryEntity saved = podcastSummaryRepository.saveAndFlush(summary);
-            log.info("Podcast summary saved, podcastId={}, language={}, force={}, summaryLength={}",
-                    podcastId, DEFAULT_LANGUAGE, force, normalizedContent.length());
-            return toResponse(saved);
-        } catch (DataIntegrityViolationException exception) {
-            PodcastSummaryEntity existing = podcastSummaryRepository
-                    .findByIdPodcastIdAndIdLanguage(podcastId, DEFAULT_LANGUAGE)
-                    .orElseThrow(() -> exception);
-            log.info("Podcast summary save conflict resolved by loading existing summary, podcastId={}, language={}",
-                    podcastId, DEFAULT_LANGUAGE);
-            return toResponse(existing);
-        }
-    }
-
     private String normalizeTranscript(String content) {
         if (content == null || content.isBlank()) {
             throw new SummaryGenerationException("Podcast transcript is blank");
@@ -193,13 +149,6 @@ public class SummaryGenerationService {
             throw new SummaryGenerationException("Podcast transcript is not usable for summary generation");
         }
         return normalized;
-    }
-
-    private String normalizeSummary(String content) {
-        if (content == null || content.isBlank()) {
-            throw new OpenRouterClientException("OpenRouter returned blank summary");
-        }
-        return content.trim();
     }
 
     private PodcastSummaryResponse toResponse(PodcastSummaryEntity summary) {
