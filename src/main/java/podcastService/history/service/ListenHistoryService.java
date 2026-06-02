@@ -119,6 +119,15 @@ public class ListenHistoryService {
         boolean newlyCompleted = completed && previousHistory.map(item -> !item.isCompleted()).orElse(true);
 
         listenHistoryRepository.upsertProgress(currentUser.getId(), podcastId, progressSeconds, completed);
+        boolean viewCounted = false;
+        if (progressSeconds > 0) {
+            viewCounted = listenHistoryRepository
+                    .markViewCountedIfFirstPositiveProgress(currentUser.getId(), podcastId) > 0;
+            if (viewCounted) {
+                listenHistoryRepository.incrementPodcastViewsCount(podcastId);
+            }
+        }
+
         if (newlyCompleted) {
             recommendationOutboxEventService.saveUserActivityEvent(
                     currentUserId,
@@ -138,11 +147,12 @@ public class ListenHistoryService {
         }
 
         log.info(
-                "Listen progress saved: podcastId={}, currentUserId={}, progressSeconds={}, completed={}",
+                "Listen progress saved: podcastId={}, currentUserId={}, progressSeconds={}, completed={}, viewCounted={}",
                 podcastId,
                 currentUserId,
                 progressSeconds,
-                completed
+                completed,
+                viewCounted
         );
     }
 
