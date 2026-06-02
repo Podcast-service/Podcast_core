@@ -39,6 +39,10 @@ public interface AuthorRepository extends JpaRepository<AuthorEntity, UUID>, Jpa
     @Query("select a from AuthorEntity a where a.userProfile.userId = :userId")
     Optional<AuthorEntity> findByUserProfileUserId(@Param("userId") UUID userId);
 
+    @EntityGraph(attributePaths = "userProfile")
+    @Query("select a from AuthorEntity a where a.userProfile.userId in :userIds")
+    List<AuthorEntity> findByUserProfileUserIdIn(@Param("userIds") Collection<UUID> userIds);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = "userProfile")
     @Query("select a from AuthorEntity a where a.userProfile.userId = :userId")

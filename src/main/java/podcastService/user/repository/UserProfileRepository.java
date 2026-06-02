@@ -7,11 +7,15 @@ import org.springframework.data.repository.query.Param;
 import podcastService.user.entity.UserProfileEntity;
 
 import java.util.Optional;
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 public interface UserProfileRepository extends JpaRepository<UserProfileEntity, UUID> {
 
     Optional<UserProfileEntity> findByUserId(UUID userId);
+
+    List<UserProfileEntity> findByUserIdIn(Collection<UUID> userIds);
 
     @Modifying
     @Query(

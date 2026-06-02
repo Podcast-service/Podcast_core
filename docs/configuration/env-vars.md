@@ -64,7 +64,7 @@
 | `PODCAST_SUBTITLE_STORAGE_CONNECT_TIMEOUT` | `3s` | нет | timeout установки соединения с subtitle storage |
 | `PODCAST_SUBTITLE_STORAGE_READ_TIMEOUT` | `20s` | нет | timeout чтения subtitle object |
 | `PODCAST_KAFKA_UI_PORT` | `8081` | нет | порт Kafka UI |
-| `PODCAST_AUTH_SERVICE_BASE_URL` | `http://localhost:8080`, `http://auth-service:8080` в docker | да | base URL auth-service для выдачи роли автора через `/auth/me/update-roles` |
+| `PODCAST_AUTH_SERVICE_BASE_URL` | `http://localhost:8080`, `http://auth-service:8080` в docker | да | base URL auth-service для выдачи роли автора через `/auth/me/update-roles` и admin user/role операций через `/auth/admin/users/**` |
 | `PODCAST_AUTH_SERVICE_CONNECT_TIMEOUT` | `2s` | нет | timeout установки соединения с auth-service |
 | `PODCAST_AUTH_SERVICE_READ_TIMEOUT` | `5s` | нет | timeout ожидания ответа auth-service |
 | `PODCAST_ACCESS_TOKEN_SECRET` | пусто в base config | да | secret подписи JWT |
